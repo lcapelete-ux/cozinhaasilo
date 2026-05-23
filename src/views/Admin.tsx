@@ -406,11 +406,29 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
   const [form, setForm] = useState({ name: '', price: 0, sector: 'Fritadeira', category: 'Salgados', code: '' })
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ name: '', price: 0, sector: '', category: '', code: '' })
+  const [codeInputs, setCodeInputs] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    const unsub = subscribeMenuItems(setItems)
+    const unsub = subscribeMenuItems((fetched) => {
+      setItems(fetched)
+      setCodeInputs((prev) => {
+        const next: Record<string, string> = {}
+        for (const item of fetched) {
+          next[item.id] = item.id in prev ? prev[item.id] : (item.code ?? '')
+        }
+        return next
+      })
+    })
     return unsub
   }, [])
+
+  const saveCode = async (id: string) => {
+    const code = (codeInputs[id] ?? '').trim()
+    try {
+      await updateMenuItem(id, { code })
+      addToast('Código salvo!', 'success')
+    } catch { addToast('Erro ao salvar código') }
+  }
 
   const handleAdd = async () => {
     if (!form.name.trim()) { addToast('Preencha o nome'); return }
@@ -526,11 +544,24 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                         {CATEGORIES_LIST.map((c) => <option key={c}>{c}</option>)}
                       </select>
                     </td>
-                    <td className="px-4 py-2" colSpan={2}>
+                    <td className="px-4 py-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={codeInputs[item.id] ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+                          setCodeInputs((p) => ({ ...p, [item.id]: val }))
+                        }}
+                        onBlur={() => saveCode(item.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+                        placeholder="0000"
+                        className="w-20 px-2 py-1.5 rounded-lg border-2 border-accent/40 focus:border-accent focus:outline-none text-sm font-mono text-center font-bold tracking-widest"
+                      />
+                    </td>
+                    <td className="px-4 py-2">
                       <div className="flex gap-2">
-                        <input type="text" value={editForm.code} maxLength={4}
-                          onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
-                          placeholder="0000" className="w-16 px-2 py-1 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-accent" />
                         <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-700"><Check size={14} /></button>
                         <button onClick={() => setEditId(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
                       </div>
@@ -542,12 +573,21 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                     <td className="px-4 py-3 text-gray-600">R$ {item.price.toFixed(2)}</td>
                     <td className="px-4 py-3"><span className="bg-accent/10 text-accent-dark text-xs px-2 py-0.5 rounded-lg">{item.sector}</span></td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{item.category}</td>
-                    <td className="px-4 py-3">
-                      {item.code ? (
-                        <span className="font-mono text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-lg">{item.code}</span>
-                      ) : (
-                        <span className="text-xs text-gray-300">—</span>
-                      )}
+                    <td className="px-4 py-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={codeInputs[item.id] ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+                          setCodeInputs((p) => ({ ...p, [item.id]: val }))
+                        }}
+                        onBlur={() => saveCode(item.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+                        placeholder="0000"
+                        className="w-20 px-2 py-1.5 rounded-lg border-2 border-gray-200 focus:border-accent focus:outline-none text-sm font-mono text-center font-bold tracking-widest"
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
