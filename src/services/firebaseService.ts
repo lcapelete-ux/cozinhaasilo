@@ -1,9 +1,8 @@
-import { initializeApp } from 'firebase/app'
+import { initializeApp, type FirebaseApp } from 'firebase/app'
 import {
   getFirestore,
   collection,
   doc,
-  getDoc,
   getDocs,
   addDoc,
   updateDoc,
@@ -14,17 +13,18 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
+  type Firestore,
 } from 'firebase/firestore'
-import { getAuth, signInAnonymously } from 'firebase/auth'
+import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
 import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User } from '../types'
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID ?? '',
 }
 
 export const isFirebaseConfigured = !!(
@@ -33,12 +33,26 @@ export const isFirebaseConfigured = !!(
   firebaseConfig.appId
 )
 
-const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
-export const auth = getAuth(app)
+let _app: FirebaseApp | null = null
+let _db: Firestore | null = null
+let _auth: Auth | null = null
+
+if (isFirebaseConfigured) {
+  try {
+    _app = initializeApp(firebaseConfig)
+    _db = getFirestore(_app)
+    _auth = getAuth(_app)
+  } catch (e) {
+    console.error('Firebase init failed:', e)
+  }
+}
+
+export const db = _db!
+export const auth = _auth!
 
 export async function initAuth(): Promise<void> {
-  await signInAnonymously(auth)
+  if (!_auth) return
+  await signInAnonymously(_auth)
 }
 
 // ── resolveFicha (Regra 2) ──────────────────────────────────────────────────
@@ -46,29 +60,27 @@ export async function initAuth(): Promise<void> {
 export async function resolveFicha(raw: string): Promise<string> {
   let cleaned = raw.trim()
 
-  // URL query string: https://...?ficha=42
   try {
     const url = new URL(cleaned)
     const fichaParam = url.searchParams.get('ficha')
     if (fichaParam) cleaned = fichaParam
   } catch {
-    // not a URL, continue
+    // not a URL
   }
 
-  // Remove known prefixes (case-insensitive)
   cleaned = cleaned.replace(/^(FICHA[-_]?|LSC[-_]?)/i, '')
 
-  // Remove leading zeros and non-numeric except keep the number
   const numericMatch = cleaned.match(/\d+/)
   if (numericMatch) {
     cleaned = String(parseInt(numericMatch[0], 10))
   }
 
-  // Check extra_fichas alias in Firestore
-  const q = query(collection(db, 'extra_fichas'), where('qr_code', '==', raw.trim()))
-  const snap = await getDocs(q)
-  if (!snap.empty) {
-    return snap.docs[0].data().alias as string
+  if (_db) {
+    const q = query(collection(_db, 'extra_fichas'), where('qr_code', '==', raw.trim()))
+    const snap = await getDocs(q)
+    if (!snap.empty) {
+      return snap.docs[0].data().alias as string
+    }
   }
 
   return cleaned
@@ -97,8 +109,9 @@ export function subscribeOrders(
   statuses: OrderStatus[],
   callback: (orders: Order[]) => void
 ) {
+  if (!_db) return () => {}
   const q = query(
-    collection(db, 'orders'),
+    collection(_db, 'orders'),
     where('status', 'in', statuses),
     orderBy('created_at', 'asc')
   )
@@ -108,17 +121,16 @@ export function subscribeOrders(
 }
 
 export function subscribeAllOrders(callback: (orders: Order[]) => void) {
-  const q = query(collection(db, 'orders'), orderBy('created_at', 'desc'))
+  if (!_db) return () => {}
+  const q = query(collection(_db, 'orders'), orderBy('created_at', 'desc'))
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => mapOrder(d.id, d.data() as Record<string, unknown>)))
   })
 }
 
-export async function createOrder(
-  ticket_number: string,
-  items: Order['items']
-): Promise<string> {
-  const ref = await addDoc(collection(db, 'orders'), {
+export async function createOrder(ticket_number: string, items: Order['items']): Promise<string> {
+  if (!_db) throw new Error('Firebase not configured')
+  const ref = await addDoc(collection(_db, 'orders'), {
     ticket_number,
     status: 'pending',
     items,
@@ -136,113 +148,111 @@ const STATUS_FLOW: Record<OrderStatus, OrderStatus | null> = {
 }
 
 export async function advanceOrderStatus(orderId: string, currentStatus: OrderStatus): Promise<void> {
+  if (!_db) return
   const next = STATUS_FLOW[currentStatus]
   if (!next) return
-  await updateDoc(doc(db, 'orders', orderId), {
+  await updateDoc(doc(_db, 'orders', orderId), {
     status: next,
     updated_at: serverTimestamp(),
   })
 }
 
 export async function setOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
-  await updateDoc(doc(db, 'orders', orderId), {
+  if (!_db) return
+  await updateDoc(doc(_db, 'orders', orderId), {
     status,
     updated_at: serverTimestamp(),
   })
 }
 
 export async function getOrderByTicket(ticket: string): Promise<Order | null> {
-  const q = query(collection(db, 'orders'), where('ticket_number', '==', ticket))
+  if (!_db) return null
+  const q = query(collection(_db, 'orders'), where('ticket_number', '==', ticket))
   const snap = await getDocs(q)
   if (snap.empty) return null
   const d = snap.docs[0]
   return mapOrder(d.id, d.data() as Record<string, unknown>)
 }
 
-export async function markItemCompleted(
-  orderId: string,
-  itemIndex: number,
-  items: Order['items']
-): Promise<void> {
-  const updated = items.map((item, i) =>
-    i === itemIndex ? { ...item, completed: true } : item
-  )
-  await updateDoc(doc(db, 'orders', orderId), {
-    items: updated,
-    updated_at: serverTimestamp(),
-  })
+export async function markItemCompleted(orderId: string, itemIndex: number, items: Order['items']): Promise<void> {
+  if (!_db) return
+  const updated = items.map((item, i) => i === itemIndex ? { ...item, completed: true } : item)
+  await updateDoc(doc(_db, 'orders', orderId), { items: updated, updated_at: serverTimestamp() })
 }
 
 // ── Menu Items ──────────────────────────────────────────────────────────────
 
 export function subscribeMenuItems(callback: (items: MenuItem[]) => void) {
-  return onSnapshot(collection(db, 'menu_items'), (snap) => {
-    callback(
-      snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MenuItem, 'id'>) }))
-    )
+  if (!_db) return () => {}
+  return onSnapshot(collection(_db, 'menu_items'), (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MenuItem, 'id'>) })))
   })
 }
 
 export async function addMenuItem(item: Omit<MenuItem, 'id'>): Promise<void> {
-  await addDoc(collection(db, 'menu_items'), item)
+  if (!_db) return
+  await addDoc(collection(_db, 'menu_items'), item)
 }
 
 export async function updateMenuItem(id: string, item: Partial<Omit<MenuItem, 'id'>>): Promise<void> {
-  await updateDoc(doc(db, 'menu_items', id), item)
+  if (!_db) return
+  await updateDoc(doc(_db, 'menu_items', id), item)
 }
 
 export async function deleteMenuItem(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'menu_items', id))
+  if (!_db) return
+  await deleteDoc(doc(_db, 'menu_items', id))
 }
 
 // ── Inventory ───────────────────────────────────────────────────────────────
 
 export function subscribeInventory(callback: (items: InventoryItem[]) => void) {
-  return onSnapshot(collection(db, 'inventory'), (snap) => {
-    callback(
-      snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<InventoryItem, 'id'>) }))
-    )
+  if (!_db) return () => {}
+  return onSnapshot(collection(_db, 'inventory'), (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<InventoryItem, 'id'>) })))
   })
 }
 
 export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise<void> {
-  await addDoc(collection(db, 'inventory'), item)
+  if (!_db) return
+  await addDoc(collection(_db, 'inventory'), item)
 }
 
-export async function updateInventoryItem(
-  id: string,
-  item: Partial<Omit<InventoryItem, 'id'>>
-): Promise<void> {
-  await updateDoc(doc(db, 'inventory', id), item)
+export async function updateInventoryItem(id: string, item: Partial<Omit<InventoryItem, 'id'>>): Promise<void> {
+  if (!_db) return
+  await updateDoc(doc(_db, 'inventory', id), item)
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'inventory', id))
+  if (!_db) return
+  await deleteDoc(doc(_db, 'inventory', id))
 }
 
 // ── Extra Fichas ────────────────────────────────────────────────────────────
 
 export function subscribeExtraFichas(callback: (fichas: ExtraFicha[]) => void) {
-  return onSnapshot(collection(db, 'extra_fichas'), (snap) => {
-    callback(
-      snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ExtraFicha, 'id'>) }))
-    )
+  if (!_db) return () => {}
+  return onSnapshot(collection(_db, 'extra_fichas'), (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ExtraFicha, 'id'>) })))
   })
 }
 
 export async function addExtraFicha(ficha: Omit<ExtraFicha, 'id'>): Promise<void> {
-  await addDoc(collection(db, 'extra_fichas'), ficha)
+  if (!_db) return
+  await addDoc(collection(_db, 'extra_fichas'), ficha)
 }
 
 export async function deleteExtraFicha(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'extra_fichas', id))
+  if (!_db) return
+  await deleteDoc(doc(_db, 'extra_fichas', id))
 }
 
 // ── Users ───────────────────────────────────────────────────────────────────
 
 export async function getUserByNamePassword(name: string, password: string): Promise<User | null> {
+  if (!_db) return null
   const q = query(
-    collection(db, 'users'),
+    collection(_db, 'users'),
     where('name', '==', name),
     where('password', '==', password)
   )
@@ -253,62 +263,42 @@ export async function getUserByNamePassword(name: string, password: string): Pro
 }
 
 export function subscribeUsers(callback: (users: User[]) => void) {
-  return onSnapshot(collection(db, 'users'), (snap) => {
+  if (!_db) return () => {}
+  return onSnapshot(collection(_db, 'users'), (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<User, 'id'>) })))
   })
 }
 
 export async function addUser(user: Omit<User, 'id'>): Promise<void> {
-  await addDoc(collection(db, 'users'), user)
+  if (!_db) return
+  await addDoc(collection(_db, 'users'), user)
 }
 
 export async function updateUser(id: string, user: Partial<Omit<User, 'id'>>): Promise<void> {
-  await updateDoc(doc(db, 'users', id), user)
+  if (!_db) return
+  await updateDoc(doc(_db, 'users', id), user)
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'users', id))
+  if (!_db) return
+  await deleteDoc(doc(_db, 'users', id))
 }
 
 // ── Seed ────────────────────────────────────────────────────────────────────
 
 export async function seedInitialData(): Promise<void> {
-  // Check if already seeded
-  const usersSnap = await getDocs(collection(db, 'users'))
+  if (!_db) return
+  const usersSnap = await getDocs(collection(_db, 'users'))
   if (!usersSnap.empty) return
 
-  // Users
   const usersData: Omit<User, 'id'>[] = [
-    {
-      name: 'admin',
-      password: 'admin123',
-      role: 'admin',
-      allowed_views: 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,admin',
-    },
-    {
-      name: 'cozinha',
-      password: 'cozinha123',
-      role: 'kitchen',
-      allowed_views: 'kitchen,kitchen-scanner,kitchen-sectors,display',
-    },
-    {
-      name: 'recepcao',
-      password: 'recepcao123',
-      role: 'reception',
-      allowed_views: 'reception,display',
-    },
-    {
-      name: 'entrega',
-      password: 'entrega123',
-      role: 'dispatch',
-      allowed_views: 'dispatch,display,history',
-    },
+    { name: 'admin', password: 'admin123', role: 'admin', allowed_views: 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,admin' },
+    { name: 'cozinha', password: 'cozinha123', role: 'kitchen', allowed_views: 'kitchen,kitchen-scanner,kitchen-sectors,display' },
+    { name: 'recepcao', password: 'recepcao123', role: 'reception', allowed_views: 'reception,display' },
+    { name: 'entrega', password: 'entrega123', role: 'dispatch', allowed_views: 'dispatch,display,history' },
   ]
-  for (const u of usersData) {
-    await addDoc(collection(db, 'users'), u)
-  }
+  for (const u of usersData) await addDoc(collection(_db, 'users'), u)
 
-  // Menu items
   const menuData: Omit<MenuItem, 'id'>[] = [
     { name: 'Coxinha', price: 5.0, sector: 'Fritadeira', category: 'Salgados' },
     { name: 'Pastel de Carne', price: 5.0, sector: 'Fritadeira', category: 'Salgados' },
@@ -323,11 +313,8 @@ export async function seedInitialData(): Promise<void> {
     { name: 'Quentão', price: 5.0, sector: 'Outros', category: 'Bebidas' },
     { name: 'Refrigerante', price: 4.0, sector: 'Outros', category: 'Bebidas' },
   ]
-  for (const m of menuData) {
-    await addDoc(collection(db, 'menu_items'), m)
-  }
+  for (const m of menuData) await addDoc(collection(_db, 'menu_items'), m)
 
-  // Inventory
   const inventoryData: Omit<InventoryItem, 'id'>[] = [
     { name: 'Farinha de trigo', quantity: 10, unit: 'kg' },
     { name: 'Óleo de soja', quantity: 20, unit: 'L' },
@@ -335,7 +322,5 @@ export async function seedInitialData(): Promise<void> {
     { name: 'Refrigerante lata', quantity: 200, unit: 'un' },
     { name: 'Milho verde', quantity: 50, unit: 'un' },
   ]
-  for (const inv of inventoryData) {
-    await addDoc(collection(db, 'inventory'), inv)
-  }
+  for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
 }
