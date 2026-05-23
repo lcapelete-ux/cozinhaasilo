@@ -131,26 +131,17 @@ export default function Reception() {
   }, [submitSession])
 
   // ── Process QR scan ──────────────────────────────────────────────────────
-  // Rule: fichas = 1–799 | product coupons = 800+
-  // Only the first 3 digits of the product QR code matter — the rest changes each coupon
+  // Fichas: 1–200  |  Produtos: código 800+ cadastrado no cardápio
+  // O código do produto pode aparecer em qualquer posição do QR (barcode, prefixo, etc.)
 
   const processQrScan = useCallback(async (raw: string) => {
     const items = menuItemsRef.current
-
-    // Extract digits from QR, then read only the first 3
     const digits = raw.replace(/\D/g, '')
-    const codeValue = parseInt(digits.substring(0, 3), 10)
 
-    const isProductCoupon = !isNaN(codeValue) && codeValue >= 800
+    // Procura o código do produto EM QUALQUER PARTE dos dígitos lidos
+    const matchedProduct = items.find(m => m.code && digits.includes(m.code))
 
-    if (isProductCoupon) {
-      // Match product by first-3-digit code (compare as numbers to handle leading zeros)
-      const matchedProduct = items.find(m => m.code && parseInt(m.code, 10) === codeValue)
-
-      if (!matchedProduct) {
-        setLastScan({ type: 'error', label: `Produto #${codeValue} não cadastrado no cardápio` })
-        return
-      }
+    if (matchedProduct) {
       if (!sessionRef.current) {
         setLastScan({ type: 'error', label: 'Bipe a ficha primeiro!' })
         return
@@ -170,7 +161,13 @@ export default function Reception() {
       return
     }
 
-    // It's a ficha (1–799)
+    // QR tem padrão 8xx/9xx mas o produto não está cadastrado
+    if (/[89]\d{2}/.test(digits)) {
+      setLastScan({ type: 'error', label: 'Produto não cadastrado — cadastre em Configurações → Cardápio' })
+      return
+    }
+
+    // É uma ficha (1–200)
     try {
       const ticket = await resolveFicha(raw)
       if (!ticket) return
@@ -178,14 +175,12 @@ export default function Reception() {
       const current = sessionRef.current
 
       if (!current) {
-        // Start new session
         const newSession: Session = { ficha: ticket, items: [] }
         setSession(newSession)
         sessionRef.current = newSession
         setLastScan({ type: 'ficha', label: `Ficha #${ticket} aberta` })
         startCountdown()
       } else if (current.ficha !== ticket) {
-        // New ficha — submit current immediately, start new
         await submitSession(current)
         const newSession: Session = { ficha: ticket, items: [] }
         setSession(newSession)
@@ -193,7 +188,6 @@ export default function Reception() {
         setLastScan({ type: 'ficha', label: `Ficha #${ticket} aberta` })
         startCountdown()
       } else {
-        // Same ficha — reset timer
         setLastScan({ type: 'ficha', label: `Ficha #${ticket} (continuando)` })
         startCountdown()
       }
