@@ -132,22 +132,23 @@ export default function Reception() {
 
   // ── Process QR scan ──────────────────────────────────────────────────────
   // Rule: fichas = 1–799 | product coupons = 800+
+  // Only the first 3 digits of the product QR code matter — the rest changes each coupon
 
   const processQrScan = useCallback(async (raw: string) => {
     const items = menuItemsRef.current
 
-    // Extract numeric value from QR (strips prefixes, URLs, non-digits)
+    // Extract digits from QR, then read only the first 3
     const digits = raw.replace(/\D/g, '')
-    const numericValue = parseInt(digits, 10)
+    const codeValue = parseInt(digits.substring(0, 3), 10)
 
-    const isProductCoupon = !isNaN(numericValue) && numericValue >= 800
+    const isProductCoupon = !isNaN(codeValue) && codeValue >= 800
 
     if (isProductCoupon) {
-      // Match product by comparing numeric code values
-      const matchedProduct = items.find(m => m.code && parseInt(m.code, 10) === numericValue)
+      // Match product by first-3-digit code (compare as numbers to handle leading zeros)
+      const matchedProduct = items.find(m => m.code && parseInt(m.code, 10) === codeValue)
 
       if (!matchedProduct) {
-        setLastScan({ type: 'error', label: `Produto #${numericValue} não cadastrado` })
+        setLastScan({ type: 'error', label: `Produto #${codeValue} não cadastrado no cardápio` })
         return
       }
       if (!sessionRef.current) {

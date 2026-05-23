@@ -273,20 +273,17 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-auto">
-          <AnimatePresence>
-            <motion.div
-              key={currentView}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="min-h-screen"
-            >
-              <ViewErrorBoundary key={currentView} onReset={() => setCurrentView(currentView)}>
-                <ViewComponent />
-              </ViewErrorBoundary>
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.15 }}
+            className="min-h-screen"
+          >
+            <ViewErrorBoundary key={currentView} onReset={() => setCurrentView(currentView)}>
+              <ViewComponent />
+            </ViewErrorBoundary>
+          </motion.div>
         </main>
       </div>
       <Toast toasts={toasts} onRemove={removeToast} />
