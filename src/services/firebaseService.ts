@@ -7,6 +7,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   onSnapshot,
   query,
   where,
@@ -347,4 +348,39 @@ export async function seedInitialData(): Promise<void> {
     { name: 'Milho verde', quantity: 50, unit: 'un' },
   ]
   for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
+}
+
+// ── Active Session (live preview on KitchenSectors) ─────────────────────────
+
+export interface ActiveSessionData {
+  ficha: string
+  items: { name: string; quantity: number; sector: string }[]
+}
+
+export async function setActiveSession(data: ActiveSessionData): Promise<void> {
+  if (!_db) return
+  await setDoc(doc(_db, 'active_sessions', 'current'), {
+    ...data,
+    updated_at: serverTimestamp(),
+  })
+}
+
+export async function clearActiveSession(): Promise<void> {
+  if (!_db) return
+  await setDoc(doc(_db, 'active_sessions', 'current'), {
+    ficha: '',
+    items: [],
+    updated_at: serverTimestamp(),
+  })
+}
+
+export function subscribeActiveSession(callback: (data: ActiveSessionData | null) => void) {
+  if (!_db) return () => {}
+  return onSnapshot(doc(_db, 'active_sessions', 'current'), (snap) => {
+    if (!snap.exists()) { callback(null); return }
+    const d = snap.data()
+    const ficha = d.ficha as string
+    if (!ficha) { callback(null); return }
+    callback({ ficha, items: d.items ?? [] })
+  })
 }

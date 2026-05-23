@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package } from 'lucide-react'
-import { subscribeOrders, getOrderByTicket, setOrderStatus, resolveFicha } from '../services/firebaseService'
+import { subscribeOrders, getOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, type ActiveSessionData } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { Order, OrderStatus } from '../types'
 
@@ -23,6 +23,7 @@ export default function KitchenSectors() {
   const [manualInput, setManualInput] = useState('')
   const [inputMode, setInputMode] = useState<'qr' | 'keyboard' | null>(null)
   const [lastScanned, setLastScanned] = useState('')
+  const [liveSession, setLiveSession] = useState<ActiveSessionData | null>(null)
 
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
@@ -31,6 +32,11 @@ export default function KitchenSectors() {
 
   useEffect(() => {
     const unsub = subscribeOrders(['pending', 'preparing', 'ready'], setOrders)
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const unsub = subscribeActiveSession(setLiveSession)
     return unsub
   }, [])
 
@@ -257,6 +263,60 @@ export default function KitchenSectors() {
           )
         })}
       </div>
+
+      {/* Live session preview — bottom-right corner */}
+      <AnimatePresence>
+        {liveSession && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.95 }}
+            className="fixed bottom-5 right-5 z-50 w-64 rounded-2xl shadow-2xl overflow-hidden border border-accent/30"
+            style={{ background: '#fff' }}
+          >
+            {/* Header */}
+            <div className="bg-accent px-4 py-2.5 flex items-center justify-between">
+              <div>
+                <p className="text-white/60 text-[10px] uppercase tracking-widest leading-none mb-0.5">Recepção — ao vivo</p>
+                <p className="text-white font-black text-xl leading-none">#{liveSession.ficha}</p>
+              </div>
+              <motion.div
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="w-2.5 h-2.5 rounded-full bg-white/70"
+              />
+            </div>
+
+            {/* Items */}
+            <div className="p-3 max-h-52 overflow-y-auto">
+              {liveSession.items.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-3 italic">Aguardando cupons...</p>
+              ) : (
+                <div className="space-y-1">
+                  <AnimatePresence>
+                    {liveSession.items.map((item) => (
+                      <motion.div
+                        key={item.name}
+                        initial={{ opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center justify-between bg-gray-50 rounded-xl px-2.5 py-1.5"
+                      >
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700 leading-tight">{item.name}</p>
+                          <p className="text-[10px] text-gray-400">{item.sector}</p>
+                        </div>
+                        <span className="font-black text-sm text-accent-dark bg-white rounded-lg px-2 py-0.5 border border-gray-200">
+                          ×{item.quantity}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

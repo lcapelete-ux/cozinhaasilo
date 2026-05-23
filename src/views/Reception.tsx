@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap } from 'lucide-react'
-import { subscribeMenuItems, createOrder, resolveFicha } from '../services/firebaseService'
+import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem } from '../types'
 
@@ -68,7 +68,14 @@ export default function Reception() {
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { sessionRef.current = session }, [session])
+  useEffect(() => {
+    sessionRef.current = session
+    if (session) {
+      setActiveSession({ ficha: session.ficha, items: session.items.map(i => ({ name: i.name, quantity: i.quantity, sector: i.sector })) })
+    } else {
+      clearActiveSession()
+    }
+  }, [session])
   useEffect(() => { menuItemsRef.current = menuItems }, [menuItems])
 
   useEffect(() => {
