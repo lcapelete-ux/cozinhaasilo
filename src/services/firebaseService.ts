@@ -111,22 +111,25 @@ export function subscribeOrders(
   callback: (orders: Order[]) => void
 ) {
   if (!_db) return () => {}
-  const q = query(
-    collection(_db, 'orders'),
-    where('status', 'in', statuses),
-    orderBy('created_at', 'asc')
-  )
+  // Sem orderBy para evitar necessidade de índice composto no Firestore — ordenamos no cliente
+  const q = query(collection(_db, 'orders'), where('status', 'in', statuses))
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => mapOrder(d.id, d.data() as Record<string, unknown>)))
-  })
+    const orders = snap.docs
+      .map((d) => mapOrder(d.id, d.data() as Record<string, unknown>))
+      .sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
+    callback(orders)
+  }, (err) => console.error('subscribeOrders error:', err))
 }
 
 export function subscribeAllOrders(callback: (orders: Order[]) => void) {
   if (!_db) return () => {}
-  const q = query(collection(_db, 'orders'), orderBy('created_at', 'desc'))
+  const q = query(collection(_db, 'orders'), where('status', 'in', ['pending', 'preparing', 'ready', 'delivered']))
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => mapOrder(d.id, d.data() as Record<string, unknown>)))
-  })
+    const orders = snap.docs
+      .map((d) => mapOrder(d.id, d.data() as Record<string, unknown>))
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+    callback(orders)
+  }, (err) => console.error('subscribeAllOrders error:', err))
 }
 
 export async function createOrder(ticket_number: string, items: Order['items']): Promise<string> {

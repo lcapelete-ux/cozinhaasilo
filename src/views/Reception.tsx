@@ -49,7 +49,7 @@ function playProductAddSound() {
   } catch { /* audio not available */ }
 }
 
-const COUNTDOWN_SECONDS = 14
+const COUNTDOWN_SECONDS = 5
 
 export default function Reception() {
   const { addToast } = useApp()
@@ -358,8 +358,8 @@ export default function Reception() {
               <div className="px-6 py-3 flex items-center gap-2 bg-gray-50 border-b border-gray-100">
                 <Timer size={14} className="text-gray-400" />
                 <p className="text-xs text-gray-500">
-                  Envio automático em <strong className={countdown <= 3 ? 'text-red-500' : 'text-gray-700'}>{countdown}s</strong>
-                  {' — '}bipe mais produtos ou uma nova ficha
+                  Enviando em <strong className={countdown <= 2 ? 'text-red-500' : 'text-gray-700'}>{countdown}s</strong>
+                  {' — '}bipe mais produtos ou pressione Enviar agora
                 </p>
               </div>
 
@@ -405,7 +405,7 @@ export default function Reception() {
           {[
             { icon: '🎫', label: 'Bipe a ficha' },
             { icon: '🍽️', label: 'Bipe os cupons' },
-            { icon: '⏱️', label: '14s → envia' },
+            { icon: '⏱️', label: '5s → envia' },
           ].map(({ icon, label }) => (
             <div key={label} className="bg-white rounded-2xl p-3 shadow-sm">
               <div className="text-2xl mb-1">{icon}</div>
