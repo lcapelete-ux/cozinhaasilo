@@ -46,18 +46,6 @@ function FireAnimated({ size = 48 }: { size?: number }) {
   )
 }
 
-function ReadyIcon({ size = 48 }: { size?: number }) {
-  return (
-    <motion.div
-      style={{ fontSize: size, lineHeight: 1, display: 'inline-block' }}
-      animate={{ y: [0, -6, 0], scale: [1, 1.1, 1] }}
-      transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
-    >
-      🍽️
-    </motion.div>
-  )
-}
-
 // ── Clock ────────────────────────────────────────────────────────────────────
 function Clock() {
   const [time, setTime] = useState(new Date())
@@ -363,12 +351,16 @@ export default function Display() {
                       className="rounded-2xl p-3 flex flex-col items-center gap-2 border"
                       style={{ background: '#222', borderColor: '#FFD70040' }}
                     >
-                      <ReadyIcon size={40} />
                       <div className="text-center">
                         <p className="text-yellow-400/60 text-xs uppercase tracking-widest">Ficha</p>
-                        <p className="font-black text-2xl" style={{ color: '#FFD700' }}>
+                        <motion.p
+                          className="font-black text-4xl"
+                          style={{ color: '#FFD700' }}
+                          animate={{ scale: [1, 1.18, 1], textShadow: ['0 0 0px #FFD700', '0 0 24px #FFD700', '0 0 0px #FFD700'] }}
+                          transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                        >
                           #{order.ticket_number}
-                        </p>
+                        </motion.p>
                       </div>
                       <span className="text-xs font-bold px-3 py-0.5 rounded-full uppercase"
                         style={{ background: '#FFD700', color: '#111' }}>
