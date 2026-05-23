@@ -295,7 +295,7 @@ export default function Reception() {
         </AnimatePresence>
 
         {/* Main session card */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {!session ? (
             <motion.div
               key="idle"
