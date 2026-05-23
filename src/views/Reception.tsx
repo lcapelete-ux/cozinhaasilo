@@ -131,17 +131,25 @@ export default function Reception() {
   }, [submitSession])
 
   // ── Process QR scan ──────────────────────────────────────────────────────
+  // Rule: fichas = 1–799 | product coupons = 800+
 
   const processQrScan = useCallback(async (raw: string) => {
     const items = menuItemsRef.current
 
-    // Extract first 4 digits from QR (product code detection)
+    // Extract numeric value from QR (strips prefixes, URLs, non-digits)
     const digits = raw.replace(/\D/g, '')
-    const codePrefix = digits.substring(0, 4).padStart(4, '0')
-    const matchedProduct = items.find(m => m.code && m.code === codePrefix)
+    const numericValue = parseInt(digits, 10)
 
-    if (matchedProduct) {
-      // It's a product coupon
+    const isProductCoupon = !isNaN(numericValue) && numericValue >= 800
+
+    if (isProductCoupon) {
+      // Match product by comparing numeric code values
+      const matchedProduct = items.find(m => m.code && parseInt(m.code, 10) === numericValue)
+
+      if (!matchedProduct) {
+        setLastScan({ type: 'error', label: `Produto #${numericValue} não cadastrado` })
+        return
+      }
       if (!sessionRef.current) {
         setLastScan({ type: 'error', label: 'Bipe a ficha primeiro!' })
         return
@@ -161,7 +169,7 @@ export default function Reception() {
       return
     }
 
-    // Try as ficha
+    // It's a ficha (1–799)
     try {
       const ticket = await resolveFicha(raw)
       if (!ticket) return
