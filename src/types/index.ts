@@ -31,6 +31,7 @@ export interface MenuItem {
   price: number
   sector: string
   category: string
+  code?: string  // 4 digits identifying product coupon
 }
 
 export interface InventoryItem {

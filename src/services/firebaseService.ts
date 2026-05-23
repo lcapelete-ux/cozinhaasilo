@@ -174,6 +174,30 @@ export async function getOrderByTicket(ticket: string): Promise<Order | null> {
   return mapOrder(d.id, d.data() as Record<string, unknown>)
 }
 
+// Returns only non-delivered order for a ticket (supports ticket reuse)
+export async function getActiveOrderByTicket(ticket: string): Promise<Order | null> {
+  if (!_db) return null
+  const q = query(
+    collection(_db, 'orders'),
+    where('ticket_number', '==', ticket),
+    where('status', 'in', ['pending', 'preparing', 'ready'])
+  )
+  const snap = await getDocs(q)
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return mapOrder(d.id, d.data() as Record<string, unknown>)
+}
+
+// Find product by its 4-digit code prefix
+export async function getProductByCode(code: string): Promise<import('../types').MenuItem | null> {
+  if (!_db) return null
+  const q = query(collection(_db, 'menu_items'), where('code', '==', code))
+  const snap = await getDocs(q)
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return { id: d.id, ...(d.data() as Omit<import('../types').MenuItem, 'id'>) }
+}
+
 export async function markItemCompleted(orderId: string, itemIndex: number, items: Order['items']): Promise<void> {
   if (!_db) return
   const updated = items.map((item, i) => i === itemIndex ? { ...item, completed: true } : item)
