@@ -22,7 +22,7 @@ const SECTORS = [
 interface SectorItem {
   name: string
   totalQty: number
-  fichas: { ticket: string; orderId: string; status: OrderStatus }[]
+  fichas: { ticket: string; orderId: string; status: OrderStatus; qty: number }[]
 }
 
 export default function KitchenSectors() {
@@ -133,18 +133,23 @@ export default function KitchenSectors() {
         const existing = itemMap.get(item.name)
         if (existing) {
           existing.totalQty += item.quantity
-          if (!existing.fichas.find((f) => f.ticket === order.ticket_number))
-            existing.fichas.push({ ticket: order.ticket_number, orderId: order.id, status: order.status })
+          const fichaEntry = existing.fichas.find((f) => f.ticket === order.ticket_number)
+          if (fichaEntry) {
+            fichaEntry.qty += item.quantity
+          } else {
+            existing.fichas.push({ ticket: order.ticket_number, orderId: order.id, status: order.status, qty: item.quantity })
+          }
         } else {
           itemMap.set(item.name, {
             name: item.name,
             totalQty: item.quantity,
-            fichas: [{ ticket: order.ticket_number, orderId: order.id, status: order.status }],
+            fichas: [{ ticket: order.ticket_number, orderId: order.id, status: order.status, qty: item.quantity }],
           })
         }
       }
     }
-    return Array.from(itemMap.values())
+    // Sort by total quantity descending — most demanded item first
+    return Array.from(itemMap.values()).sort((a, b) => b.totalQty - a.totalQty)
   }
 
   const totalActive = orders.length
@@ -261,8 +266,8 @@ export default function KitchenSectors() {
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {item.fichas.map(({ ticket, status }) => (
-                              <FichaTag key={ticket} ticket={ticket} status={status} />
+                            {item.fichas.map(({ ticket, status, qty }) => (
+                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} />
                             ))}
                           </div>
                         </motion.div>
@@ -333,7 +338,7 @@ export default function KitchenSectors() {
   )
 }
 
-function FichaTag({ ticket, status }: { ticket: string; status: OrderStatus }) {
+function FichaTag({ ticket, status, qty }: { ticket: string; status: OrderStatus; qty: number }) {
   const colors: Record<OrderStatus, string> = {
     pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
     preparing: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -341,8 +346,9 @@ function FichaTag({ ticket, status }: { ticket: string; status: OrderStatus }) {
     delivered: 'bg-gray-100 text-gray-500 border-gray-200',
   }
   return (
-    <span className={`px-2 py-0.5 rounded-lg text-xs font-medium border ${colors[status]}`}>
-      #{ticket}
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${colors[status]}`}>
+      <span>#{ticket}</span>
+      {qty > 1 && <span className="opacity-70">×{qty}</span>}
     </span>
   )
 }

@@ -189,7 +189,6 @@ export default function Display() {
       const unique = dedup(orders)
       unique.forEach((o) => {
         if (!prevReadyRef.current.has(o.ticket_number)) {
-          playChime()
           setAnnouncement(o.ticket_number)
           if (announcementTimer.current) clearTimeout(announcementTimer.current)
           announcementTimer.current = setTimeout(() => setAnnouncement(null), 5000)
