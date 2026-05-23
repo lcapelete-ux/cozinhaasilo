@@ -5,7 +5,7 @@ import {
   Clock, Boxes, QrCode, BarChart3, Settings, LogOut, Menu, X,
   type LucideIcon,
 } from 'lucide-react'
-import { initAuth, seedInitialData } from './services/firebaseService'
+import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
 import Login from './views/Login'
 import Reception from './views/Reception'
 import Kitchen from './views/Kitchen'
@@ -105,6 +105,35 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('arraia_user')
     setUser(null)
+  }
+
+  if (!isFirebaseConfigured) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-lg p-8 text-center">
+          <div className="text-5xl mb-4">🌽</div>
+          <h1 className="font-serif italic text-2xl text-accent-dark mb-2">Arraiá do Lar São Cristóvão</h1>
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left text-sm text-amber-800 mt-4">
+            <p className="font-bold mb-2">⚙️ Firebase não configurado</p>
+            <p className="mb-3">Para usar o sistema, adicione as credenciais do Firebase como Secrets no GitHub:</p>
+            <ol className="list-decimal list-inside space-y-1 text-xs">
+              <li>Acesse o repositório no GitHub</li>
+              <li>Vá em <strong>Settings → Secrets and variables → Actions</strong></li>
+              <li>Adicione os 6 secrets do Firebase</li>
+              <li>Vá em <strong>Actions</strong> e rode o workflow novamente</li>
+            </ol>
+            <div className="mt-3 bg-white rounded-xl p-3 font-mono text-xs space-y-1">
+              <p>VITE_FIREBASE_API_KEY</p>
+              <p>VITE_FIREBASE_AUTH_DOMAIN</p>
+              <p>VITE_FIREBASE_PROJECT_ID</p>
+              <p>VITE_FIREBASE_STORAGE_BUCKET</p>
+              <p>VITE_FIREBASE_MESSAGING_SENDER_ID</p>
+              <p>VITE_FIREBASE_APP_ID</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!ready) {
