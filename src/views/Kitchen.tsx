@@ -1,143 +1,137 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChefHat, ArrowRight, Clock } from 'lucide-react'
-import { subscribeOrders, advanceOrderStatus } from '../services/firebaseService'
-import { useApp } from '../App'
-import StatusBadge from '../components/StatusBadge'
-import type { Order } from '../types'
+import { ChefHat, Clock, CheckCircle2, Loader2, BellRing, PackageCheck, type LucideIcon } from 'lucide-react'
+import { subscribeAllOrders } from '../services/firebaseService'
+import type { Order, OrderStatus } from '../types'
 
-export default function Kitchen() {
-  const { addToast } = useApp()
-  const [orders, setOrders] = useState<Order[]>([])
-
-  useEffect(() => {
-    const unsub = subscribeOrders(['pending', 'preparing'], setOrders)
-    return unsub
-  }, [])
-
-  const handleAdvance = async (order: Order) => {
-    try {
-      await advanceOrderStatus(order.id, order.status)
-    } catch {
-      addToast('Erro ao atualizar pedido')
-    }
-  }
-
-  const pending = orders.filter((o) => o.status === 'pending')
-  const preparing = orders.filter((o) => o.status === 'preparing')
-
-  return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
-      <div className="mb-6 flex items-center gap-3">
-        <ChefHat className="text-accent" size={28} />
-        <div>
-          <h1 className="font-serif italic text-3xl text-accent-dark">Cozinha Geral</h1>
-          <p className="text-gray-500 text-sm">{orders.length} pedido(s) em andamento</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Column
-          title="Aguardando"
-          count={pending.length}
-          color="yellow"
-          orders={pending}
-          onAdvance={handleAdvance}
-          actionLabel="Iniciar preparo"
-        />
-        <Column
-          title="Preparando"
-          count={preparing.length}
-          color="blue"
-          orders={preparing}
-          onAdvance={handleAdvance}
-          actionLabel="Marcar como pronto"
-        />
-      </div>
-    </div>
-  )
+const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: string; border: string; Icon: LucideIcon }> = {
+  pending:   { label: 'Aguardando', color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200', Icon: Clock },
+  preparing: { label: 'Preparando', color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200',   Icon: Loader2 },
+  ready:     { label: 'Pronto',     color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200',  Icon: BellRing },
+  delivered: { label: 'Entregue',   color: 'text-gray-500',   bg: 'bg-gray-50',    border: 'border-gray-200',   Icon: PackageCheck },
 }
 
-function Column({
-  title,
-  count,
-  color,
-  orders,
-  onAdvance,
-  actionLabel,
-}: {
-  title: string
-  count: number
-  color: 'yellow' | 'blue'
-  orders: Order[]
-  onAdvance: (o: Order) => void
-  actionLabel: string
-}) {
-  const headerColor = color === 'yellow' ? 'text-yellow-600' : 'text-blue-600'
-  const countBg = color === 'yellow' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
-
-  return (
-    <div className="bg-white rounded-3xl p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className={`font-serif italic text-xl ${headerColor}`}>{title}</h2>
-        <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${countBg}`}>{count}</span>
-      </div>
-
-      {orders.length === 0 ? (
-        <div className="text-center py-8 text-gray-400">
-          <ChefHat size={32} className="mx-auto mb-2 opacity-30" />
-          <p className="text-sm">Nenhum pedido</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <AnimatePresence>
-            {orders.map((order) => (
-              <motion.div
-                key={order.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="border border-gray-100 rounded-2xl p-3"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <span className="font-bold text-lg text-accent-dark">#{order.ticket_number}</span>
-                    <StatusBadge status={order.status} />
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <Clock size={12} />
-                    {formatAge(order.created_at)}
-                  </div>
-                </div>
-
-                <ul className="space-y-1 mb-3">
-                  {order.items.map((item, i) => (
-                    <li key={i} className="flex justify-between text-sm">
-                      <span className="text-gray-700">{item.name}</span>
-                      <span className="text-gray-400 text-xs">x{item.quantity} · {item.sector}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  onClick={() => onAdvance(order)}
-                  className="w-full flex items-center justify-center gap-1.5 bg-accent/10 hover:bg-accent/20 text-accent-dark text-sm py-2 rounded-xl transition-colors font-medium"
-                >
-                  {actionLabel}
-                  <ArrowRight size={14} />
-                </button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
-    </div>
-  )
+function formatTime(date: Date): string {
+  const h = String(date.getHours()).padStart(2, '0')
+  const m = String(date.getMinutes()).padStart(2, '0')
+  return `${h}:${m}`
 }
 
 function formatAge(date: Date): string {
   const mins = Math.floor((Date.now() - date.getTime()) / 60000)
   if (mins < 1) return 'agora'
-  if (mins === 1) return '1 min'
-  return `${mins} min`
+  if (mins === 1) return '1 min atrás'
+  if (mins < 60) return `${mins} min atrás`
+  const h = Math.floor(mins / 60)
+  return `${h}h atrás`
+}
+
+export default function Kitchen() {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const unsub = subscribeAllOrders(setOrders)
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  const counts = {
+    pending: orders.filter((o) => o.status === 'pending').length,
+    preparing: orders.filter((o) => o.status === 'preparing').length,
+    ready: orders.filter((o) => o.status === 'ready').length,
+    delivered: orders.filter((o) => o.status === 'delivered').length,
+  }
+
+  return (
+    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <ChefHat className="text-accent" size={28} />
+          <div>
+            <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark">Cozinha Geral</h1>
+            <p className="text-gray-400 text-xs uppercase tracking-widest mt-0.5">Histórico de pedidos</p>
+          </div>
+        </div>
+
+        {/* Summary chips */}
+        <div className="flex flex-wrap gap-2 justify-end">
+          {(Object.entries(counts) as [OrderStatus, number][]).map(([status, count]) => {
+            const cfg = STATUS_CONFIG[status]
+            return (
+              <div key={status} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${cfg.bg} ${cfg.border} ${cfg.color}`}>
+                <cfg.Icon size={12} />
+                {count} {cfg.label}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Order list */}
+      {orders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-300">
+          <ChefHat size={56} strokeWidth={1} className="mb-4" />
+          <p className="text-sm font-semibold tracking-widest uppercase">Nenhum pedido ainda</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <AnimatePresence initial={false}>
+            {orders.map((order) => {
+              const cfg = STATUS_CONFIG[order.status]
+              return (
+                <motion.div
+                  key={order.id}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className={`rounded-2xl border p-4 ${cfg.bg} ${cfg.border}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Left: ficha + items */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="font-black text-xl text-accent-dark">#{order.ticket_number}</span>
+                        <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg border ${cfg.bg} ${cfg.border} ${cfg.color}`}>
+                          <cfg.Icon size={11} />
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                        {order.items.map((item, i) => (
+                          <span key={i} className="text-sm text-gray-600">
+                            <span className="font-medium">{item.name}</span>
+                            <span className="text-gray-400 text-xs"> ×{item.quantity}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right: times */}
+                    <div className="text-right shrink-0">
+                      <p className="font-black text-lg tabular-nums text-gray-700">{formatTime(order.created_at)}</p>
+                      <p className="text-xs text-gray-400" suppressHydrationWarning key={now}>{formatAge(order.created_at)}</p>
+                    </div>
+                  </div>
+
+                  {/* Delivered: show update time too */}
+                  {order.status === 'delivered' && (
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+                      <CheckCircle2 size={11} />
+                      Entregue às {formatTime(order.updated_at)}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+        </div>
+      )}
+    </div>
+  )
 }
