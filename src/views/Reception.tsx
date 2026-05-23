@@ -131,15 +131,16 @@ export default function Reception() {
   }, [submitSession])
 
   // ── Process QR scan ──────────────────────────────────────────────────────
-  // Fichas: 1–200  |  Produtos: código 800+ cadastrado no cardápio
-  // O código do produto pode aparecer em qualquer posição do QR (barcode, prefixo, etc.)
+  // QR do cupom físico: "0844-124791" → 4 primeiros dígitos = código do produto
+  // Fichas: 1–200 (sem zero à esquerda)
 
   const processQrScan = useCallback(async (raw: string) => {
     const items = menuItemsRef.current
-    const digits = raw.replace(/\D/g, '')
+    const digits = raw.replace(/\D/g, '')          // remove traços, letras, etc.
+    const first4 = digits.substring(0, 4)          // ex: "0844"
 
-    // Procura o código do produto EM QUALQUER PARTE dos dígitos lidos
-    const matchedProduct = items.find(m => m.code && digits.includes(m.code))
+    // Compara os 4 primeiros dígitos contra os códigos cadastrados no cardápio
+    const matchedProduct = items.find(m => m.code && first4 === m.code)
 
     if (matchedProduct) {
       if (!sessionRef.current) {
@@ -161,9 +162,9 @@ export default function Reception() {
       return
     }
 
-    // QR tem padrão 8xx/9xx mas o produto não está cadastrado
-    if (/[89]\d{2}/.test(digits)) {
-      setLastScan({ type: 'error', label: 'Produto não cadastrado — cadastre em Configurações → Cardápio' })
+    // Parece cupom de produto (começa com 08xx ou 09xx) mas não está cadastrado
+    if (/^0[89]\d{2}/.test(first4)) {
+      setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
       return
     }
 

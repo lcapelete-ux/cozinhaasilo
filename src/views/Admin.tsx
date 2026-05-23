@@ -490,7 +490,7 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                 className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm bg-white">
                 {CATEGORIES_LIST.map((c) => <option key={c}>{c}</option>)}
               </select>
-              <input type="text" placeholder="Código cupom (4 dígitos)" value={form.code} maxLength={4}
+              <input type="text" placeholder="ex: 0844" value={form.code} maxLength={4}
                 onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
                 className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono" />
             </div>
@@ -556,7 +556,7 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                         }}
                         onBlur={() => saveCode(item.id)}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-                        placeholder="0000"
+                        placeholder="0844"
                         className="w-20 px-2 py-1.5 rounded-lg border-2 border-accent/40 focus:border-accent focus:outline-none text-sm font-mono text-center font-bold tracking-widest"
                       />
                     </td>
@@ -585,7 +585,7 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                         }}
                         onBlur={() => saveCode(item.id)}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-                        placeholder="0000"
+                        placeholder="0844"
                         className="w-20 px-2 py-1.5 rounded-lg border-2 border-gray-200 focus:border-accent focus:outline-none text-sm font-mono text-center font-bold tracking-widest"
                       />
                     </td>
