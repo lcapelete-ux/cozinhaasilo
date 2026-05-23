@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History } from 'lucide-react'
-import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession } from '../services/firebaseService'
+import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem } from '../types'
 
@@ -49,7 +49,7 @@ function playProductAddSound() {
   } catch { /* audio not available */ }
 }
 
-const COUNTDOWN_SECONDS = 5
+const COUNTDOWN_SECONDS = 12
 
 interface SentOrder {
   ficha: string
@@ -185,12 +185,24 @@ export default function Reception() {
       const current = sessionRef.current
 
       if (!current) {
+        // Block if ficha already has an active order in the kitchen
+        const existing = await getActiveOrderByTicket(ticket)
+        if (existing) {
+          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (${existing.status === 'ready' ? 'pronta' : 'em preparo'})` })
+          return
+        }
         const newSession: Session = { ficha: ticket, items: [] }
         setSession(newSession)
         sessionRef.current = newSession
         setLastScan({ type: 'ficha', label: `Ficha #${ticket} aberta` })
         startCountdown()
       } else if (current.ficha !== ticket) {
+        // Block new ficha if it already has an active order too
+        const existing = await getActiveOrderByTicket(ticket)
+        if (existing) {
+          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (${existing.status === 'ready' ? 'pronta' : 'em preparo'})` })
+          return
+        }
         await submitSession(current)
         const newSession: Session = { ficha: ticket, items: [] }
         setSession(newSession)
@@ -357,7 +369,7 @@ export default function Reception() {
               <div className="h-2 bg-gray-100 relative">
                 <motion.div
                   className={`absolute left-0 top-0 h-full transition-colors ${
-                    countdown <= 3 ? 'bg-red-400' : countdown <= 7 ? 'bg-orange-400' : 'bg-green-400'
+                    countdown <= 3 ? 'bg-red-400' : countdown <= 6 ? 'bg-orange-400' : 'bg-green-400'
                   }`}
                   style={{ width: `${countdownPct}%` }}
                   transition={{ duration: 0.3 }}
@@ -414,7 +426,7 @@ export default function Reception() {
           {[
             { icon: '🎫', label: 'Bipe a ficha' },
             { icon: '🍽️', label: 'Bipe os cupons' },
-            { icon: '⏱️', label: '5s → envia' },
+            { icon: '⏱️', label: '12s → envia' },
           ].map(({ icon, label }) => (
             <div key={label} className="bg-white rounded-2xl p-3 shadow-sm">
               <div className="text-2xl mb-1">{icon}</div>
