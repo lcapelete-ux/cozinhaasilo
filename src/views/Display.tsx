@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
-import { subscribeOrders } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/firebaseService'
 import type { Order } from '../types'
 
 // ── Bunting flags ────────────────────────────────────────────────────────────
@@ -98,8 +98,69 @@ export default function Display() {
   const [activeOrders, setActiveOrders] = useState<Order[]>([])
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
   const [announcement, setAnnouncement] = useState<string | null>(null)
+  const [deliveredMsg, setDeliveredMsg] = useState<string | null>(null)
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deliveredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readyOrdersRef = useRef<Order[]>([])
+  const bufferRef = useRef('')
+  const lastKeyTimeRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deliveryInputRef = useRef<HTMLInputElement>(null)
+  const [deliveryInput, setDeliveryInput] = useState('')
+
+  useEffect(() => {
+    readyOrdersRef.current = readyOrders
+  }, [readyOrders])
+
+  const confirmDelivery = useCallback(async (raw: string) => {
+    const ticket = await resolveFicha(raw)
+    const order = readyOrdersRef.current.find((o) => o.ticket_number === ticket)
+    if (!order) return
+    await setOrderStatus(order.id, 'delivered')
+    setDeliveredMsg(ticket)
+    if (deliveredTimer.current) clearTimeout(deliveredTimer.current)
+    deliveredTimer.current = setTimeout(() => setDeliveredMsg(null), 4000)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (document.activeElement === deliveryInputRef.current) return
+      if (e.key === 'Enter') {
+        if (bufferRef.current.length > 0) {
+          e.preventDefault(); e.stopPropagation()
+          if (timerRef.current) clearTimeout(timerRef.current)
+          const val = bufferRef.current.trim()
+          bufferRef.current = ''; lastKeyTimeRef.current = 0
+          if (val) confirmDelivery(val)
+        }
+        return
+      }
+      if (e.key.length !== 1) return
+      const now = Date.now()
+      const delta = now - lastKeyTimeRef.current
+      if (lastKeyTimeRef.current !== 0 && delta < 80) {
+        e.preventDefault(); e.stopPropagation()
+        bufferRef.current += e.key
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => {
+          const val = bufferRef.current.trim()
+          bufferRef.current = ''; lastKeyTimeRef.current = 0
+          if (val) confirmDelivery(val)
+        }, 150)
+      } else {
+        bufferRef.current = e.key
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => { bufferRef.current = '' }, 200)
+      }
+      lastKeyTimeRef.current = now
+    }
+    window.addEventListener('keydown', handler, { capture: true })
+    return () => {
+      window.removeEventListener('keydown', handler, { capture: true })
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [confirmDelivery])
 
   useEffect(() => {
     const unsub1 = subscribeOrders(['pending', 'preparing'], setActiveOrders)
@@ -122,6 +183,7 @@ export default function Display() {
     return () => {
       unsub2()
       if (announcementTimer.current) clearTimeout(announcementTimer.current)
+      if (deliveredTimer.current) clearTimeout(deliveredTimer.current)
     }
   }, [])
 
@@ -150,7 +212,7 @@ export default function Display() {
         <Clock />
       </div>
 
-      {/* Announcement banner */}
+      {/* Ready announcement banner */}
       <AnimatePresence>
         {announcement && (
           <motion.div
@@ -162,6 +224,23 @@ export default function Display() {
           >
             <p className="text-center py-3 font-black text-xl text-black uppercase tracking-wide">
               🎉 Uai sô! Ficha #{announcement} tá prontinha no balcão! 🎉
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delivered confirmation banner */}
+      <AnimatePresence>
+        {deliveredMsg && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+            style={{ background: '#44BB44' }}
+          >
+            <p className="text-center py-3 font-black text-xl text-white uppercase tracking-wide">
+              ✅ Ficha #{deliveredMsg} entregue! Pode usar de novo, sô! 🎊
             </p>
           </motion.div>
         )}
@@ -286,6 +365,30 @@ export default function Display() {
           </div>
         </div>
       </div>
+
+      {/* Manual delivery input — subtle footer for staff */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); if (deliveryInput.trim()) { confirmDelivery(deliveryInput.trim()); setDeliveryInput('') } }}
+        className="flex items-center justify-end gap-2 px-4 py-2"
+        style={{ background: '#0d0d0d' }}
+      >
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Confirmar entrega:</span>
+        <input
+          ref={deliveryInputRef}
+          type="text"
+          inputMode="numeric"
+          placeholder="Nº ficha"
+          value={deliveryInput}
+          onChange={(e) => setDeliveryInput(e.target.value)}
+          className="w-24 px-3 py-1.5 rounded-xl text-sm font-bold text-center focus:outline-none"
+          style={{ background: '#222', color: '#FFD700', border: '1px solid #333' }}
+        />
+        <button type="submit"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-colors"
+          style={{ background: '#333', color: '#FFD700' }}>
+          OK
+        </button>
+      </form>
     </div>
   )
 }

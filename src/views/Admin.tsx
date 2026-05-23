@@ -403,9 +403,9 @@ const CATEGORIES_LIST = ['Salgados', 'Lanches', 'Outros', 'Bebidas']
 function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [items, setItems] = useState<MenuItem[]>([])
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ name: '', price: 0, sector: 'Fritadeira', category: 'Salgados' })
+  const [form, setForm] = useState({ name: '', price: 0, sector: 'Fritadeira', category: 'Salgados', code: '' })
   const [editId, setEditId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', price: 0, sector: '', category: '' })
+  const [editForm, setEditForm] = useState({ name: '', price: 0, sector: '', category: '', code: '' })
 
   useEffect(() => {
     const unsub = subscribeMenuItems(setItems)
@@ -416,7 +416,7 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
     if (!form.name.trim()) { addToast('Preencha o nome'); return }
     try {
       await addMenuItem(form)
-      setForm({ name: '', price: 0, sector: 'Fritadeira', category: 'Salgados' })
+      setForm({ name: '', price: 0, sector: 'Fritadeira', category: 'Salgados', code: '' })
       setAdding(false)
       addToast('Item adicionado!', 'success')
     } catch { addToast('Erro ao adicionar') }
@@ -457,7 +457,7 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
             exit={{ opacity: 0, height: 0 }}
             className="bg-white rounded-3xl p-4 shadow-sm mb-4 overflow-hidden"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
               <input type="text" placeholder="Nome do item" value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                 className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm col-span-2 sm:col-span-1" />
@@ -472,7 +472,11 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                 className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm bg-white">
                 {CATEGORIES_LIST.map((c) => <option key={c}>{c}</option>)}
               </select>
+              <input type="text" placeholder="Código cupom (4 dígitos)" value={form.code} maxLength={4}
+                onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono" />
             </div>
+            <p className="text-xs text-gray-400 mb-3">O código de 4 dígitos identifica o produto pelo QR Code do cupom físico.</p>
             <div className="flex gap-2">
               <button onClick={handleAdd} className="flex items-center gap-1.5 bg-accent text-white px-4 py-2 rounded-xl text-sm">
                 <Check size={14} /> Salvar
@@ -493,6 +497,7 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Preço</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Setor</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Categoria</th>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium">Cupom</th>
               <th className="text-right px-4 py-3 text-gray-500 font-medium">Ações</th>
             </tr>
           </thead>
@@ -515,12 +520,17 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                         {SECTORS_LIST.map((s) => <option key={s}>{s}</option>)}
                       </select>
                     </td>
+                    <td className="px-4 py-2">
+                      <select value={editForm.category} onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value }))}
+                        className="px-2 py-1 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:border-accent">
+                        {CATEGORIES_LIST.map((c) => <option key={c}>{c}</option>)}
+                      </select>
+                    </td>
                     <td className="px-4 py-2" colSpan={2}>
                       <div className="flex gap-2">
-                        <select value={editForm.category} onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value }))}
-                          className="px-2 py-1 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:border-accent">
-                          {CATEGORIES_LIST.map((c) => <option key={c}>{c}</option>)}
-                        </select>
+                        <input type="text" value={editForm.code} maxLength={4}
+                          onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                          placeholder="0000" className="w-16 px-2 py-1 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-accent" />
                         <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-700"><Check size={14} /></button>
                         <button onClick={() => setEditId(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
                       </div>
@@ -533,8 +543,15 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                     <td className="px-4 py-3"><span className="bg-accent/10 text-accent-dark text-xs px-2 py-0.5 rounded-lg">{item.sector}</span></td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{item.category}</td>
                     <td className="px-4 py-3">
+                      {item.code ? (
+                        <span className="font-mono text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-lg">{item.code}</span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditId(item.id); setEditForm({ name: item.name, price: item.price, sector: item.sector, category: item.category }) }}
+                        <button onClick={() => { setEditId(item.id); setEditForm({ name: item.name, price: item.price, sector: item.sector, category: item.category, code: item.code ?? '' }) }}
                           className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center">
                           <Edit2 size={12} />
                         </button>

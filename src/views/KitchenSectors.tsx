@@ -34,6 +34,10 @@ export default function KitchenSectors() {
     return unsub
   }, [])
 
+  useEffect(() => {
+    manualRef.current?.focus()
+  }, [])
+
   const flashMode = useCallback((mode: 'qr' | 'keyboard') => {
     setInputMode(mode)
     setTimeout(() => setInputMode(null), 1500)
@@ -155,21 +159,23 @@ export default function KitchenSectors() {
             )}
           </AnimatePresence>
 
-          {/* Manual input */}
+          {/* Manual input — numeric keypad friendly */}
           <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
             <div className="relative">
-              <Hash size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Hash size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent/60" />
               <input
                 ref={manualRef}
                 type="text"
-                placeholder="Ficha"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="Nº ficha"
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
-                className="pl-7 pr-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm w-24"
+                className="pl-8 pr-3 py-2.5 rounded-xl border-2 border-accent/40 focus:outline-none focus:border-accent text-base font-bold w-32 bg-white"
               />
             </div>
-            <button type="submit" className="bg-accent hover:bg-accent-dark text-white px-3 py-2 rounded-xl text-sm transition-colors font-medium">
-              OK
+            <button type="submit" className="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-xl text-sm transition-colors font-bold">
+              ✓ OK
             </button>
           </form>
 
