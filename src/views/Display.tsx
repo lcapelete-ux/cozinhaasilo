@@ -1,23 +1,80 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders } from '../services/firebaseService'
 import type { Order } from '../types'
 
-const CAIPIRA_MESSAGES = [
-  'Uai sô! Ficha #{n} tá prontinha!',
-  'Ocê pode vir buscar! Ficha #{n} tá pronta!',
-  'Misericórdia! Ficha #{n} saiu quentinha!',
-  'Vixe Maria! Ficha #{n} tá te esperando!',
-  'Trem bom demais! Ficha #{n} pronta!',
-  'Arrepia! Ficha #{n} saiu fresquinha!',
-  'Bão demais da conta! Ficha #{n} prontinha!',
-]
+// ── Bunting flags ────────────────────────────────────────────────────────────
+const FLAG_COLORS = ['#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800']
 
-function getCaipiraMessage(ticket: string): string {
-  const idx = Math.floor(Math.random() * CAIPIRA_MESSAGES.length)
-  return CAIPIRA_MESSAGES[idx].replace('{n}', ticket)
+function Bunting() {
+  return (
+    <div className="relative w-full overflow-hidden" style={{ height: 36 }}>
+      <svg width="100%" height="36" preserveAspectRatio="none">
+        {/* String */}
+        <path d="M0,8 Q50,4 100,8 Q150,12 200,8 Q250,4 300,8 Q350,12 400,8 Q450,4 500,8 Q550,12 600,8 Q650,4 700,8 Q750,12 800,8 Q850,4 900,8 Q950,12 1000,8 Q1100,4 1200,8 Q1300,12 1400,8" stroke="#888" strokeWidth="1.5" fill="none" />
+        {FLAG_COLORS.map((color, i) => {
+          const x = (i / (FLAG_COLORS.length - 1)) * 1400
+          return (
+            <polygon
+              key={i}
+              points={`${x - 10},4 ${x + 10},4 ${x},28`}
+              fill={color}
+              opacity={0.95}
+            />
+          )
+        })}
+      </svg>
+    </div>
+  )
 }
 
+// ── Animated fire ────────────────────────────────────────────────────────────
+function FireAnimated({ size = 48 }: { size?: number }) {
+  return (
+    <motion.div
+      style={{ fontSize: size, lineHeight: 1, display: 'inline-block', originY: 1 }}
+      animate={{
+        scaleY: [1, 1.08, 0.95, 1.06, 1],
+        scaleX: [1, 0.96, 1.04, 0.97, 1],
+        rotate: [-2, 2, -1, 3, -2],
+      }}
+      transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      🔥
+    </motion.div>
+  )
+}
+
+function FireReady({ size = 48 }: { size?: number }) {
+  return (
+    <motion.div
+      style={{ fontSize: size, lineHeight: 1, display: 'inline-block' }}
+      animate={{ scale: [1, 1.15, 1], rotate: [-3, 3, -3] }}
+      transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      🔥
+    </motion.div>
+  )
+}
+
+// ── Clock ────────────────────────────────────────────────────────────────────
+function Clock() {
+  const [time, setTime] = useState(new Date())
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const h = String(time.getHours()).padStart(2, '0')
+  const m = String(time.getMinutes()).padStart(2, '0')
+  return (
+    <span className="font-black text-3xl md:text-4xl tabular-nums" style={{ color: '#FF8800' }}>
+      {h}<motion.span animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }}>:</motion.span>{m}
+    </span>
+  )
+}
+
+// ── Sound ────────────────────────────────────────────────────────────────────
 function playChime() {
   try {
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
@@ -25,120 +82,209 @@ function playChime() {
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.frequency.value = freq
-      osc.type = 'sine'
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.frequency.value = freq; osc.type = 'sine'
       gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.15)
       gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + i * 0.15 + 0.05)
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.4)
       osc.start(ctx.currentTime + i * 0.15)
       osc.stop(ctx.currentTime + i * 0.15 + 0.4)
     })
-  } catch {
-    // audio not available
-  }
+  } catch { /* audio not available */ }
 }
 
+// ── Main Display ─────────────────────────────────────────────────────────────
 export default function Display() {
+  const [activeOrders, setActiveOrders] = useState<Order[]>([])
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
-  const [announcement, setAnnouncement] = useState<{ ticket: string; message: string } | null>(null)
-  const prevTicketsRef = useRef<Set<string>>(new Set())
-  const announcementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [announcement, setAnnouncement] = useState<string | null>(null)
+  const prevReadyRef = useRef<Set<string>>(new Set())
+  const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const unsub = subscribeOrders(['ready'], (orders) => {
-      const newTickets = new Set(orders.map((o) => o.ticket_number))
+    const unsub1 = subscribeOrders(['pending', 'preparing'], setActiveOrders)
+    return unsub1
+  }, [])
 
-      // Find newly appeared tickets
-      orders.forEach((order) => {
-        if (!prevTicketsRef.current.has(order.ticket_number)) {
+  useEffect(() => {
+    const unsub2 = subscribeOrders(['ready'], (orders) => {
+      orders.forEach((o) => {
+        if (!prevReadyRef.current.has(o.ticket_number)) {
           playChime()
-          const message = getCaipiraMessage(order.ticket_number)
-          setAnnouncement({ ticket: order.ticket_number, message })
-          if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current)
-          announcementTimerRef.current = setTimeout(() => setAnnouncement(null), 5000)
+          setAnnouncement(o.ticket_number)
+          if (announcementTimer.current) clearTimeout(announcementTimer.current)
+          announcementTimer.current = setTimeout(() => setAnnouncement(null), 5000)
         }
       })
-
-      prevTicketsRef.current = newTickets
+      prevReadyRef.current = new Set(orders.map((o) => o.ticket_number))
       setReadyOrders(orders)
     })
     return () => {
-      unsub()
-      if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current)
+      unsub2()
+      if (announcementTimer.current) clearTimeout(announcementTimer.current)
     }
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#1a1004] text-white overflow-hidden relative">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-5" style={{
-        backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)',
-        backgroundSize: '20px 20px',
-      }} />
+    <div className="min-h-screen flex flex-col" style={{ background: '#111111' }}>
+      {/* Bunting */}
+      <Bunting />
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3" style={{ background: '#1a1a1a' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+            style={{ background: 'linear-gradient(135deg, #FF6B00, #FF2200)' }}>
+            🔥
+          </div>
+          <div>
+            <h1 className="font-black text-xl md:text-2xl uppercase italic tracking-wide"
+              style={{ color: '#FFD700', textShadow: '0 0 20px rgba(255,200,0,0.5)' }}>
+              Arraiá do Lar São Cristóvão
+            </h1>
+            <p className="text-xs font-semibold tracking-widest" style={{ color: '#FF8800' }}>
+              ✦ Festa de São João 2026
+            </p>
+          </div>
+        </div>
+        <Clock />
+      </div>
 
       {/* Announcement banner */}
       <AnimatePresence>
         {announcement && (
           <motion.div
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            className="relative z-10 bg-amber-500 text-amber-900 text-center py-4 px-6"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+            style={{ background: '#FFD700' }}
           >
-            <p className="font-serif italic text-2xl md:text-3xl font-bold">
-              {announcement.message}
+            <p className="text-center py-3 font-black text-xl text-black uppercase tracking-wide">
+              🎉 Uai sô! Ficha #{announcement} tá prontinha no balcão! 🎉
             </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <div className="relative z-10 text-center py-8 px-4">
-        <div className="text-5xl mb-2">🌽</div>
-        <h1 className="font-serif italic text-4xl md:text-5xl text-amber-400">Arraiá do</h1>
-        <h2 className="font-serif italic text-2xl md:text-3xl text-amber-300">Lar São Cristóvão</h2>
-        <div className="mt-3 inline-block bg-amber-500/20 border border-amber-500/40 rounded-2xl px-4 py-1">
-          <p className="text-amber-400 text-sm font-medium">
-            {readyOrders.length === 0 ? 'Nenhum pedido pronto' : `${readyOrders.length} pedido(s) pronto(s)!`}
-          </p>
+      {/* Main panels */}
+      <div className="flex flex-1 divide-x divide-white/10">
+        {/* LEFT — Em produção */}
+        <div className="flex-1 flex flex-col" style={{ background: '#161616' }}>
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <motion.div
+                animate={{ scale: [1, 1.3, 1], opacity: [1, 0.6, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="w-3 h-3 rounded-full bg-orange-500"
+              />
+              <h2 className="font-black text-lg md:text-xl uppercase italic tracking-wide text-orange-400">
+                Esquentando o Fuzuê
+              </h2>
+            </div>
+            <ChefHat size={22} className="text-white/30" />
+          </div>
+
+          {/* Orders list */}
+          <div className="flex-1 p-4 overflow-auto">
+            {activeOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 opacity-30">
+                <ChefHat size={48} className="text-white" strokeWidth={1} />
+                <p className="text-white/60 text-sm italic">Cozinha livre no momento</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <AnimatePresence>
+                  {activeOrders.map((order) => (
+                    <motion.div
+                      key={order.id}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      className="rounded-2xl p-3 flex flex-col items-center gap-2"
+                      style={{ background: '#222' }}
+                    >
+                      <FireAnimated size={36} />
+                      <div className="text-center">
+                        <p className="text-white/40 text-xs uppercase tracking-widest">Ficha</p>
+                        <p className="font-black text-2xl text-white">#{order.ticket_number}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {order.items.slice(0, 2).map((item, i) => (
+                          <span key={i} className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-lg">
+                            {item.name}
+                          </span>
+                        ))}
+                        {order.items.length > 2 && (
+                          <span className="text-xs text-white/30">+{order.items.length - 2}</span>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Ready tickets grid */}
-      <div className="relative z-10 px-6 pb-8">
-        {readyOrders.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-white/30 text-xl font-serif italic">Aguardando pedidos...</p>
+        {/* RIGHT — Pronto */}
+        <div className="flex-1 flex flex-col" style={{ background: '#1a1a1a' }}>
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <motion.div
+                animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
+                transition={{ duration: 0.6, repeat: Infinity }}
+                className="w-3 h-3 rounded-full bg-yellow-400"
+              />
+              <h2 className="font-black text-lg md:text-xl uppercase italic tracking-wide text-white">
+                Tá no Ponto, Sô!
+              </h2>
+            </div>
+            <span className="font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider"
+              style={{ background: '#FFD700', color: '#111' }}>
+              Balcão
+            </span>
           </div>
-        ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 max-w-6xl mx-auto">
-            <AnimatePresence>
-              {readyOrders.map((order) => (
-                <motion.div
-                  key={order.id}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  className="aspect-square bg-amber-500 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-amber-900/50"
-                >
-                  <span className="text-amber-900 text-xs font-medium">Ficha</span>
-                  <span className="text-amber-900 text-2xl md:text-3xl font-black">
-                    #{order.ticket_number}
-                  </span>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
 
-      {/* Footer */}
-      <div className="relative z-10 text-center pb-4">
-        <p className="text-white/20 text-xs">
-          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
+          {/* Ready list */}
+          <div className="flex-1 p-4 overflow-auto">
+            {readyOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 opacity-30">
+                <UtensilsCrossed size={48} className="text-white" strokeWidth={1} />
+                <p className="text-white/60 text-sm italic uppercase tracking-widest">O Arraiá tá começando...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <AnimatePresence>
+                  {readyOrders.map((order) => (
+                    <motion.div
+                      key={order.id}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      className="rounded-2xl p-3 flex flex-col items-center gap-2 border"
+                      style={{ background: '#222', borderColor: '#FFD70040' }}
+                    >
+                      <FireReady size={40} />
+                      <div className="text-center">
+                        <p className="text-yellow-400/60 text-xs uppercase tracking-widest">Ficha</p>
+                        <p className="font-black text-2xl" style={{ color: '#FFD700' }}>
+                          #{order.ticket_number}
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold px-3 py-0.5 rounded-full uppercase"
+                        style={{ background: '#FFD700', color: '#111' }}>
+                        Pronto!
+                      </span>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
