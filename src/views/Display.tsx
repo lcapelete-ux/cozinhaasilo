@@ -46,14 +46,14 @@ function FireAnimated({ size = 48 }: { size?: number }) {
   )
 }
 
-function FireReady({ size = 48 }: { size?: number }) {
+function ReadyIcon({ size = 48 }: { size?: number }) {
   return (
     <motion.div
       style={{ fontSize: size, lineHeight: 1, display: 'inline-block' }}
-      animate={{ scale: [1, 1.15, 1], rotate: [-3, 3, -3] }}
-      transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
+      animate={{ y: [0, -6, 0], scale: [1, 1.1, 1] }}
+      transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
     >
-      🔥
+      🍽️
     </motion.div>
   )
 }
@@ -93,6 +93,16 @@ function playChime() {
   } catch { /* audio not available */ }
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function dedup(orders: Order[]): Order[] {
+  const seen = new Set<string>()
+  return orders.filter((o) => {
+    if (seen.has(o.ticket_number)) return false
+    seen.add(o.ticket_number)
+    return true
+  })
+}
+
 // ── Main Display ─────────────────────────────────────────────────────────────
 export default function Display() {
   const [activeOrders, setActiveOrders] = useState<Order[]>([])
@@ -103,6 +113,7 @@ export default function Display() {
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const deliveredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyOrdersRef = useRef<Order[]>([])
+  const activeOrdersRef = useRef<Order[]>([])
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -113,9 +124,15 @@ export default function Display() {
     readyOrdersRef.current = readyOrders
   }, [readyOrders])
 
+  useEffect(() => {
+    activeOrdersRef.current = activeOrders
+  }, [activeOrders])
+
   const confirmDelivery = useCallback(async (raw: string) => {
     const ticket = await resolveFicha(raw)
-    const order = readyOrdersRef.current.find((o) => o.ticket_number === ticket)
+    const order =
+      readyOrdersRef.current.find((o) => o.ticket_number === ticket) ??
+      activeOrdersRef.current.find((o) => o.ticket_number === ticket)
     if (!order) return
     await setOrderStatus(order.id, 'delivered')
     setDeliveredMsg(ticket)
@@ -163,13 +180,14 @@ export default function Display() {
   }, [confirmDelivery])
 
   useEffect(() => {
-    const unsub1 = subscribeOrders(['pending', 'preparing'], setActiveOrders)
+    const unsub1 = subscribeOrders(['pending', 'preparing'], (orders) => setActiveOrders(dedup(orders)))
     return unsub1
   }, [])
 
   useEffect(() => {
     const unsub2 = subscribeOrders(['ready'], (orders) => {
-      orders.forEach((o) => {
+      const unique = dedup(orders)
+      unique.forEach((o) => {
         if (!prevReadyRef.current.has(o.ticket_number)) {
           playChime()
           setAnnouncement(o.ticket_number)
@@ -177,8 +195,8 @@ export default function Display() {
           announcementTimer.current = setTimeout(() => setAnnouncement(null), 5000)
         }
       })
-      prevReadyRef.current = new Set(orders.map((o) => o.ticket_number))
-      setReadyOrders(orders)
+      prevReadyRef.current = new Set(unique.map((o) => o.ticket_number))
+      setReadyOrders(unique)
     })
     return () => {
       unsub2()
@@ -346,7 +364,7 @@ export default function Display() {
                       className="rounded-2xl p-3 flex flex-col items-center gap-2 border"
                       style={{ background: '#222', borderColor: '#FFD70040' }}
                     >
-                      <FireReady size={40} />
+                      <ReadyIcon size={40} />
                       <div className="text-center">
                         <p className="text-yellow-400/60 text-xs uppercase tracking-widest">Ficha</p>
                         <p className="font-black text-2xl" style={{ color: '#FFD700' }}>
