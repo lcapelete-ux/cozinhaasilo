@@ -19,6 +19,7 @@ import ExtraFichas from './views/ExtraFichas'
 import AdminDashboard from './views/AdminDashboard'
 import Admin from './views/Admin'
 import Toast, { type ToastMessage } from './components/Toast'
+import ViewErrorBoundary from './components/ViewErrorBoundary'
 import type { AppUser, ViewName } from './types'
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -169,7 +170,9 @@ export default function App() {
           >
             <X size={18} />
           </button>
-          <DisplayComponent />
+          <ViewErrorBoundary onReset={() => setCurrentView('reception')}>
+            <DisplayComponent />
+          </ViewErrorBoundary>
         </div>
         <Toast toasts={toasts} onRemove={removeToast} />
       </AppContext.Provider>
@@ -279,7 +282,9 @@ export default function App() {
               transition={{ duration: 0.2 }}
               className="min-h-screen"
             >
-              <ViewComponent />
+              <ViewErrorBoundary key={currentView} onReset={() => setCurrentView(currentView)}>
+                <ViewComponent />
+              </ViewErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </main>
