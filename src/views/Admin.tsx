@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Plus, Trash2, Edit2, Check, X, Eye, EyeOff } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import {
   subscribeUsers, addUser, updateUser, deleteUser,
   subscribeMenuItems, addMenuItem, updateMenuItem, deleteMenuItem,
@@ -8,7 +9,7 @@ import {
 import { useApp } from '../App'
 import type { User, MenuItem } from '../types'
 
-type Tab = 'users' | 'menu'
+type Tab = 'users' | 'menu' | 'fichas'
 
 const ALL_VIEWS = 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,admin'
 
@@ -27,7 +28,7 @@ export default function Admin() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        {(['users', 'menu'] as Tab[]).map((t) => (
+        {(['users', 'menu', 'fichas'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -42,8 +43,8 @@ export default function Admin() {
               />
             )}
             <span className="relative flex items-center gap-1.5">
-              {t === 'users' ? <Users size={15} /> : <UtensilsCrossed size={15} />}
-              {t === 'users' ? 'Usuários' : 'Cardápio'}
+              {t === 'users' ? <Users size={15} /> : t === 'menu' ? <UtensilsCrossed size={15} /> : <Ticket size={15} />}
+              {t === 'users' ? 'Usuários' : t === 'menu' ? 'Cardápio' : 'Fichas'}
             </span>
           </button>
         ))}
@@ -59,7 +60,164 @@ export default function Admin() {
             <MenuTab addToast={addToast} />
           </motion.div>
         )}
+        {tab === 'fichas' && (
+          <motion.div key="fichas" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <FichasTab />
+          </motion.div>
+        )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+// ── Fichas Tab ───────────────────────────────────────────────────────────────
+
+function FichasTab() {
+  const [start, setStart] = useState(1)
+  const [end, setEnd] = useState(50)
+  const printRef = useRef<HTMLDivElement>(null)
+
+  const count = Math.max(0, end - start + 1)
+  const numbers = count > 0 ? Array.from({ length: Math.min(count, 500) }, (_, i) => start + i) : []
+
+  const handlePrint = () => {
+    const printContent = printRef.current
+    if (!printContent) return
+    const win = window.open('', '_blank', 'width=900,height=700')
+    if (!win) return
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Fichas — Arraiá do Lar São Cristóvão</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Georgia, serif; background: white; }
+            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 16px; }
+            .ficha {
+              border: 2px dashed #5A5A40;
+              border-radius: 12px;
+              padding: 12px 8px;
+              text-align: center;
+              page-break-inside: avoid;
+              background: #FFFDF5;
+            }
+            .ficha-title { font-size: 7px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+            .ficha-event { font-size: 8px; font-style: italic; color: #5A5A40; margin-bottom: 6px; font-weight: bold; }
+            .ficha-number { font-size: 28px; font-weight: 900; color: #3A3A28; line-height: 1; margin-bottom: 6px; }
+            .ficha-qr { display: flex; justify-content: center; margin-bottom: 4px; }
+            .ficha-qr svg { width: 72px !important; height: 72px !important; }
+            .ficha-code { font-size: 8px; color: #aaa; font-family: monospace; }
+            @media print {
+              body { margin: 0; }
+              .grid { padding: 8px; gap: 6px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="grid">
+            ${numbers.map((n) => {
+              const svgEl = printContent.querySelector(`[data-ficha="${n}"] svg`)
+              const svgHtml = svgEl ? svgEl.outerHTML : ''
+              return `
+                <div class="ficha">
+                  <div class="ficha-title">Ficha</div>
+                  <div class="ficha-event">Arraiá do Lar São Cristóvão</div>
+                  <div class="ficha-number">#${n}</div>
+                  <div class="ficha-qr">${svgHtml}</div>
+                  <div class="ficha-code">${n}</div>
+                </div>
+              `
+            }).join('')}
+          </div>
+          <script>window.onload = () => { window.print(); }<\/script>
+        </body>
+      </html>
+    `)
+    win.document.close()
+  }
+
+  return (
+    <div>
+      {/* Controls */}
+      <div className="bg-white rounded-3xl p-5 shadow-sm mb-5">
+        <h3 className="font-serif italic text-lg text-accent-dark mb-4">Gerar Fichas para Impressão</h3>
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Número inicial</label>
+            <input
+              type="number"
+              min={1}
+              value={start}
+              onChange={(e) => setStart(Math.max(1, Number(e.target.value)))}
+              className="w-28 px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Número final</label>
+            <input
+              type="number"
+              min={start}
+              max={start + 499}
+              value={end}
+              onChange={(e) => setEnd(Math.min(start + 499, Math.max(start, Number(e.target.value))))}
+              className="w-28 px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+            />
+          </div>
+          <div className="bg-accent/10 rounded-2xl px-4 py-2 text-sm text-accent-dark font-medium">
+            {count} ficha{count !== 1 ? 's' : ''}
+          </div>
+          <button
+            onClick={handlePrint}
+            disabled={count === 0}
+            className="flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-5 py-2 rounded-2xl text-sm font-medium transition-colors disabled:opacity-40 ml-auto"
+          >
+            <Printer size={16} />
+            Gerar PDF / Imprimir
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">
+          Máximo de 500 fichas por vez. Cada ficha contém um QR Code com o número da ficha.
+        </p>
+      </div>
+
+      {/* Hidden QR source for print extraction */}
+      <div ref={printRef} className="hidden">
+        {numbers.map((n) => (
+          <div key={n} data-ficha={n}>
+            <QRCodeSVG value={String(n)} size={72} />
+          </div>
+        ))}
+      </div>
+
+      {/* Preview */}
+      {numbers.length > 0 && (
+        <div className="bg-white rounded-3xl p-5 shadow-sm">
+          <h3 className="font-medium text-gray-700 mb-4 text-sm">
+            Pré-visualização (primeiras {Math.min(numbers.length, 12)} fichas)
+          </h3>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+            {numbers.slice(0, 12).map((n) => (
+              <div
+                key={n}
+                className="border-2 border-dashed border-accent/40 rounded-2xl p-3 text-center bg-amber-50/50"
+              >
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Ficha</p>
+                <p className="text-xs text-accent italic mb-2 font-semibold leading-tight">Arraiá do Lar</p>
+                <p className="font-black text-xl text-accent-dark mb-2">#{n}</p>
+                <div className="flex justify-center">
+                  <QRCodeSVG value={String(n)} size={60} />
+                </div>
+              </div>
+            ))}
+            {numbers.length > 12 && (
+              <div className="border-2 border-dashed border-gray-200 rounded-2xl p-3 text-center flex items-center justify-center">
+                <p className="text-sm text-gray-400 font-medium">+{numbers.length - 12} mais</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
