@@ -48,6 +48,9 @@ export default function Reception() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Se o input de ficha está em foco, deixa digitar normalmente
+      if (document.activeElement === inputRef.current) return
+
       if (e.key === 'Enter') {
         if (bufferRef.current.length > 0) {
           e.preventDefault()
@@ -159,13 +162,20 @@ export default function Reception() {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Número da ficha (ou bipe QR Code)"
+                  placeholder="Clique aqui e digite a ficha — ou bipe o QR Code"
                   value={ticketInput}
                   onChange={(e) => {
                     setTicketInput(e.target.value)
                     setResolvedTicket(e.target.value)
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (ticketInput.trim()) handleSubmit()
+                    }
+                  }}
                   className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+                  autoComplete="off"
                 />
               </div>
               <AnimatePresence>
