@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap } from 'lucide-react'
+import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History } from 'lucide-react'
 import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem } from '../types'
@@ -51,6 +51,12 @@ function playProductAddSound() {
 
 const COUNTDOWN_SECONDS = 5
 
+interface SentOrder {
+  ficha: string
+  items: SessionItem[]
+  sentAt: Date
+}
+
 export default function Reception() {
   const { addToast } = useApp()
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
@@ -59,6 +65,7 @@ export default function Reception() {
   const [lastScan, setLastScan] = useState<{ type: 'ficha' | 'product' | 'error'; label: string } | null>(null)
   const [sending, setSending] = useState(false)
   const [lastSent, setLastSent] = useState<string | null>(null)
+  const [sentHistory, setSentHistory] = useState<SentOrder[]>([])
 
   // Refs to avoid stale closures in callbacks
   const sessionRef = useRef<Session | null>(null)
@@ -103,11 +110,13 @@ export default function Reception() {
       await createOrder(s.ficha, s.items)
       playOrderSentSound()
       setLastSent(s.ficha)
+      setSentHistory(prev => [{ ficha: s.ficha, items: s.items, sentAt: new Date() }, ...prev].slice(0, 20))
       setSession(null)
       sessionRef.current = null
       setCountdown(COUNTDOWN_SECONDS)
       setLastScan(null)
-    } catch {
+    } catch (err) {
+      console.error('createOrder error:', err)
       addToast('Erro ao enviar pedido para a cozinha')
     } finally {
       setSending(false)
@@ -413,6 +422,44 @@ export default function Reception() {
             </div>
           ))}
         </div>
+
+        {/* Sent orders history */}
+        {sentHistory.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-3">
+              <History size={16} className="text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Pedidos enviados hoje</h2>
+            </div>
+            <div className="space-y-2">
+              <AnimatePresence>
+                {sentHistory.map((order, idx) => (
+                  <motion.div
+                    key={`${order.ficha}-${order.sentAt.getTime()}`}
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx === 0 ? 0 : 0 }}
+                    className="bg-white rounded-2xl shadow-sm px-4 py-3 flex items-start justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+                        <CheckCircle size={18} className="text-green-500" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-accent-dark text-sm">Ficha #{order.ficha}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {order.items.map(i => `${i.name} ×${i.quantity}`).join(' · ')}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-300 shrink-0 mt-1">
+                      {order.sentAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
