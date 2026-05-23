@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package } from 'lucide-react'
-import { subscribeOrders, getOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, type ActiveSessionData } from '../services/firebaseService'
+import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, type ActiveSessionData } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { Order, OrderStatus } from '../types'
 
@@ -55,15 +55,18 @@ export default function KitchenSectors() {
     try {
       const ticket = await resolveFicha(raw)
       setLastScanned(ticket)
-      const order = await getOrderByTicket(ticket)
-      if (!order) { addToast(`Ficha #${ticket} não encontrada`); return }
+      const order = await getActiveOrderByTicket(ticket)
+      if (!order) { addToast(`Ficha #${ticket} não encontrada ou já entregue`); return }
       let nextStatus: OrderStatus | null = null
       if (order.status === 'pending' || order.status === 'preparing') nextStatus = 'ready'
       else if (order.status === 'ready') nextStatus = 'delivered'
-      if (!nextStatus) { addToast(`Ficha #${ticket} já foi entregue`); return }
+      if (!nextStatus) return
       await setOrderStatus(order.id, nextStatus)
-      const label = nextStatus === 'ready' ? 'pronta' : 'entregue'
-      addToast(`Ficha #${ticket} marcada como ${label}!`, 'success')
+      if (nextStatus === 'ready') {
+        addToast(`Ficha #${ticket} pronta! 🔔 Aparece no painel.`, 'success')
+      } else {
+        addToast(`Ficha #${ticket} entregue! ✅ Liberada para uso.`, 'success')
+      }
     } catch {
       addToast('Erro ao processar ficha')
     }
