@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, type ActiveSessionData } from '../services/firebaseService'
+import readySound from '../assets/ready.mp3'
+
+function playReadySound() {
+  try {
+    const audio = new Audio(readySound)
+    audio.play().catch(() => {})
+  } catch { /* audio not available */ }
+}
 import { useApp } from '../App'
 import type { Order, OrderStatus } from '../types'
 
@@ -63,6 +71,7 @@ export default function KitchenSectors() {
       if (!nextStatus) return
       await setOrderStatus(order.id, nextStatus)
       if (nextStatus === 'ready') {
+        playReadySound()
         addToast(`Ficha #${ticket} pronta! 🔔 Aparece no painel.`, 'success')
       } else {
         addToast(`Ficha #${ticket} entregue! ✅ Liberada para uso.`, 'success')
