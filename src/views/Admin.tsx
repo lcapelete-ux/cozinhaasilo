@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, type LucideIcon } from 'lucide-react'
+import { DISPLAY_ZOOM_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   subscribeUsers, addUser, updateUser, deleteUser,
@@ -231,6 +232,61 @@ function FichasTab() {
 
 // ── Dados Tab ────────────────────────────────────────────────────────────────
 
+const ZOOM_STEPS = [0.75, 0.85, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3]
+const SECTORS_ZOOM_KEY = 'sectors-zoom'
+
+function readZoom(key: string) {
+  const v = parseFloat(localStorage.getItem(key) ?? '1')
+  return isNaN(v) ? 1 : v
+}
+
+function applyZoom(key: string, value: number, eventName: string) {
+  localStorage.setItem(key, String(value))
+  window.dispatchEvent(new Event(eventName))
+}
+
+function ZoomRow({ label, icon: Icon, storageKey, eventName }: { label: string; icon: LucideIcon; storageKey: string; eventName: string }) {
+  const [zoom, setZoom] = useState(() => readZoom(storageKey))
+  const idx = ZOOM_STEPS.findIndex((s) => Math.abs(s - zoom) < 0.01)
+  const safeIdx = idx === -1 ? ZOOM_STEPS.indexOf(1) : idx
+
+  const change = (delta: number) => {
+    const next = ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, safeIdx + delta))]
+    setZoom(next)
+    applyZoom(storageKey, next, eventName)
+  }
+  const reset = () => {
+    setZoom(1)
+    applyZoom(storageKey, 1, eventName)
+  }
+
+  return (
+    <div className="flex items-center gap-4 py-3 border-b border-gray-100 last:border-0">
+      <div className="flex items-center gap-2 flex-1">
+        <Icon size={16} className="text-gray-400" />
+        <span className="text-sm font-medium text-gray-700">{label}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={() => change(-1)} disabled={safeIdx === 0}
+          className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 transition-colors">
+          <ZoomOut size={14} />
+        </button>
+        <span className="text-sm font-black tabular-nums w-14 text-center text-gray-700">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button onClick={() => change(1)} disabled={safeIdx === ZOOM_STEPS.length - 1}
+          className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 transition-colors">
+          <ZoomIn size={14} />
+        </button>
+        <button onClick={reset} disabled={zoom === 1}
+          className="text-xs text-gray-400 hover:text-accent-dark disabled:opacity-30 ml-1 transition-colors">
+          reset
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [orderCount, setOrderCount] = useState<number | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -256,6 +312,14 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
 
   return (
     <div className="space-y-4">
+      {/* Zoom dos monitores */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm">
+        <h3 className="font-bold text-gray-800 mb-1">Zoom dos monitores</h3>
+        <p className="text-sm text-gray-400 mb-4">Ajuste o tamanho da interface em cada TV. As alterações têm efeito imediato.</p>
+        <ZoomRow label="Monitor de Produção (Setores)" icon={Monitor} storageKey={SECTORS_ZOOM_KEY} eventName="sectors-zoom-change" />
+        <ZoomRow label="Painel Externo (Display)" icon={Tv2} storageKey={DISPLAY_ZOOM_KEY} eventName="display-zoom-change" />
+      </div>
+
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-red-100">
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center shrink-0 mt-0.5">

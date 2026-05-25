@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChefHat, UtensilsCrossed, ZoomIn, ZoomOut } from 'lucide-react'
+import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/firebaseService'
 import type { Order } from '../types'
 
-const ZOOM_KEY = 'display-zoom'
-const ZOOM_STEPS = [0.75, 0.85, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3]
+export const DISPLAY_ZOOM_KEY = 'display-zoom'
 
 const JUNINA_PHRASES = [
   'Eita! O trem tá pronto, sô!',
@@ -84,7 +83,7 @@ function Clock() {
   const h = String(time.getHours()).padStart(2, '0')
   const m = String(time.getMinutes()).padStart(2, '0')
   return (
-    <span className="font-black text-3xl md:text-4xl tabular-nums" style={{ color: '#FF8800' }}>
+    <span className="font-black text-4xl md:text-5xl tabular-nums" style={{ color: '#FF8800' }}>
       {h}<motion.span animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }}>:</motion.span>{m}
     </span>
   )
@@ -125,21 +124,22 @@ export default function Display() {
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
   const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
   const [deliveredMsg, setDeliveredMsg] = useState<string | null>(null)
-  const [zoom, setZoom] = useState<number>(() => {
-    const saved = localStorage.getItem(ZOOM_KEY)
+  const readZoom = () => {
+    const saved = localStorage.getItem(DISPLAY_ZOOM_KEY)
     const val = saved ? parseFloat(saved) : 1
-    return ZOOM_STEPS.includes(val) ? val : 1
-  })
-
-  const handleZoom = (delta: number) => {
-    setZoom((prev) => {
-      const idx = ZOOM_STEPS.indexOf(prev)
-      const nextIdx = Math.min(ZOOM_STEPS.length - 1, Math.max(0, idx + delta))
-      const next = ZOOM_STEPS[nextIdx]
-      localStorage.setItem(ZOOM_KEY, String(next))
-      return next
-    })
+    return isNaN(val) ? 1 : val
   }
+  const [zoom, setZoom] = useState<number>(readZoom)
+
+  useEffect(() => {
+    const onStorage = () => setZoom(readZoom())
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('display-zoom-change', onStorage)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('display-zoom-change', onStorage)
+    }
+  }, [])
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const deliveredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -242,18 +242,18 @@ export default function Display() {
       <Bunting />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ background: '#1a1a1a' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+      <div className="flex items-center justify-between px-6 py-4" style={{ background: '#1a1a1a' }}>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl"
             style={{ background: 'linear-gradient(135deg, #FF6B00, #FF2200)' }}>
             🔥
           </div>
           <div>
-            <h1 className="font-black text-xl md:text-2xl uppercase italic tracking-wide"
+            <h1 className="font-black text-3xl md:text-4xl uppercase italic tracking-wide"
               style={{ color: '#FFD700', textShadow: '0 0 20px rgba(255,200,0,0.5)' }}>
               Arraiá do Lar São Cristóvão
             </h1>
-            <p className="text-xs font-semibold tracking-widest" style={{ color: '#FF8800' }}>
+            <p className="text-sm font-semibold tracking-widest mt-0.5" style={{ color: '#FF8800' }}>
               ✦ Festa de São João 2026
             </p>
           </div>
@@ -330,7 +330,7 @@ export default function Display() {
             className="overflow-hidden"
             style={{ background: '#44BB44' }}
           >
-            <p className="text-center py-3 font-black text-xl text-white uppercase tracking-wide">
+            <p className="text-center py-4 font-black text-2xl text-white uppercase tracking-wide">
               ✅ Ficha #{deliveredMsg} entregue! Pode usar de novo, sô! 🎊
             </p>
           </motion.div>
@@ -342,29 +342,29 @@ export default function Display() {
         {/* LEFT — Em produção */}
         <div className="flex-1 flex flex-col" style={{ background: '#161616' }}>
           {/* Panel header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
               <motion.div
                 animate={{ scale: [1, 1.3, 1], opacity: [1, 0.6, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
-                className="w-3 h-3 rounded-full bg-orange-500"
+                className="w-4 h-4 rounded-full bg-orange-500"
               />
-              <h2 className="font-black text-lg md:text-xl uppercase italic tracking-wide text-orange-400">
+              <h2 className="font-black text-2xl uppercase italic tracking-wide text-orange-400">
                 Esquentando o Fuzuê
               </h2>
             </div>
-            <ChefHat size={22} className="text-white/30" />
+            <ChefHat size={28} className="text-white/30" />
           </div>
 
           {/* Orders list */}
-          <div className="flex-1 p-4 overflow-auto">
+          <div className="flex-1 p-5 overflow-auto">
             {activeOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 opacity-30">
-                <ChefHat size={48} className="text-white" strokeWidth={1} />
-                <p className="text-white/60 text-sm italic">Cozinha livre no momento</p>
+              <div className="flex flex-col items-center justify-center h-full gap-4 opacity-30">
+                <ChefHat size={64} className="text-white" strokeWidth={1} />
+                <p className="text-white/60 text-xl italic">Cozinha livre no momento</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <AnimatePresence>
                   {activeOrders.map((order) => (
                     <motion.div
@@ -372,13 +372,13 @@ export default function Display() {
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
-                      className="rounded-2xl p-3 flex flex-col items-center gap-2"
+                      className="rounded-3xl p-5 flex flex-col items-center gap-3"
                       style={{ background: '#222' }}
                     >
-                      <FireAnimated size={36} />
+                      <FireAnimated size={56} />
                       <div className="text-center">
-                        <p className="text-white/40 text-xs uppercase tracking-widest">Ficha</p>
-                        <p className="font-black text-2xl text-white">#{order.ticket_number}</p>
+                        <p className="text-white/40 text-sm uppercase tracking-widest">Ficha</p>
+                        <p className="font-black text-5xl text-white leading-none mt-1">#{order.ticket_number}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -391,32 +391,32 @@ export default function Display() {
         {/* RIGHT — Pronto */}
         <div className="flex-1 flex flex-col" style={{ background: '#1a1a1a' }}>
           {/* Panel header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
               <motion.div
                 animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
                 transition={{ duration: 0.6, repeat: Infinity }}
-                className="w-3 h-3 rounded-full bg-yellow-400"
+                className="w-4 h-4 rounded-full bg-yellow-400"
               />
-              <h2 className="font-black text-lg md:text-xl uppercase italic tracking-wide text-white">
+              <h2 className="font-black text-2xl uppercase italic tracking-wide text-white">
                 Tá no Ponto, Sô!
               </h2>
             </div>
-            <span className="font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider"
+            <span className="font-black text-sm px-4 py-1.5 rounded-full uppercase tracking-wider"
               style={{ background: '#FFD700', color: '#111' }}>
               Balcão
             </span>
           </div>
 
           {/* Ready list */}
-          <div className="flex-1 p-4 overflow-auto">
+          <div className="flex-1 p-5 overflow-auto">
             {readyOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 opacity-30">
-                <UtensilsCrossed size={48} className="text-white" strokeWidth={1} />
-                <p className="text-white/60 text-sm italic uppercase tracking-widest">O Arraiá tá começando...</p>
+              <div className="flex flex-col items-center justify-center h-full gap-4 opacity-30">
+                <UtensilsCrossed size={64} className="text-white" strokeWidth={1} />
+                <p className="text-white/60 text-xl italic uppercase tracking-widest">O Arraiá tá começando...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <AnimatePresence>
                   {readyOrders.map((order) => (
                     <motion.div
@@ -424,21 +424,21 @@ export default function Display() {
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
-                      className="rounded-2xl p-3 flex flex-col items-center gap-2 border"
+                      className="rounded-3xl p-5 flex flex-col items-center gap-3 border"
                       style={{ background: '#222', borderColor: '#FFD70040' }}
                     >
                       <div className="text-center">
-                        <p className="text-yellow-400/60 text-xs uppercase tracking-widest">Ficha</p>
+                        <p className="text-yellow-400/60 text-sm uppercase tracking-widest mb-1">Ficha</p>
                         <motion.p
-                          className="font-black text-4xl"
-                          style={{ color: '#FFD700' }}
-                          animate={{ scale: [1, 1.18, 1], textShadow: ['0 0 0px #FFD700', '0 0 24px #FFD700', '0 0 0px #FFD700'] }}
+                          className="font-black leading-none"
+                          style={{ color: '#FFD700', fontSize: 'clamp(3rem, 8vw, 6rem)' }}
+                          animate={{ scale: [1, 1.08, 1], textShadow: ['0 0 0px #FFD700', '0 0 32px #FFD700', '0 0 0px #FFD700'] }}
                           transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
                         >
                           #{order.ticket_number}
                         </motion.p>
                       </div>
-                      <span className="text-xs font-bold px-3 py-0.5 rounded-full uppercase"
+                      <span className="text-base font-black px-4 py-1 rounded-full uppercase"
                         style={{ background: '#FFD700', color: '#111' }}>
                         Pronto!
                       </span>
@@ -451,30 +451,13 @@ export default function Display() {
         </div>
       </div>
 
-      {/* Footer: delivery input + zoom controls */}
+      {/* Footer: delivery confirmation only */}
       <form
         onSubmit={(e) => { e.preventDefault(); if (deliveryInput.trim()) { confirmDelivery(deliveryInput.trim()); setDeliveryInput('') } }}
-        className="flex items-center gap-2 px-4 py-2"
+        className="flex items-center justify-end gap-2 px-4 py-2"
         style={{ background: '#0d0d0d' }}
       >
-        {/* Zoom controls — left side */}
-        <div className="flex items-center gap-1 mr-2">
-          <button type="button" onClick={() => handleZoom(-1)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-            style={{ background: '#222', color: '#666' }}>
-            <ZoomOut size={13} />
-          </button>
-          <span className="text-xs font-bold tabular-nums w-9 text-center" style={{ color: '#444' }}>
-            {Math.round(zoom * 100)}%
-          </span>
-          <button type="button" onClick={() => handleZoom(1)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-            style={{ background: '#222', color: '#666' }}>
-            <ZoomIn size={13} />
-          </button>
-        </div>
-
-        <span className="text-xs font-semibold uppercase tracking-widest ml-auto" style={{ color: '#555' }}>Confirmar entrega:</span>
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Confirmar entrega:</span>
         <input
           ref={deliveryInputRef}
           type="text"
@@ -482,11 +465,11 @@ export default function Display() {
           placeholder="Nº ficha"
           value={deliveryInput}
           onChange={(e) => setDeliveryInput(e.target.value)}
-          className="w-24 px-3 py-1.5 rounded-xl text-sm font-bold text-center focus:outline-none"
+          className="w-28 px-3 py-2 rounded-xl text-base font-bold text-center focus:outline-none"
           style={{ background: '#222', color: '#FFD700', border: '1px solid #333' }}
         />
         <button type="submit"
-          className="px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-colors"
+          className="px-4 py-2 rounded-xl text-sm font-bold uppercase transition-colors"
           style={{ background: '#333', color: '#FFD700' }}>
           OK
         </button>
