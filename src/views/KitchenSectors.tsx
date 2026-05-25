@@ -384,80 +384,56 @@ export default function KitchenSectors() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center cursor-pointer"
-            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.65)' }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            style={{ backdropFilter: 'blur(12px)', backgroundColor: 'rgba(0,0,0,0.78)' }}
             onClick={dismissNotif}
           >
             <motion.div
-              initial={{ scale: 0.4, opacity: 0, rotate: -4 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              exit={{ scale: 0.7, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-              className="relative w-[min(88vw,480px)] rounded-3xl overflow-hidden shadow-2xl"
+              initial={{ scale: 0.5, opacity: 0, y: 48 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 24 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+              className="w-[min(90vw,520px)] rounded-3xl p-10 flex flex-col items-center text-center"
+              style={{
+                background: '#1a1a1a',
+                boxShadow: '0 0 0 2.5px #FF8800, 0 0 80px rgba(255,136,0,0.25)',
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Bandeirinhas strip */}
-              <div className="flex h-5 overflow-hidden">
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-1"
-                    style={{ backgroundColor: ['#e63329', '#f5c800', '#1a7a3c', '#e63329', '#f5c800', '#1a7a3c'][i % 6] }}
-                  />
-                ))}
-              </div>
+              {/* Bell */}
+              <motion.div
+                animate={{ rotate: [-18, 18, -12, 12, -6, 6, 0] }}
+                transition={{ duration: 0.9, repeat: Infinity, repeatDelay: 1.2 }}
+                className="text-6xl mb-5 select-none"
+              >
+                🔔
+              </motion.div>
 
-              {/* Main card body */}
-              <div className="bg-[#fffbe6] px-8 py-8 flex flex-col items-center text-center">
-                {/* Stars */}
-                <motion.div
-                  animate={{ rotate: [0, 8, -8, 0] }}
-                  transition={{ duration: 1.6, repeat: Infinity }}
-                  className="text-4xl mb-2 select-none"
-                >
-                  🎆
-                </motion.div>
+              {/* Phrase */}
+              <p
+                className="font-black uppercase italic mb-7 leading-tight px-2"
+                style={{ color: '#FFD700', fontSize: 'clamp(1.1rem, 4vw, 1.6rem)' }}
+              >
+                {readyNotif.phrase}
+              </p>
 
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-[#b34700] mb-3">
-                  Pedido Pronto!
-                </p>
+              {/* Ficha number */}
+              <motion.p
+                className="font-black leading-none mb-8"
+                style={{ fontSize: 'clamp(6rem, 28vw, 11rem)', color: '#FFFFFF', lineHeight: 0.9 }}
+                animate={{ scale: [1, 1.04, 1] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                {readyNotif.ticket}
+              </motion.p>
 
-                {/* Ficha number */}
-                <motion.div
-                  animate={{ scale: [1, 1.06, 1] }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                  className="bg-[#e63329] rounded-2xl px-8 py-4 mb-5 shadow-lg"
-                >
-                  <p className="text-white/70 text-xs font-bold uppercase tracking-widest leading-none mb-1">Ficha</p>
-                  <p className="text-white font-black leading-none" style={{ fontSize: 'clamp(3rem, 15vw, 6rem)' }}>
-                    #{readyNotif.ticket}
-                  </p>
-                </motion.div>
-
-                {/* Phrase */}
-                <p className="font-serif italic text-[#1a4a1a] text-lg md:text-xl leading-snug mb-6 px-2">
-                  "{readyNotif.phrase}"
-                </p>
-
-                {/* Dismiss hint */}
-                <button
-                  onClick={dismissNotif}
-                  className="text-xs text-[#b34700]/60 font-semibold tracking-widest uppercase border border-[#b34700]/20 rounded-xl px-4 py-2 hover:bg-[#b34700]/10 transition-colors"
-                >
-                  Toque para fechar
-                </button>
-              </div>
-
-              {/* Bottom bandeirinhas strip */}
-              <div className="flex h-5 overflow-hidden">
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-1"
-                    style={{ backgroundColor: ['#1a7a3c', '#f5c800', '#e63329', '#1a7a3c', '#f5c800', '#e63329'][i % 6] }}
-                  />
-                ))}
+              {/* Badge */}
+              <div
+                className="px-8 py-3 rounded-full font-black uppercase tracking-widest"
+                style={{ background: '#FFD700', color: '#111', fontSize: '0.8rem' }}
+              >
+                Favor retirar no balcão
               </div>
             </motion.div>
           </motion.div>
