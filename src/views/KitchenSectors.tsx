@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package } from 'lucide-react'
-import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, type ActiveSessionData } from '../services/firebaseService'
+import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package, AlertTriangle } from 'lucide-react'
+import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, subscribeInventory, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
-import type { Order, OrderStatus } from '../types'
+import type { Order, OrderStatus, InventoryItem } from '../types'
+
+const LOW_STOCK_THRESHOLD = 15
 
 function playReadySound() {
   try {
@@ -32,6 +34,7 @@ export default function KitchenSectors() {
   const [inputMode, setInputMode] = useState<'qr' | 'keyboard' | null>(null)
   const [lastScanned, setLastScanned] = useState('')
   const [liveSession, setLiveSession] = useState<ActiveSessionData | null>(null)
+  const [lowStock, setLowStock] = useState<InventoryItem[]>([])
 
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
@@ -45,6 +48,13 @@ export default function KitchenSectors() {
 
   useEffect(() => {
     const unsub = subscribeActiveSession(setLiveSession)
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const unsub = subscribeInventory((items) => {
+      setLowStock(items.filter((i) => i.quantity <= LOW_STOCK_THRESHOLD))
+    })
     return unsub
   }, [])
 
@@ -204,6 +214,38 @@ export default function KitchenSectors() {
           </div>
         </div>
       </div>
+
+      {/* Low stock alert banner */}
+      <AnimatePresence>
+        {lowStock.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="mb-4 rounded-2xl border border-orange-300 bg-orange-50 px-4 py-3 flex items-center gap-3"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+            >
+              <AlertTriangle size={18} className="text-orange-500 shrink-0" />
+            </motion.div>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-black uppercase tracking-widest text-orange-700 mr-2">Estoque baixo:</span>
+              <span className="text-sm text-orange-800">
+                {lowStock.map((i) => (
+                  <span key={i.id} className={`inline-flex items-center mr-2 font-semibold ${i.quantity === 0 ? 'text-red-600' : ''}`}>
+                    {i.name}
+                    <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-lg font-black ${i.quantity === 0 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
+                      {i.quantity === 0 ? 'ZERADO' : `${i.quantity} ${i.unit}`}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {lastScanned && (
         <motion.div

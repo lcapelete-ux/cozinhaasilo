@@ -345,11 +345,11 @@ export async function seedInitialData(): Promise<void> {
   for (const m of menuData) await addDoc(collection(_db, 'menu_items'), m)
 
   const inventoryData: Omit<InventoryItem, 'id'>[] = [
-    { name: 'Farinha de trigo', quantity: 10, unit: 'kg' },
-    { name: 'Óleo de soja', quantity: 20, unit: 'L' },
-    { name: 'Pão de hambúrguer', quantity: 100, unit: 'un' },
-    { name: 'Refrigerante lata', quantity: 200, unit: 'un' },
-    { name: 'Milho verde', quantity: 50, unit: 'un' },
+    { name: 'Farinha de trigo', quantity: 10, initial_quantity: 10, unit: 'kg' },
+    { name: 'Óleo de soja', quantity: 20, initial_quantity: 20, unit: 'L' },
+    { name: 'Pão de hambúrguer', quantity: 100, initial_quantity: 100, unit: 'un' },
+    { name: 'Refrigerante lata', quantity: 200, initial_quantity: 200, unit: 'un' },
+    { name: 'Milho verde', quantity: 50, initial_quantity: 50, unit: 'un' },
   ]
   for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
 }

@@ -38,6 +38,7 @@ export interface InventoryItem {
   id: string
   name: string
   quantity: number
+  initial_quantity: number
   unit: string
 }
 
