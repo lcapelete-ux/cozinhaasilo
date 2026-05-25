@@ -157,7 +157,12 @@ export default function Display() {
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const deliveryInputRef = useRef<HTMLInputElement>(null)
+  const hiddenScannerRef = useRef<HTMLInputElement>(null)
+  const scannerHiddenRef = useRef(scannerHidden)
   const [deliveryInput, setDeliveryInput] = useState('')
+  const [hiddenScannerVal, setHiddenScannerVal] = useState('')
+
+  useEffect(() => { scannerHiddenRef.current = scannerHidden }, [scannerHidden])
 
   useEffect(() => {
     readyOrdersRef.current = readyOrders
@@ -179,8 +184,21 @@ export default function Display() {
     deliveredTimer.current = setTimeout(() => setDeliveredMsg(null), 4000)
   }, [])
 
+  // Keep hidden scanner input focused when in hidden mode
+  useEffect(() => {
+    if (!scannerHidden) return
+    const el = hiddenScannerRef.current
+    if (!el) return
+    el.focus()
+    const refocus = () => requestAnimationFrame(() => hiddenScannerRef.current?.focus())
+    el.addEventListener('blur', refocus)
+    return () => el.removeEventListener('blur', refocus)
+  }, [scannerHidden])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // When hidden scanner is active, its input handles everything — skip global handler
+      if (scannerHiddenRef.current) return
       if (deliveryInputRef.current && document.activeElement === deliveryInputRef.current) return
       if (e.key === 'Enter') {
         if (bufferRef.current.length > 0) {
@@ -485,6 +503,32 @@ export default function Display() {
         </form>
       ) : (
         <div style={{ background: '#0d0d0d', height: 4 }} />
+      )}
+
+      {/* Invisible always-focused input for hidden barcode scanner mode */}
+      {scannerHidden && (
+        <input
+          ref={hiddenScannerRef}
+          type="text"
+          value={hiddenScannerVal}
+          onChange={(e) => setHiddenScannerVal(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              const val = hiddenScannerVal.trim()
+              if (val) { confirmDelivery(val); setHiddenScannerVal('') }
+            }
+          }}
+          autoComplete="off"
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: 0,
+            width: 1,
+            height: 1,
+            opacity: 0,
+          }}
+        />
       )}
     </div>
   )
