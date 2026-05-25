@@ -5,6 +5,7 @@ import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/fireb
 import type { Order } from '../types'
 
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
+export const DISPLAY_SCANNER_HIDDEN_KEY = 'display-scanner-hidden'
 
 const JUNINA_PHRASES = [
   'Eita! O trem tá pronto, sô!',
@@ -130,14 +131,21 @@ export default function Display() {
     return isNaN(val) ? 1 : val
   }
   const [zoom, setZoom] = useState<number>(readZoom)
+  const readScannerHidden = () => localStorage.getItem(DISPLAY_SCANNER_HIDDEN_KEY) === 'true'
+  const [scannerHidden, setScannerHidden] = useState<boolean>(readScannerHidden)
 
   useEffect(() => {
-    const onStorage = () => setZoom(readZoom())
+    const onStorage = () => {
+      setZoom(readZoom())
+      setScannerHidden(readScannerHidden())
+    }
     window.addEventListener('storage', onStorage)
     window.addEventListener('display-zoom-change', onStorage)
+    window.addEventListener('display-scanner-hidden-change', onStorage)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('display-zoom-change', onStorage)
+      window.removeEventListener('display-scanner-hidden-change', onStorage)
     }
   }, [])
   const prevReadyRef = useRef<Set<string>>(new Set())
@@ -173,7 +181,7 @@ export default function Display() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (document.activeElement === deliveryInputRef.current) return
+      if (deliveryInputRef.current && document.activeElement === deliveryInputRef.current) return
       if (e.key === 'Enter') {
         if (bufferRef.current.length > 0) {
           e.preventDefault(); e.stopPropagation()
@@ -451,29 +459,33 @@ export default function Display() {
         </div>
       </div>
 
-      {/* Footer: delivery confirmation only */}
-      <form
-        onSubmit={(e) => { e.preventDefault(); if (deliveryInput.trim()) { confirmDelivery(deliveryInput.trim()); setDeliveryInput('') } }}
-        className="flex items-center justify-end gap-2 px-4 py-2"
-        style={{ background: '#0d0d0d' }}
-      >
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Confirmar entrega:</span>
-        <input
-          ref={deliveryInputRef}
-          type="text"
-          inputMode="numeric"
-          placeholder="Nº ficha"
-          value={deliveryInput}
-          onChange={(e) => setDeliveryInput(e.target.value)}
-          className="w-28 px-3 py-2 rounded-xl text-base font-bold text-center focus:outline-none"
-          style={{ background: '#222', color: '#FFD700', border: '1px solid #333' }}
-        />
-        <button type="submit"
-          className="px-4 py-2 rounded-xl text-sm font-bold uppercase transition-colors"
-          style={{ background: '#333', color: '#FFD700' }}>
-          OK
-        </button>
-      </form>
+      {/* Footer: delivery confirmation (hidden when scanner-hidden mode is on) */}
+      {!scannerHidden ? (
+        <form
+          onSubmit={(e) => { e.preventDefault(); if (deliveryInput.trim()) { confirmDelivery(deliveryInput.trim()); setDeliveryInput('') } }}
+          className="flex items-center justify-end gap-2 px-4 py-2"
+          style={{ background: '#0d0d0d' }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Confirmar entrega:</span>
+          <input
+            ref={deliveryInputRef}
+            type="text"
+            inputMode="numeric"
+            placeholder="Nº ficha"
+            value={deliveryInput}
+            onChange={(e) => setDeliveryInput(e.target.value)}
+            className="w-28 px-3 py-2 rounded-xl text-base font-bold text-center focus:outline-none"
+            style={{ background: '#222', color: '#FFD700', border: '1px solid #333' }}
+          />
+          <button type="submit"
+            className="px-4 py-2 rounded-xl text-sm font-bold uppercase transition-colors"
+            style={{ background: '#333', color: '#FFD700' }}>
+            OK
+          </button>
+        </form>
+      ) : (
+        <div style={{ background: '#0d0d0d', height: 4 }} />
+      )}
     </div>
   )
 }
