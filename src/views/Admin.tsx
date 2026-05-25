@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   subscribeUsers, addUser, updateUser, deleteUser,
   subscribeMenuItems, addMenuItem, updateMenuItem, deleteMenuItem,
+  clearAllOrders, subscribeAllOrders,
 } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { User, MenuItem } from '../types'
 
-type Tab = 'users' | 'menu' | 'fichas'
+type Tab = 'users' | 'menu' | 'fichas' | 'dados'
 
 const ALL_VIEWS = 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,admin'
 
@@ -27,8 +28,8 @@ export default function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {(['users', 'menu', 'fichas'] as Tab[]).map((t) => (
+      <div className="flex flex-wrap gap-2 mb-6">
+        {(['users', 'menu', 'fichas', 'dados'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -43,19 +44,20 @@ export default function Admin() {
               />
             )}
             <span className="relative flex items-center gap-1.5">
-              {t === 'users' ? <Users size={15} /> : t === 'menu' ? <UtensilsCrossed size={15} /> : <Ticket size={15} />}
-              {t === 'users' ? 'Usuários' : t === 'menu' ? 'Cardápio' : 'Fichas'}
+              {t === 'users' ? <Users size={15} /> : t === 'menu' ? <UtensilsCrossed size={15} /> : t === 'fichas' ? <Ticket size={15} /> : <DatabaseZap size={15} />}
+              {t === 'users' ? 'Usuários' : t === 'menu' ? 'Cardápio' : t === 'fichas' ? 'Fichas' : 'Dados'}
             </span>
           </button>
         ))}
       </div>
 
       <AnimatePresence mode="wait">
-        {tab === 'users' ? (
+        {tab === 'users' && (
           <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <UsersTab addToast={addToast} />
           </motion.div>
-        ) : (
+        )}
+        {tab === 'menu' && (
           <motion.div key="menu" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <MenuTab addToast={addToast} />
           </motion.div>
@@ -63,6 +65,11 @@ export default function Admin() {
         {tab === 'fichas' && (
           <motion.div key="fichas" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <FichasTab />
+          </motion.div>
+        )}
+        {tab === 'dados' && (
+          <motion.div key="dados" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <DadosTab addToast={addToast} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -218,6 +225,101 @@ function FichasTab() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Dados Tab ────────────────────────────────────────────────────────────────
+
+function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
+  const [orderCount, setOrderCount] = useState<number | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const unsub = subscribeAllOrders((orders) => setOrderCount(orders.length))
+    return unsub
+  }, [])
+
+  const handleClear = async () => {
+    setLoading(true)
+    try {
+      const deleted = await clearAllOrders()
+      addToast(`${deleted} pedido${deleted !== 1 ? 's' : ''} removido${deleted !== 1 ? 's' : ''} com sucesso.`, 'success')
+      setConfirming(false)
+    } catch {
+      addToast('Erro ao zerar histórico.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-red-100">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center shrink-0 mt-0.5">
+            <Trash2 size={18} className="text-red-500" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-800 mb-1">Zerar histórico de pedidos</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Remove permanentemente todos os pedidos do banco de dados.
+              Use ao final de cada evento para preparar o sistema para a próxima edição.
+              {orderCount !== null && (
+                <span className="ml-1 font-semibold text-gray-700">
+                  Atualmente há <span className="text-red-600">{orderCount}</span> pedido{orderCount !== 1 ? 's' : ''} registrado{orderCount !== 1 ? 's' : ''}.
+                </span>
+              )}
+            </p>
+
+            <AnimatePresence mode="wait">
+              {!confirming ? (
+                <motion.button
+                  key="btn-initial"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setConfirming(true)}
+                  className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition-colors"
+                >
+                  <Trash2 size={15} />
+                  Zerar histórico
+                </motion.button>
+              ) : (
+                <motion.div
+                  key="confirm"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="bg-red-50 border border-red-200 rounded-2xl p-4"
+                >
+                  <div className="flex items-center gap-2 text-red-700 font-bold text-sm mb-3">
+                    <AlertTriangle size={16} />
+                    Esta ação não pode ser desfeita. Confirma?
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleClear}
+                      disabled={loading}
+                      className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+                    >
+                      {loading ? 'Zerando…' : 'Sim, zerar tudo'}
+                    </button>
+                    <button
+                      onClick={() => setConfirming(false)}
+                      disabled={loading}
+                      className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
