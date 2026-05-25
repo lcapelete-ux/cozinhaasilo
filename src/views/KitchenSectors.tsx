@@ -13,29 +13,6 @@ function playReadySound() {
   } catch { /* audio not available */ }
 }
 
-const JUNINA_PHRASES = [
-  'Eita! O trem tá pronto, sô!',
-  'Vem buscar que tá quentinho!',
-  'Olha a cobra! É mentira, é o seu pedido!',
-  'Uai, seu pedido já saiu do fogo!',
-  'Pula a fogueira e vem buscar!',
-  'Tá mais pronto que milho em dia de festa!',
-  'Aperta o passo que a comida tá na mesa!',
-  'Santo Antônio ajudou e seu pedido chegou!',
-  'Anarriê! Seu pedido tá no balcão!',
-  'Êta trem bão, seu pedido tá pronto!',
-  'Corre que o quentão tá esperando!',
-  'Segura o chapéu, seu pedido chegou!',
-  'Mais rápido que foguete de São João!',
-  'O sanfoneiro parou pra ver seu pedido!',
-  'Tá cheirando melhor que canjica!',
-  'Vem pro arraiá, seu pedido tá na mão!',
-  'Simbora buscar que a festa não para!',
-  'Olha o balão! E olha o seu pedido!',
-  'Ficou pronto no capricho, sô!',
-  'Alegria, alegria! Seu pedido tá aqui!',
-]
-
 const SECTORS = [
   { name: 'Fritadeira', icon: Flame, color: 'text-orange-500', border: 'border-orange-400', bg: 'bg-orange-50' },
   { name: 'Lanches', icon: Utensils, color: 'text-blue-500', border: 'border-blue-400', bg: 'bg-blue-50' },
@@ -48,11 +25,6 @@ interface SectorItem {
   fichas: { ticket: string; orderId: string; status: OrderStatus; qty: number }[]
 }
 
-interface ReadyNotif {
-  ticket: string
-  phrase: string
-}
-
 export default function KitchenSectors() {
   const { addToast } = useApp()
   const [orders, setOrders] = useState<Order[]>([])
@@ -60,38 +32,16 @@ export default function KitchenSectors() {
   const [inputMode, setInputMode] = useState<'qr' | 'keyboard' | null>(null)
   const [lastScanned, setLastScanned] = useState('')
   const [liveSession, setLiveSession] = useState<ActiveSessionData | null>(null)
-  const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
 
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualRef = useRef<HTMLInputElement>(null)
-  const prevStatusRef = useRef<Map<string, OrderStatus>>(new Map())
 
   useEffect(() => {
     const unsub = subscribeOrders(['pending', 'preparing', 'ready'], setOrders)
     return unsub
   }, [])
-
-  // Detect transitions to 'ready' and show festive overlay
-  useEffect(() => {
-    const prevMap = prevStatusRef.current
-    for (const order of orders) {
-      const prev = prevMap.get(order.id)
-      if (prev !== undefined && prev !== 'ready' && order.status === 'ready') {
-        playReadySound()
-        const phrase = JUNINA_PHRASES[Math.floor(Math.random() * JUNINA_PHRASES.length)]
-        setReadyNotif({ ticket: order.ticket_number, phrase })
-        if (notifTimerRef.current) clearTimeout(notifTimerRef.current)
-        notifTimerRef.current = setTimeout(() => setReadyNotif(null), 5000)
-        break // show one at a time
-      }
-    }
-    const newMap = new Map<string, OrderStatus>()
-    for (const order of orders) newMap.set(order.id, order.status)
-    prevStatusRef.current = newMap
-  }, [orders])
 
   useEffect(() => {
     const unsub = subscribeActiveSession(setLiveSession)
@@ -120,7 +70,10 @@ export default function KitchenSectors() {
       else if (order.status === 'ready') nextStatus = 'delivered'
       if (!nextStatus) return
       await setOrderStatus(order.id, nextStatus)
-      if (nextStatus === 'delivered') {
+      if (nextStatus === 'ready') {
+        playReadySound()
+        addToast(`Ficha #${ticket} pronta! 🔔 Aparece no painel.`, 'success')
+      } else {
         addToast(`Ficha #${ticket} entregue! ✅ Liberada para uso.`, 'success')
       }
     } catch {
@@ -170,11 +123,6 @@ export default function KitchenSectors() {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (manualInput.trim()) { processTicket(manualInput.trim(), false); setManualInput('') }
-  }
-
-  const dismissNotif = () => {
-    if (notifTimerRef.current) clearTimeout(notifTimerRef.current)
-    setReadyNotif(null)
   }
 
   const getSectorItems = (sectorName: string): SectorItem[] => {
@@ -328,7 +276,7 @@ export default function KitchenSectors() {
 
       {/* Live session preview — bottom-right corner */}
       <AnimatePresence>
-        {liveSession && !readyNotif && (
+        {liveSession && (
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -373,69 +321,6 @@ export default function KitchenSectors() {
                 </div>
               )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Festive ready overlay */}
-      <AnimatePresence>
-        {readyNotif && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center"
-            style={{ backdropFilter: 'blur(12px)', backgroundColor: 'rgba(0,0,0,0.78)' }}
-            onClick={dismissNotif}
-          >
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0, y: 48 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: 24 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-              className="w-[min(90vw,520px)] rounded-3xl p-10 flex flex-col items-center text-center"
-              style={{
-                background: '#1a1a1a',
-                boxShadow: '0 0 0 2.5px #FF8800, 0 0 80px rgba(255,136,0,0.25)',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Bell */}
-              <motion.div
-                animate={{ rotate: [-18, 18, -12, 12, -6, 6, 0] }}
-                transition={{ duration: 0.9, repeat: Infinity, repeatDelay: 1.2 }}
-                className="text-6xl mb-5 select-none"
-              >
-                🔔
-              </motion.div>
-
-              {/* Phrase */}
-              <p
-                className="font-black uppercase italic mb-7 leading-tight px-2"
-                style={{ color: '#FFD700', fontSize: 'clamp(1.1rem, 4vw, 1.6rem)' }}
-              >
-                {readyNotif.phrase}
-              </p>
-
-              {/* Ficha number */}
-              <motion.p
-                className="font-black leading-none mb-8"
-                style={{ fontSize: 'clamp(6rem, 28vw, 11rem)', color: '#FFFFFF', lineHeight: 0.9 }}
-                animate={{ scale: [1, 1.04, 1] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                {readyNotif.ticket}
-              </motion.p>
-
-              {/* Badge */}
-              <div
-                className="px-8 py-3 rounded-full font-black uppercase tracking-widest"
-                style={{ background: '#FFD700', color: '#111', fontSize: '0.8rem' }}
-              >
-                Favor retirar no balcão
-              </div>
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

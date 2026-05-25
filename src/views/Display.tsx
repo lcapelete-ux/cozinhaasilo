@@ -4,6 +4,31 @@ import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/firebaseService'
 import type { Order } from '../types'
 
+const JUNINA_PHRASES = [
+  'Eita! O trem tá pronto, sô!',
+  'Vem buscar que tá quentinho!',
+  'Olha a cobra! É mentira, é o seu pedido!',
+  'Uai, seu pedido já saiu do fogo!',
+  'Pula a fogueira e vem buscar!',
+  'Tá mais pronto que milho em dia de festa!',
+  'Aperta o passo que a comida tá na mesa!',
+  'Santo Antônio ajudou e seu pedido chegou!',
+  'Anarriê! Seu pedido tá no balcão!',
+  'Êta trem bão, seu pedido tá pronto!',
+  'Corre que o quentão tá esperando!',
+  'Segura o chapéu, seu pedido chegou!',
+  'Mais rápido que foguete de São João!',
+  'O sanfoneiro parou pra ver seu pedido!',
+  'Tá cheirando melhor que canjica!',
+  'Vem pro arraiá, seu pedido tá na mão!',
+  'Simbora buscar que a festa não para!',
+  'Olha o balão! E olha o seu pedido!',
+  'Ficou pronto no capricho, sô!',
+  'Alegria, alegria! Seu pedido tá aqui!',
+]
+
+interface ReadyNotif { ticket: string; phrase: string }
+
 // ── Bunting flags ────────────────────────────────────────────────────────────
 const FLAG_COLORS = ['#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800']
 
@@ -95,7 +120,7 @@ function dedup(orders: Order[]): Order[] {
 export default function Display() {
   const [activeOrders, setActiveOrders] = useState<Order[]>([])
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
-  const [announcement, setAnnouncement] = useState<string | null>(null)
+  const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
   const [deliveredMsg, setDeliveredMsg] = useState<string | null>(null)
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -177,9 +202,10 @@ export default function Display() {
       const unique = dedup(orders)
       unique.forEach((o) => {
         if (!prevReadyRef.current.has(o.ticket_number)) {
-          setAnnouncement(o.ticket_number)
+          const phrase = JUNINA_PHRASES[Math.floor(Math.random() * JUNINA_PHRASES.length)]
+          setReadyNotif({ ticket: o.ticket_number, phrase })
           if (announcementTimer.current) clearTimeout(announcementTimer.current)
-          announcementTimer.current = setTimeout(() => setAnnouncement(null), 5000)
+          announcementTimer.current = setTimeout(() => setReadyNotif(null), 6000)
         }
       })
       prevReadyRef.current = new Set(unique.map((o) => o.ticket_number))
@@ -217,19 +243,61 @@ export default function Display() {
         <Clock />
       </div>
 
-      {/* Ready announcement banner */}
+      {/* Festive ready overlay */}
       <AnimatePresence>
-        {announcement && (
+        {readyNotif && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-            style={{ background: '#FFD700' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            style={{ backdropFilter: 'blur(12px)', backgroundColor: 'rgba(0,0,0,0.78)' }}
+            onClick={() => setReadyNotif(null)}
           >
-            <p className="text-center py-3 font-black text-xl text-black uppercase tracking-wide">
-              🎉 Uai sô! Ficha #{announcement} tá prontinha no balcão! 🎉
-            </p>
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0, y: 48 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 24 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+              className="w-[min(90vw,560px)] rounded-3xl p-10 flex flex-col items-center text-center"
+              style={{
+                background: '#1a1a1a',
+                boxShadow: '0 0 0 2.5px #FF8800, 0 0 80px rgba(255,136,0,0.25)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <motion.div
+                animate={{ rotate: [-18, 18, -12, 12, -6, 6, 0] }}
+                transition={{ duration: 0.9, repeat: Infinity, repeatDelay: 1.2 }}
+                className="text-6xl mb-5 select-none"
+              >
+                🔔
+              </motion.div>
+
+              <p
+                className="font-black uppercase italic mb-7 leading-tight px-2"
+                style={{ color: '#FFD700', fontSize: 'clamp(1.1rem, 4vw, 1.6rem)' }}
+              >
+                {readyNotif.phrase}
+              </p>
+
+              <motion.p
+                className="font-black leading-none mb-8"
+                style={{ fontSize: 'clamp(6rem, 28vw, 11rem)', color: '#FFFFFF', lineHeight: 0.9 }}
+                animate={{ scale: [1, 1.04, 1] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                {readyNotif.ticket}
+              </motion.p>
+
+              <div
+                className="px-8 py-3 rounded-full font-black uppercase tracking-widest"
+                style={{ background: '#FFD700', color: '#111', fontSize: '0.8rem' }}
+              >
+                Favor retirar no balcão
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
