@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChefHat, UtensilsCrossed } from 'lucide-react'
+import { ChefHat, UtensilsCrossed, ZoomIn, ZoomOut } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/firebaseService'
 import type { Order } from '../types'
+
+const ZOOM_KEY = 'display-zoom'
+const ZOOM_STEPS = [0.75, 0.85, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3]
 
 const JUNINA_PHRASES = [
   'Eita! O trem tá pronto, sô!',
@@ -122,6 +125,21 @@ export default function Display() {
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
   const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
   const [deliveredMsg, setDeliveredMsg] = useState<string | null>(null)
+  const [zoom, setZoom] = useState<number>(() => {
+    const saved = localStorage.getItem(ZOOM_KEY)
+    const val = saved ? parseFloat(saved) : 1
+    return ZOOM_STEPS.includes(val) ? val : 1
+  })
+
+  const handleZoom = (delta: number) => {
+    setZoom((prev) => {
+      const idx = ZOOM_STEPS.indexOf(prev)
+      const nextIdx = Math.min(ZOOM_STEPS.length - 1, Math.max(0, idx + delta))
+      const next = ZOOM_STEPS[nextIdx]
+      localStorage.setItem(ZOOM_KEY, String(next))
+      return next
+    })
+  }
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const deliveredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -219,7 +237,7 @@ export default function Display() {
   }, [])
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#111111' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#111111', zoom }}>
       {/* Bunting */}
       <Bunting />
 
@@ -433,13 +451,30 @@ export default function Display() {
         </div>
       </div>
 
-      {/* Manual delivery input — subtle footer for staff */}
+      {/* Footer: delivery input + zoom controls */}
       <form
         onSubmit={(e) => { e.preventDefault(); if (deliveryInput.trim()) { confirmDelivery(deliveryInput.trim()); setDeliveryInput('') } }}
-        className="flex items-center justify-end gap-2 px-4 py-2"
+        className="flex items-center gap-2 px-4 py-2"
         style={{ background: '#0d0d0d' }}
       >
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Confirmar entrega:</span>
+        {/* Zoom controls — left side */}
+        <div className="flex items-center gap-1 mr-2">
+          <button type="button" onClick={() => handleZoom(-1)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+            style={{ background: '#222', color: '#666' }}>
+            <ZoomOut size={13} />
+          </button>
+          <span className="text-xs font-bold tabular-nums w-9 text-center" style={{ color: '#444' }}>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button type="button" onClick={() => handleZoom(1)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+            style={{ background: '#222', color: '#666' }}>
+            <ZoomIn size={13} />
+          </button>
+        </div>
+
+        <span className="text-xs font-semibold uppercase tracking-widest ml-auto" style={{ color: '#555' }}>Confirmar entrega:</span>
         <input
           ref={deliveryInputRef}
           type="text"
