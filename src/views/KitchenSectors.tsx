@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
+import { useApp } from '../App'
+import type { Order, OrderStatus } from '../types'
 
 function playReadySound() {
   try {
@@ -10,8 +12,29 @@ function playReadySound() {
     audio.play().catch(() => {})
   } catch { /* audio not available */ }
 }
-import { useApp } from '../App'
-import type { Order, OrderStatus } from '../types'
+
+const JUNINA_PHRASES = [
+  'Eita! O trem tá pronto, sô!',
+  'Vem buscar que tá quentinho!',
+  'Olha a cobra! É mentira, é o seu pedido!',
+  'Uai, seu pedido já saiu do fogo!',
+  'Pula a fogueira e vem buscar!',
+  'Tá mais pronto que milho em dia de festa!',
+  'Aperta o passo que a comida tá na mesa!',
+  'Santo Antônio ajudou e seu pedido chegou!',
+  'Anarriê! Seu pedido tá no balcão!',
+  'Êta trem bão, seu pedido tá pronto!',
+  'Corre que o quentão tá esperando!',
+  'Segura o chapéu, seu pedido chegou!',
+  'Mais rápido que foguete de São João!',
+  'O sanfoneiro parou pra ver seu pedido!',
+  'Tá cheirando melhor que canjica!',
+  'Vem pro arraiá, seu pedido tá na mão!',
+  'Simbora buscar que a festa não para!',
+  'Olha o balão! E olha o seu pedido!',
+  'Ficou pronto no capricho, sô!',
+  'Alegria, alegria! Seu pedido tá aqui!',
+]
 
 const SECTORS = [
   { name: 'Fritadeira', icon: Flame, color: 'text-orange-500', border: 'border-orange-400', bg: 'bg-orange-50' },
@@ -25,6 +48,11 @@ interface SectorItem {
   fichas: { ticket: string; orderId: string; status: OrderStatus; qty: number }[]
 }
 
+interface ReadyNotif {
+  ticket: string
+  phrase: string
+}
+
 export default function KitchenSectors() {
   const { addToast } = useApp()
   const [orders, setOrders] = useState<Order[]>([])
@@ -32,16 +60,38 @@ export default function KitchenSectors() {
   const [inputMode, setInputMode] = useState<'qr' | 'keyboard' | null>(null)
   const [lastScanned, setLastScanned] = useState('')
   const [liveSession, setLiveSession] = useState<ActiveSessionData | null>(null)
+  const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
 
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualRef = useRef<HTMLInputElement>(null)
+  const prevStatusRef = useRef<Map<string, OrderStatus>>(new Map())
 
   useEffect(() => {
     const unsub = subscribeOrders(['pending', 'preparing', 'ready'], setOrders)
     return unsub
   }, [])
+
+  // Detect transitions to 'ready' and show festive overlay
+  useEffect(() => {
+    const prevMap = prevStatusRef.current
+    for (const order of orders) {
+      const prev = prevMap.get(order.id)
+      if (prev !== undefined && prev !== 'ready' && order.status === 'ready') {
+        playReadySound()
+        const phrase = JUNINA_PHRASES[Math.floor(Math.random() * JUNINA_PHRASES.length)]
+        setReadyNotif({ ticket: order.ticket_number, phrase })
+        if (notifTimerRef.current) clearTimeout(notifTimerRef.current)
+        notifTimerRef.current = setTimeout(() => setReadyNotif(null), 5000)
+        break // show one at a time
+      }
+    }
+    const newMap = new Map<string, OrderStatus>()
+    for (const order of orders) newMap.set(order.id, order.status)
+    prevStatusRef.current = newMap
+  }, [orders])
 
   useEffect(() => {
     const unsub = subscribeActiveSession(setLiveSession)
@@ -70,10 +120,7 @@ export default function KitchenSectors() {
       else if (order.status === 'ready') nextStatus = 'delivered'
       if (!nextStatus) return
       await setOrderStatus(order.id, nextStatus)
-      if (nextStatus === 'ready') {
-        playReadySound()
-        addToast(`Ficha #${ticket} pronta! 🔔 Aparece no painel.`, 'success')
-      } else {
+      if (nextStatus === 'delivered') {
         addToast(`Ficha #${ticket} entregue! ✅ Liberada para uso.`, 'success')
       }
     } catch {
@@ -125,6 +172,11 @@ export default function KitchenSectors() {
     if (manualInput.trim()) { processTicket(manualInput.trim(), false); setManualInput('') }
   }
 
+  const dismissNotif = () => {
+    if (notifTimerRef.current) clearTimeout(notifTimerRef.current)
+    setReadyNotif(null)
+  }
+
   const getSectorItems = (sectorName: string): SectorItem[] => {
     const itemMap = new Map<string, SectorItem>()
     for (const order of orders) {
@@ -148,7 +200,6 @@ export default function KitchenSectors() {
         }
       }
     }
-    // Sort by total quantity descending — most demanded item first
     return Array.from(itemMap.values()).sort((a, b) => b.totalQty - a.totalQty)
   }
 
@@ -164,7 +215,6 @@ export default function KitchenSectors() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Input mode indicator */}
           <AnimatePresence>
             {inputMode && (
               <motion.div
@@ -182,7 +232,6 @@ export default function KitchenSectors() {
             )}
           </AnimatePresence>
 
-          {/* Manual input — numeric keypad friendly */}
           <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
             <div className="relative">
               <Hash size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent/60" />
@@ -202,7 +251,6 @@ export default function KitchenSectors() {
             </button>
           </form>
 
-          {/* Active orders badge */}
           <div className="bg-accent/10 text-accent-dark text-sm font-bold px-3 py-2 rounded-xl">
             {totalActive} ativo{totalActive !== 1 ? 's' : ''}
           </div>
@@ -227,7 +275,6 @@ export default function KitchenSectors() {
 
           return (
             <div key={name} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-              {/* Column header */}
               <div className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Icon size={18} className={color} />
@@ -238,10 +285,8 @@ export default function KitchenSectors() {
                 </span>
               </div>
 
-              {/* Colored divider */}
               <div className={`h-0.5 w-full ${border} border-t-2`} />
 
-              {/* Items */}
               <div className="p-3 min-h-[320px]">
                 {items.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-60 text-gray-300">
@@ -261,7 +306,7 @@ export default function KitchenSectors() {
                         >
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-semibold text-sm text-gray-800">{item.name}</span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700`}>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700">
                               ×{item.totalQty}
                             </span>
                           </div>
@@ -283,7 +328,7 @@ export default function KitchenSectors() {
 
       {/* Live session preview — bottom-right corner */}
       <AnimatePresence>
-        {liveSession && (
+        {liveSession && !readyNotif && (
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -291,7 +336,6 @@ export default function KitchenSectors() {
             className="fixed bottom-5 right-5 z-50 w-64 rounded-2xl shadow-2xl overflow-hidden border border-accent/30"
             style={{ background: '#fff' }}
           >
-            {/* Header */}
             <div className="bg-accent px-4 py-2.5 flex items-center justify-between">
               <div>
                 <p className="text-white/60 text-[10px] uppercase tracking-widest leading-none mb-0.5">Recepção — ao vivo</p>
@@ -303,8 +347,6 @@ export default function KitchenSectors() {
                 className="w-2.5 h-2.5 rounded-full bg-white/70"
               />
             </div>
-
-            {/* Items */}
             <div className="p-3 max-h-52 overflow-y-auto">
               {liveSession.items.length === 0 ? (
                 <p className="text-xs text-gray-400 text-center py-3 italic">Aguardando cupons...</p>
@@ -331,6 +373,93 @@ export default function KitchenSectors() {
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Festive ready overlay */}
+      <AnimatePresence>
+        {readyNotif && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center cursor-pointer"
+            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.65)' }}
+            onClick={dismissNotif}
+          >
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0, rotate: -4 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              exit={{ scale: 0.7, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+              className="relative w-[min(88vw,480px)] rounded-3xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Bandeirinhas strip */}
+              <div className="flex h-5 overflow-hidden">
+                {Array.from({ length: 24 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1"
+                    style={{ backgroundColor: ['#e63329', '#f5c800', '#1a7a3c', '#e63329', '#f5c800', '#1a7a3c'][i % 6] }}
+                  />
+                ))}
+              </div>
+
+              {/* Main card body */}
+              <div className="bg-[#fffbe6] px-8 py-8 flex flex-col items-center text-center">
+                {/* Stars */}
+                <motion.div
+                  animate={{ rotate: [0, 8, -8, 0] }}
+                  transition={{ duration: 1.6, repeat: Infinity }}
+                  className="text-4xl mb-2 select-none"
+                >
+                  🎆
+                </motion.div>
+
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-[#b34700] mb-3">
+                  Pedido Pronto!
+                </p>
+
+                {/* Ficha number */}
+                <motion.div
+                  animate={{ scale: [1, 1.06, 1] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                  className="bg-[#e63329] rounded-2xl px-8 py-4 mb-5 shadow-lg"
+                >
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-widest leading-none mb-1">Ficha</p>
+                  <p className="text-white font-black leading-none" style={{ fontSize: 'clamp(3rem, 15vw, 6rem)' }}>
+                    #{readyNotif.ticket}
+                  </p>
+                </motion.div>
+
+                {/* Phrase */}
+                <p className="font-serif italic text-[#1a4a1a] text-lg md:text-xl leading-snug mb-6 px-2">
+                  "{readyNotif.phrase}"
+                </p>
+
+                {/* Dismiss hint */}
+                <button
+                  onClick={dismissNotif}
+                  className="text-xs text-[#b34700]/60 font-semibold tracking-widest uppercase border border-[#b34700]/20 rounded-xl px-4 py-2 hover:bg-[#b34700]/10 transition-colors"
+                >
+                  Toque para fechar
+                </button>
+              </div>
+
+              {/* Bottom bandeirinhas strip */}
+              <div className="flex h-5 overflow-hidden">
+                {Array.from({ length: 24 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1"
+                    style={{ backgroundColor: ['#1a7a3c', '#f5c800', '#e63329', '#1a7a3c', '#f5c800', '#e63329'][i % 6] }}
+                  />
+                ))}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
