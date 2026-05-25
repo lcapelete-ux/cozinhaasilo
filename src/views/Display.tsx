@@ -294,16 +294,6 @@ export default function Display() {
                         <p className="text-white/40 text-xs uppercase tracking-widest">Ficha</p>
                         <p className="font-black text-2xl text-white">#{order.ticket_number}</p>
                       </div>
-                      <div className="flex flex-wrap gap-1 justify-center">
-                        {order.items.slice(0, 2).map((item, i) => (
-                          <span key={i} className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-lg">
-                            {item.name}
-                          </span>
-                        ))}
-                        {order.items.length > 2 && (
-                          <span className="text-xs text-white/30">+{order.items.length - 2}</span>
-                        )}
-                      </div>
                     </motion.div>
                   ))}
                 </AnimatePresence>
