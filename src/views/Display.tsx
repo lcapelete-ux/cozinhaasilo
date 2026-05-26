@@ -157,6 +157,8 @@ export default function Display() {
   const deliveredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyOrdersRef = useRef<Order[]>([])
   const activeOrdersRef = useRef<Order[]>([])
+  const [scanDebug, setScanDebug] = useState<string | null>(null)
+  const scanDebugTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const deliveryInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { readyOrdersRef.current = readyOrders }, [readyOrders])
@@ -167,15 +169,22 @@ export default function Display() {
     const order =
       readyOrdersRef.current.find((o) => o.ticket_number === ticket) ??
       activeOrdersRef.current.find((o) => o.ticket_number === ticket)
-    if (!order) return
+    if (!order) {
+      // Show debug info so operator knows the scan was received but ticket not found
+      setScanDebug(`Lido: "${raw}" → ficha "${ticket}" não encontrada`)
+      if (scanDebugTimer.current) clearTimeout(scanDebugTimer.current)
+      scanDebugTimer.current = setTimeout(() => setScanDebug(null), 5000)
+      return
+    }
+    setScanDebug(null)
     await setOrderStatus(order.id, 'delivered')
     setDeliveredMsg(ticket)
     if (deliveredTimer.current) clearTimeout(deliveredTimer.current)
     deliveredTimer.current = setTimeout(() => setDeliveredMsg(null), 4000)
   }, [])
 
-  // Scanner: timing-based — works with 1 or 2 computers, coexists with keyboard
-  useQrScanner({ onScan: confirmDelivery })
+  // minLength:1 so single-digit ticket numbers (ficha #1, #2…) are not silently dropped
+  useQrScanner({ onScan: confirmDelivery, minLength: 1 })
 
   useEffect(() => {
     const unsub1 = subscribeOrders(['pending', 'preparing'], (orders) => setActiveOrders(dedup(orders)))
@@ -417,6 +426,23 @@ export default function Display() {
           </div>
         </div>
       </div>
+
+      {/* Debug banner: shows when scan received but ticket not matched */}
+      <AnimatePresence>
+        {scanDebug && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+            style={{ background: '#7c3aed' }}
+          >
+            <p className="text-center py-3 font-bold text-sm text-white uppercase tracking-wide">
+              🔍 {scanDebug}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer: delivery confirmation (hidden when scanner-hidden mode is on) */}
       {!scannerHidden ? (
