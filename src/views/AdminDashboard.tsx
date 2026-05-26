@@ -2,15 +2,17 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart3, TrendingUp, Package, Clock, Download, Zap,
-  AlertTriangle, Star, ChevronUp, ChevronDown,
+  AlertTriangle, Star, ChevronUp, ChevronDown, Activity,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts'
 import { subscribeAllOrders } from '../services/firebaseService'
+import LiveControl from './LiveControl'
 import type { Order } from '../types'
 
+type Tab = 'live' | 'reports'
 type Period = 'today' | 'all' | 'date'
 
 const SECTOR_COLORS: Record<string, string> = {
@@ -46,6 +48,7 @@ function EmptyChart() {
 }
 
 export default function AdminDashboard() {
+  const [tab, setTab] = useState<Tab>('live')
   const [orders, setOrders] = useState<Order[]>([])
   const [period, setPeriod] = useState<Period>('all')
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -397,17 +400,42 @@ export default function AdminDashboard() {
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
           <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
             <BarChart3 className="text-accent" size={26} />
-            Dashboard & Relatórios
+            Dashboard
           </h1>
           <p className="text-gray-400 text-xs mt-0.5">
             {orders.filter((o) => o.status === 'delivered').length} pedidos entregues no total do evento
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Tab switcher */}
+        <div className="flex rounded-2xl bg-gray-100 p-1">
+          <button
+            onClick={() => setTab('live')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'live' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <Activity size={14} />
+            Ao Vivo
+          </button>
+          <button
+            onClick={() => setTab('reports')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'reports' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <BarChart3 size={14} />
+            Relatórios
+          </button>
+        </div>
+      </div>
+
+      {/* Live control tab */}
+      {tab === 'live' && <LiveControl />}
+
+      {/* Reports tab */}
+      {tab === 'reports' && (<>
+        <div className="flex items-center justify-end mb-5 gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex rounded-2xl bg-gray-100 p-1">
               <button onClick={() => setPeriod('today')} className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-colors ${period === 'today' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'}`}>
@@ -437,7 +465,6 @@ export default function AdminDashboard() {
             Exportar PDF
           </button>
         </div>
-      </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
@@ -668,6 +695,7 @@ export default function AdminDashboard() {
           </p>
         </div>
       )}
+      </>)}
     </div>
   )
 }
