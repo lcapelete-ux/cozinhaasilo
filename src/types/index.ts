@@ -51,6 +51,17 @@ export interface ExtraFicha {
   description: string
 }
 
+export interface StockEntry {
+  id: string
+  menu_item_id: string
+  menu_item_name: string
+  type: 'adjust' | 'set' | 'reset'
+  qty_before: number
+  qty_after: number
+  inserted_by: string
+  inserted_at: Date
+}
+
 export interface AppUser {
   id: string
   name: string

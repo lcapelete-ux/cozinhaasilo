@@ -18,7 +18,7 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
-import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User } from '../types'
+import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User, StockEntry } from '../types'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
@@ -352,6 +352,38 @@ export async function seedInitialData(): Promise<void> {
     { name: 'Milho verde', quantity: 50, initial_quantity: 50, unit: 'un' },
   ]
   for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
+}
+
+// ── Stock Entries ────────────────────────────────────────────────────────────
+
+export async function addStockEntry(entry: Omit<StockEntry, 'id' | 'inserted_at'>): Promise<void> {
+  if (!_db) return
+  await addDoc(collection(_db, 'stock_entries'), {
+    ...entry,
+    inserted_at: serverTimestamp(),
+  })
+}
+
+export function subscribeStockEntries(callback: (entries: StockEntry[]) => void) {
+  if (!_db) return () => {}
+  const q = query(collection(_db, 'stock_entries'), orderBy('inserted_at', 'desc'))
+  return onSnapshot(q, (snap) => {
+    callback(
+      snap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>
+        return {
+          id: d.id,
+          menu_item_id: data.menu_item_id as string,
+          menu_item_name: data.menu_item_name as string,
+          type: data.type as StockEntry['type'],
+          qty_before: data.qty_before as number,
+          qty_after: data.qty_after as number,
+          inserted_by: data.inserted_by as string,
+          inserted_at: toDate(data.inserted_at),
+        }
+      })
+    )
+  }, (err) => console.error('subscribeStockEntries error:', err))
 }
 
 // ── Active Session (live preview on KitchenSectors) ─────────────────────────

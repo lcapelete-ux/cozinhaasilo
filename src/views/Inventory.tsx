@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X } from 'lucide-react'
-import { subscribeMenuItems, updateMenuItem } from '../services/firebaseService'
+import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { subscribeMenuItems, updateMenuItem, addStockEntry, subscribeStockEntries } from '../services/firebaseService'
 import { useApp } from '../App'
-import type { MenuItem } from '../types'
+import type { MenuItem, StockEntry } from '../types'
 
 const LOW_STOCK_THRESHOLD = 15
 
@@ -16,37 +16,81 @@ const SECTOR_COLOR: Record<string, string> = {
 function stockColors(qty: number | undefined, initial: number | undefined) {
   const q = qty ?? 0
   const i = initial ?? 0
-  if (q === 0 && i > 0) return { bar: 'bg-red-500',    badge: 'bg-red-100 text-red-600',       border: 'border-red-200',    bg: 'bg-red-50' }
+  if (q < 0)  return { bar: 'bg-red-600',    badge: 'bg-red-200 text-red-700',       border: 'border-red-300',    bg: 'bg-red-50' }
+  if (q === 0 && i > 0) return { bar: 'bg-red-500', badge: 'bg-red-100 text-red-600', border: 'border-red-200', bg: 'bg-red-50' }
   if (q <= LOW_STOCK_THRESHOLD && i > 0) return { bar: 'bg-orange-400', badge: 'bg-orange-100 text-orange-700', border: 'border-orange-200', bg: 'bg-orange-50' }
   return { bar: 'bg-green-500', badge: 'bg-green-100 text-green-700', border: 'border-gray-200', bg: 'bg-white' }
+}
+
+function getCurrentUser(): string {
+  try {
+    const stored = localStorage.getItem('arraia_user')
+    if (stored) return (JSON.parse(stored) as { name?: string }).name ?? 'desconhecido'
+  } catch { /* */ }
+  return 'desconhecido'
+}
+
+function fmtDateTime(d: Date): string {
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+const TYPE_LABEL: Record<StockEntry['type'], string> = {
+  adjust: 'Ajuste',
+  set:    'Definido',
+  reset:  'Reposto',
 }
 
 export default function Inventory() {
   const { addToast } = useApp()
   const [items, setItems] = useState<MenuItem[]>([])
+  const [entries, setEntries] = useState<StockEntry[]>([])
   const [adjustId, setAdjustId] = useState<string | null>(null)
   const [adjustVal, setAdjustVal] = useState('')
   const [initialId, setInitialId] = useState<string | null>(null)
   const [initialVal, setInitialVal] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     const unsub = subscribeMenuItems(setItems)
     return unsub
   }, [])
 
+  useEffect(() => {
+    if (!showHistory) return
+    const unsub = subscribeStockEntries(setEntries)
+    return unsub
+  }, [showHistory])
+
   const handleAdjust = async (item: MenuItem, delta: number) => {
-    const current = item.stock ?? 0
-    const newQty = Math.max(0, current + delta)
+    const before = item.stock ?? 0
+    const after = before + delta
     try {
-      await updateMenuItem(item.id, { stock: newQty })
+      await updateMenuItem(item.id, { stock: after })
+      await addStockEntry({
+        menu_item_id: item.id,
+        menu_item_name: item.name,
+        type: 'adjust',
+        qty_before: before,
+        qty_after: after,
+        inserted_by: getCurrentUser(),
+      })
     } catch { addToast('Erro ao ajustar') }
   }
 
   const handleSetStock = async (item: MenuItem) => {
     const val = parseInt(adjustVal, 10)
-    if (isNaN(val) || val < 0) return
+    if (isNaN(val)) return
+    const before = item.stock ?? 0
     try {
       await updateMenuItem(item.id, { stock: val })
+      await addStockEntry({
+        menu_item_id: item.id,
+        menu_item_name: item.name,
+        type: 'set',
+        qty_before: before,
+        qty_after: val,
+        inserted_by: getCurrentUser(),
+      })
       setAdjustId(null)
       setAdjustVal('')
     } catch { addToast('Erro ao salvar') }
@@ -55,8 +99,17 @@ export default function Inventory() {
   const handleSetInitial = async (item: MenuItem) => {
     const val = parseInt(initialVal, 10)
     if (isNaN(val) || val <= 0) return
+    const before = item.stock ?? 0
     try {
       await updateMenuItem(item.id, { stock_initial: val, stock: val })
+      await addStockEntry({
+        menu_item_id: item.id,
+        menu_item_name: item.name,
+        type: 'reset',
+        qty_before: before,
+        qty_after: val,
+        inserted_by: getCurrentUser(),
+      })
       setInitialId(null)
       setInitialVal('')
       addToast(`Estoque inicial de ${item.name} definido como ${val}`, 'success')
@@ -65,19 +118,26 @@ export default function Inventory() {
 
   const handleReset = async (item: MenuItem) => {
     if (!item.stock_initial) return
+    const before = item.stock ?? 0
     try {
       await updateMenuItem(item.id, { stock: item.stock_initial })
+      await addStockEntry({
+        menu_item_id: item.id,
+        menu_item_name: item.name,
+        type: 'reset',
+        qty_before: before,
+        qty_after: item.stock_initial,
+        inserted_by: getCurrentUser(),
+      })
       addToast(`${item.name} reposto para ${item.stock_initial}`, 'success')
     } catch { addToast('Erro ao repor') }
   }
 
-  // Only show items that have stock configured
   const stockItems = items.filter((i) => i.stock_initial !== undefined && i.stock_initial > 0)
   const noStockItems = items.filter((i) => !i.stock_initial)
-  const lowItems = stockItems.filter((i) => (i.stock ?? 0) <= LOW_STOCK_THRESHOLD && (i.stock ?? 0) > 0)
-  const emptyItems = stockItems.filter((i) => (i.stock ?? 0) === 0)
+  const lowItems = stockItems.filter((i) => (i.stock ?? 0) > 0 && (i.stock ?? 0) <= LOW_STOCK_THRESHOLD)
+  const emptyItems = stockItems.filter((i) => (i.stock ?? 0) <= 0)
 
-  // Group stock items by sector
   const bySector = stockItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
     const s = item.sector ?? 'Outros'
     if (!acc[s]) acc[s] = []
@@ -88,14 +148,25 @@ export default function Inventory() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
-          <Boxes className="text-accent" size={26} />
-          Estoque Diário
-        </h1>
-        <p className="text-gray-400 text-xs mt-0.5">
-          {stockItems.length} produto(s) com estoque configurado · alerta abaixo de {LOW_STOCK_THRESHOLD}
-        </p>
+      <div className="mb-6 flex items-center gap-3">
+        <div>
+          <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
+            <Boxes className="text-accent" size={26} />
+            Estoque Diário
+          </h1>
+          <p className="text-gray-400 text-xs mt-0.5">
+            {stockItems.length} produto(s) com estoque configurado · alerta abaixo de {LOW_STOCK_THRESHOLD} · negativo permitido
+          </p>
+        </div>
+        <div className="flex-1" />
+        <button
+          onClick={() => setShowHistory((p) => !p)}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-accent-dark border border-gray-200 hover:border-accent/40 rounded-2xl px-3 py-2 transition-colors"
+        >
+          <History size={15} />
+          Histórico
+          {showHistory ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
       </div>
 
       {/* Alert summary */}
@@ -110,7 +181,9 @@ export default function Inventory() {
             <AlertTriangle size={18} className="text-orange-500 mt-0.5 shrink-0" />
             <div className="text-sm text-orange-800">
               {emptyItems.length > 0 && (
-                <p className="font-bold mb-0.5">Zerado: {emptyItems.map((i) => i.name).join(', ')}</p>
+                <p className="font-bold mb-0.5">
+                  Zerado/Negativo: {emptyItems.map((i) => `${i.name} (${i.stock ?? 0})`).join(', ')}
+                </p>
               )}
               {lowItems.length > 0 && (
                 <p>Abaixo de {LOW_STOCK_THRESHOLD}: {lowItems.map((i) => `${i.name} (${i.stock})`).join(', ')}</p>
@@ -130,10 +203,11 @@ export default function Inventory() {
             {sectorItems.map((item) => {
               const qty = item.stock ?? 0
               const initial = item.stock_initial ?? 0
-              const pct = initial > 0 ? Math.min(100, (qty / initial) * 100) : 0
+              const pct = initial > 0 ? Math.max(0, Math.min(100, (qty / initial) * 100)) : 0
               const { bar, badge, border, bg } = stockColors(qty, initial)
-              const isLow = qty <= LOW_STOCK_THRESHOLD && qty > 0
+              const isNeg = qty < 0
               const isEmpty = qty === 0
+              const isLow = qty > 0 && qty <= LOW_STOCK_THRESHOLD
 
               return (
                 <motion.div
@@ -143,7 +217,15 @@ export default function Inventory() {
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <p className="font-semibold text-sm text-gray-800 leading-tight">{item.name}</p>
-                    {isEmpty ? (
+                    {isNeg ? (
+                      <motion.span
+                        animate={{ opacity: [1, 0.5, 1] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                        className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${badge}`}
+                      >
+                        NEGATIVO
+                      </motion.span>
+                    ) : isEmpty ? (
                       <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${badge}`}>ZERADO</span>
                     ) : isLow ? (
                       <motion.span
@@ -160,7 +242,7 @@ export default function Inventory() {
                   {adjustId === item.id ? (
                     <div className="flex items-center gap-2 mb-3">
                       <input
-                        type="number" min={0} value={adjustVal} autoFocus
+                        type="number" value={adjustVal} autoFocus
                         onChange={(e) => setAdjustVal(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSetStock(item) }}
                         className="w-24 px-3 py-1.5 rounded-xl border-2 border-accent focus:outline-none text-lg font-black text-center"
@@ -174,7 +256,7 @@ export default function Inventory() {
                       className="flex items-baseline gap-1 mb-3"
                       title="Clique para editar"
                     >
-                      <span className={`font-black text-4xl leading-none ${isEmpty ? 'text-red-500' : isLow ? 'text-orange-500' : 'text-gray-800'}`}>
+                      <span className={`font-black text-4xl leading-none ${isNeg ? 'text-red-600' : isEmpty ? 'text-red-500' : isLow ? 'text-orange-500' : 'text-gray-800'}`}>
                         {qty}
                       </span>
                       <span className="text-gray-400 text-sm">/ {initial}</span>
@@ -193,8 +275,8 @@ export default function Inventory() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1.5">
-                    <button onClick={() => handleAdjust(item, -1)} disabled={qty === 0}
-                      className="w-8 h-8 rounded-xl bg-white border border-gray-200 hover:bg-red-50 text-gray-500 hover:text-red-500 flex items-center justify-center transition-colors disabled:opacity-30">
+                    <button onClick={() => handleAdjust(item, -1)}
+                      className="w-8 h-8 rounded-xl bg-white border border-gray-200 hover:bg-red-50 text-gray-500 hover:text-red-500 flex items-center justify-center transition-colors">
                       <Minus size={13} />
                     </button>
                     <button onClick={() => handleAdjust(item, 1)}
@@ -205,7 +287,6 @@ export default function Inventory() {
                       className="w-8 h-8 rounded-xl bg-white border border-gray-200 hover:bg-blue-50 text-gray-400 hover:text-blue-500 flex items-center justify-center transition-colors">
                       <RotateCcw size={13} />
                     </button>
-                    {/* Set initial quantity inline */}
                     {initialId === item.id ? (
                       <div className="flex items-center gap-1 ml-auto">
                         <input
@@ -281,6 +362,75 @@ export default function Inventory() {
           <p className="text-gray-300 text-xs mt-1">Cadastre produtos em Config → Cardápio</p>
         </div>
       )}
+
+      {/* History panel */}
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-8 overflow-hidden"
+          >
+            <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+              <History size={13} />
+              Histórico de Entradas
+            </h2>
+            <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
+              {entries.length === 0 ? (
+                <div className="p-10 text-center text-gray-300 text-sm">Nenhuma entrada registrada ainda</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs">Data/Hora</th>
+                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs">Produto</th>
+                      <th className="text-center px-4 py-3 text-gray-400 font-medium text-xs">Antes</th>
+                      <th className="text-center px-4 py-3 text-gray-400 font-medium text-xs">Depois</th>
+                      <th className="text-center px-4 py-3 text-gray-400 font-medium text-xs">Tipo</th>
+                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs">Quem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entries.map((e) => {
+                      const diff = e.qty_after - e.qty_before
+                      return (
+                        <tr key={e.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-2.5 text-gray-400 text-xs font-mono whitespace-nowrap">
+                            {fmtDateTime(e.inserted_at)}
+                          </td>
+                          <td className="px-4 py-2.5 font-medium text-gray-700">{e.menu_item_name}</td>
+                          <td className="px-4 py-2.5 text-center text-gray-500">{e.qty_before}</td>
+                          <td className="px-4 py-2.5 text-center">
+                            <span className={`font-bold ${e.qty_after < 0 ? 'text-red-600' : diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                              {e.qty_after}
+                              {diff !== 0 && (
+                                <span className="ml-1 text-xs font-normal opacity-70">
+                                  ({diff > 0 ? '+' : ''}{diff})
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-center">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              e.type === 'reset' ? 'bg-blue-100 text-blue-600' :
+                              e.type === 'set'   ? 'bg-purple-100 text-purple-600' :
+                                                   'bg-gray-100 text-gray-500'
+                            }`}>
+                              {TYPE_LABEL[e.type]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-500 text-xs">{e.inserted_by}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
