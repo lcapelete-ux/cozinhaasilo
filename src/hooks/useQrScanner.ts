@@ -1,79 +1,84 @@
 import { useEffect, useRef, useCallback } from 'react'
 
+// Max ms between characters to be classified as scanner (not human typing)
+const SCAN_THRESHOLD_MS = 55
+
 interface UseQrScannerOptions {
   onScan: (value: string) => void
-  onInputType?: (type: 'qr' | 'keyboard') => void
+  onInputType?: (type: 'scanner' | 'keyboard') => void
   enabled?: boolean
+  minLength?: number
 }
 
-export function useQrScanner({ onScan, onInputType, enabled = true }: UseQrScannerOptions) {
+export function useQrScanner({
+  onScan,
+  onInputType,
+  enabled = true,
+  minLength = 2,
+}: UseQrScannerOptions) {
   const bufferRef = useRef('')
-  const lastKeyTimeRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastTimeRef = useRef(0)
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const flushBuffer = useCallback(() => {
+  const flush = useCallback(() => {
     const val = bufferRef.current.trim()
-    if (val) {
-      onScan(val)
-      onInputType?.('qr')
-    }
     bufferRef.current = ''
-    lastKeyTimeRef.current = 0
-  }, [onScan, onInputType])
+    lastTimeRef.current = 0
+    if (val.length >= minLength) {
+      onScan(val)
+      onInputType?.('scanner')
+    }
+  }, [onScan, onInputType, minLength])
 
   useEffect(() => {
     if (!enabled) return
 
     const handler = (e: KeyboardEvent) => {
-      const now = Date.now()
-      const delta = now - lastKeyTimeRef.current
-
       if (e.key === 'Enter') {
-        if (bufferRef.current.length > 0) {
+        if (bufferRef.current.length >= minLength) {
           e.preventDefault()
           e.stopPropagation()
-          if (timerRef.current) clearTimeout(timerRef.current)
-          flushBuffer()
+          if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
+          if (clearTimerRef.current) clearTimeout(clearTimerRef.current)
+          flush()
         }
         return
       }
 
-      // Ignore non-printable keys when not in qr mode
       if (e.key.length !== 1) return
 
-      if (lastKeyTimeRef.current !== 0 && delta < 80) {
-        // QR scanner speed — capture in buffer
+      const now = Date.now()
+      const delta = now - lastTimeRef.current
+
+      if (lastTimeRef.current > 0 && delta < SCAN_THRESHOLD_MS) {
+        // Scanner speed — capture
         e.preventDefault()
         e.stopPropagation()
         bufferRef.current += e.key
-
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => {
-          flushBuffer()
-        }, 150)
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current)
+        if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
+        flushTimerRef.current = setTimeout(flush, 100)
       } else {
-        // Human typing speed — let it through to normal inputs
+        // Keyboard speed — pass through, start fresh buffer
         onInputType?.('keyboard')
-        // If there was a partial buffer from before, clear it
-        if (bufferRef.current.length > 0) {
-          bufferRef.current = ''
-        }
-        // Start potential qr buffer with this char only if it's fast enough next key
+        if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current)
         bufferRef.current = e.key
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => {
-          // single char typed slowly — not qr, clear
+        clearTimerRef.current = setTimeout(() => {
           bufferRef.current = ''
-        }, 200)
+          lastTimeRef.current = 0
+        }, 300)
       }
 
-      lastKeyTimeRef.current = now
+      lastTimeRef.current = now
     }
 
     window.addEventListener('keydown', handler, { capture: true })
     return () => {
       window.removeEventListener('keydown', handler, { capture: true })
-      if (timerRef.current) clearTimeout(timerRef.current)
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current)
     }
-  }, [enabled, flushBuffer, onInputType])
+  }, [enabled, flush, minLength])
 }

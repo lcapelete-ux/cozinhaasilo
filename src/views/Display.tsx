@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/firebaseService'
+import { useQrScanner } from '../hooks/useQrScanner'
 import type { Order } from '../types'
 
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
@@ -125,6 +126,8 @@ export default function Display() {
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
   const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
   const [deliveredMsg, setDeliveredMsg] = useState<string | null>(null)
+  const [deliveryInput, setDeliveryInput] = useState('')
+
   const readZoom = () => {
     const saved = localStorage.getItem(DISPLAY_ZOOM_KEY)
     const val = saved ? parseFloat(saved) : 1
@@ -148,29 +151,16 @@ export default function Display() {
       window.removeEventListener('display-scanner-hidden-change', onStorage)
     }
   }, [])
+
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const deliveredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyOrdersRef = useRef<Order[]>([])
   const activeOrdersRef = useRef<Order[]>([])
-  const bufferRef = useRef('')
-  const lastKeyTimeRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const deliveryInputRef = useRef<HTMLInputElement>(null)
-  const hiddenScannerRef = useRef<HTMLInputElement>(null)
-  const scannerHiddenRef = useRef(scannerHidden)
-  const [deliveryInput, setDeliveryInput] = useState('')
-  const [hiddenScannerVal, setHiddenScannerVal] = useState('')
 
-  useEffect(() => { scannerHiddenRef.current = scannerHidden }, [scannerHidden])
-
-  useEffect(() => {
-    readyOrdersRef.current = readyOrders
-  }, [readyOrders])
-
-  useEffect(() => {
-    activeOrdersRef.current = activeOrders
-  }, [activeOrders])
+  useEffect(() => { readyOrdersRef.current = readyOrders }, [readyOrders])
+  useEffect(() => { activeOrdersRef.current = activeOrders }, [activeOrders])
 
   const confirmDelivery = useCallback(async (raw: string) => {
     const ticket = await resolveFicha(raw)
@@ -184,57 +174,8 @@ export default function Display() {
     deliveredTimer.current = setTimeout(() => setDeliveredMsg(null), 4000)
   }, [])
 
-  // Keep hidden scanner input focused when in hidden mode
-  useEffect(() => {
-    if (!scannerHidden) return
-    const el = hiddenScannerRef.current
-    if (!el) return
-    el.focus()
-    const refocus = () => requestAnimationFrame(() => hiddenScannerRef.current?.focus())
-    el.addEventListener('blur', refocus)
-    return () => el.removeEventListener('blur', refocus)
-  }, [scannerHidden])
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // When hidden scanner is active, its input handles everything — skip global handler
-      if (scannerHiddenRef.current) return
-      if (deliveryInputRef.current && document.activeElement === deliveryInputRef.current) return
-      if (e.key === 'Enter') {
-        if (bufferRef.current.length > 0) {
-          e.preventDefault(); e.stopPropagation()
-          if (timerRef.current) clearTimeout(timerRef.current)
-          const val = bufferRef.current.trim()
-          bufferRef.current = ''; lastKeyTimeRef.current = 0
-          if (val) confirmDelivery(val)
-        }
-        return
-      }
-      if (e.key.length !== 1) return
-      const now = Date.now()
-      const delta = now - lastKeyTimeRef.current
-      if (lastKeyTimeRef.current !== 0 && delta < 80) {
-        e.preventDefault(); e.stopPropagation()
-        bufferRef.current += e.key
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => {
-          const val = bufferRef.current.trim()
-          bufferRef.current = ''; lastKeyTimeRef.current = 0
-          if (val) confirmDelivery(val)
-        }, 150)
-      } else {
-        bufferRef.current = e.key
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => { bufferRef.current = '' }, 200)
-      }
-      lastKeyTimeRef.current = now
-    }
-    window.addEventListener('keydown', handler, { capture: true })
-    return () => {
-      window.removeEventListener('keydown', handler, { capture: true })
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [confirmDelivery])
+  // Scanner: timing-based — works with 1 or 2 computers, coexists with keyboard
+  useQrScanner({ onScan: confirmDelivery })
 
   useEffect(() => {
     const unsub1 = subscribeOrders(['pending', 'preparing'], (orders) => setActiveOrders(dedup(orders)))
@@ -503,32 +444,6 @@ export default function Display() {
         </form>
       ) : (
         <div style={{ background: '#0d0d0d', height: 4 }} />
-      )}
-
-      {/* Invisible always-focused input for hidden barcode scanner mode */}
-      {scannerHidden && (
-        <input
-          ref={hiddenScannerRef}
-          type="text"
-          value={hiddenScannerVal}
-          onChange={(e) => setHiddenScannerVal(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              const val = hiddenScannerVal.trim()
-              if (val) { confirmDelivery(val); setHiddenScannerVal('') }
-            }
-          }}
-          autoComplete="off"
-          style={{
-            position: 'fixed',
-            left: '-9999px',
-            top: 0,
-            width: 1,
-            height: 1,
-            opacity: 0,
-          }}
-        />
       )}
     </div>
   )
