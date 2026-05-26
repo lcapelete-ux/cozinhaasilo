@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package, AlertTriangle, ZoomIn, ZoomOut } from 'lucide-react'
-import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, subscribeMenuItems, type ActiveSessionData } from '../services/firebaseService'
+import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import type { Order, OrderStatus, MenuItem } from '../types'
@@ -65,6 +65,10 @@ export default function KitchenSectors() {
     localStorage.setItem(ZOOM_KEY, String(z))
   }
 
+  const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
+  const prevStatusMapRef = useRef<Map<string, string>>(new Map())
+  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -89,6 +93,24 @@ export default function KitchenSectors() {
 
   useEffect(() => {
     manualRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    const unsub = subscribeAllOrders((allOrders) => {
+      allOrders.forEach((order) => {
+        const prev = prevStatusMapRef.current.get(order.id)
+        if (prev && prev !== 'delivered' && order.status === 'delivered') {
+          setReleasedFicha(order.ticket_number)
+          if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+          releaseTimerRef.current = setTimeout(() => setReleasedFicha(null), 6000)
+        }
+        prevStatusMapRef.current.set(order.id, order.status)
+      })
+    })
+    return () => {
+      unsub()
+      if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+    }
   }, [])
 
   const flashMode = useCallback((mode: 'qr' | 'keyboard') => {
@@ -274,6 +296,37 @@ export default function KitchenSectors() {
                 ))}
               </span>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {releasedFicha && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4 rounded-2xl border border-green-300 bg-green-50 px-5 py-3 flex items-center gap-3"
+          >
+            <motion.span
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ duration: 0.6, repeat: 2 }}
+              className="text-2xl"
+            >
+              ✅
+            </motion.span>
+            <div>
+              <p className="font-black text-green-800 text-base">
+                Ficha <span className="text-2xl">#{releasedFicha}</span> liberada!
+              </p>
+              <p className="text-xs text-green-600 font-medium">Entregue ao cliente — pode usar de novo.</p>
+            </div>
+            <button
+              onClick={() => setReleasedFicha(null)}
+              className="ml-auto text-green-400 hover:text-green-700 text-lg font-black"
+            >
+              ×
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

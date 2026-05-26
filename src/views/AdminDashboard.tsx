@@ -11,7 +11,7 @@ import {
 import { subscribeAllOrders } from '../services/firebaseService'
 import type { Order } from '../types'
 
-type Period = 'today' | 'all'
+type Period = 'today' | 'all' | 'date'
 
 const SECTOR_COLORS: Record<string, string> = {
   Fritadeira: '#FF8800',
@@ -48,6 +48,10 @@ function EmptyChart() {
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
   const [period, setPeriod] = useState<Period>('all')
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const d = new Date()
+    return d.toISOString().split('T')[0]
+  })
 
   useEffect(() => {
     const unsub = subscribeAllOrders(setOrders)
@@ -56,8 +60,15 @@ export default function AdminDashboard() {
 
   const delivered = useMemo(() => {
     const d = orders.filter((o) => o.status === 'delivered')
-    return period === 'today' ? d.filter((o) => isToday(o.created_at)) : d
-  }, [orders, period])
+    if (period === 'today') return d.filter((o) => isToday(o.created_at))
+    if (period === 'date') {
+      return d.filter((o) => {
+        const oDate = o.created_at.toLocaleDateString('sv') // YYYY-MM-DD locale-safe
+        return oDate === selectedDate
+      })
+    }
+    return d
+  }, [orders, period, selectedDate])
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
   const totalRevenue = useMemo(
@@ -240,6 +251,8 @@ export default function AdminDashboard() {
     const periodLabel =
       period === 'today'
         ? `Hoje, ${now.toLocaleDateString('pt-BR')}`
+        : period === 'date'
+        ? `Dia ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR')}`
         : 'Toda a Festa'
 
     const tableRowProducts = topByQty
@@ -395,23 +408,26 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-2xl bg-gray-100 p-1">
-            <button
-              onClick={() => setPeriod('today')}
-              className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-colors ${
-                period === 'today' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              Hoje
-            </button>
-            <button
-              onClick={() => setPeriod('all')}
-              className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-colors ${
-                period === 'all' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              Toda a festa
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-2xl bg-gray-100 p-1">
+              <button onClick={() => setPeriod('today')} className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-colors ${period === 'today' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'}`}>
+                Hoje
+              </button>
+              <button onClick={() => setPeriod('all')} className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-colors ${period === 'all' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'}`}>
+                Toda a festa
+              </button>
+              <button onClick={() => setPeriod('date')} className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-colors flex items-center gap-1 ${period === 'date' ? 'bg-white shadow-sm text-accent-dark' : 'text-gray-400 hover:text-gray-600'}`}>
+                📅 Data
+              </button>
+            </div>
+            {period === 'date' && (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-1.5 rounded-2xl border border-gray-200 text-sm focus:outline-none focus:border-accent bg-white text-gray-700 font-medium"
+              />
+            )}
           </div>
           <button
             onClick={exportPDF}

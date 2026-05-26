@@ -125,7 +125,6 @@ export default function Display() {
   const [activeOrders, setActiveOrders] = useState<Order[]>([])
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
   const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
-  const [deliveredMsg, setDeliveredMsg] = useState<string | null>(null)
   const [deliveryInput, setDeliveryInput] = useState('')
 
   const readZoom = () => {
@@ -154,7 +153,6 @@ export default function Display() {
 
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const deliveredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyOrdersRef = useRef<Order[]>([])
   const activeOrdersRef = useRef<Order[]>([])
   const [scanDebug, setScanDebug] = useState<string | null>(null)
@@ -178,9 +176,6 @@ export default function Display() {
     }
     setScanDebug(null)
     await setOrderStatus(order.id, 'delivered')
-    setDeliveredMsg(ticket)
-    if (deliveredTimer.current) clearTimeout(deliveredTimer.current)
-    deliveredTimer.current = setTimeout(() => setDeliveredMsg(null), 4000)
   }, [])
 
   // minLength:1 so single-digit ticket numbers (ficha #1, #2…) are not silently dropped
@@ -208,7 +203,6 @@ export default function Display() {
     return () => {
       unsub2()
       if (announcementTimer.current) clearTimeout(announcementTimer.current)
-      if (deliveredTimer.current) clearTimeout(deliveredTimer.current)
     }
   }, [])
 
@@ -292,23 +286,6 @@ export default function Display() {
                 Favor retirar no balcão
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Delivered confirmation banner */}
-      <AnimatePresence>
-        {deliveredMsg && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-            style={{ background: '#44BB44' }}
-          >
-            <p className="text-center py-4 font-black text-2xl text-white uppercase tracking-wide">
-              ✅ Ficha #{deliveredMsg} entregue! Pode usar de novo, sô! 🎊
-            </p>
           </motion.div>
         )}
       </AnimatePresence>
