@@ -18,6 +18,7 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type FirebaseStorage } from 'firebase/storage'
 import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User, StockEntry, MediaSlide } from '../types'
 
 const firebaseConfig = {
@@ -38,12 +39,14 @@ export const isFirebaseConfigured = !!(
 let _app: FirebaseApp | null = null
 let _db: Firestore | null = null
 let _auth: Auth | null = null
+let _storage: FirebaseStorage | null = null
 
 if (isFirebaseConfigured) {
   try {
     _app = initializeApp(firebaseConfig)
     _db = getFirestore(_app)
     _auth = getAuth(_app)
+    _storage = getStorage(_app)
   } catch (e) {
     console.error('Firebase init failed:', e)
   }
@@ -352,6 +355,27 @@ export async function seedInitialData(): Promise<void> {
     { name: 'Milho verde', quantity: 50, initial_quantity: 50, unit: 'un' },
   ]
   for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
+}
+
+// ── File Upload ──────────────────────────────────────────────────────────────
+
+export function uploadMediaFile(
+  file: File,
+  onProgress?: (pct: number) => void
+): Promise<string> {
+  if (!_storage) return Promise.reject(new Error('Firebase Storage não configurado'))
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const path = `media_slides/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+  const ref = storageRef(_storage, path)
+  return new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(ref, file)
+    task.on(
+      'state_changed',
+      (snap) => onProgress?.((snap.bytesTransferred / snap.totalBytes) * 100),
+      reject,
+      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject)
+    )
+  })
 }
 
 // ── Media Slides ─────────────────────────────────────────────────────────────
