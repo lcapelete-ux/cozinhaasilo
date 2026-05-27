@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, type LucideIcon } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, type LucideIcon } from 'lucide-react'
 import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   subscribeUsers, addUser, updateUser, deleteUser,
   subscribeMenuItems, addMenuItem, updateMenuItem, deleteMenuItem,
   clearAllOrders, subscribeAllOrders,
+  subscribeCloudinaryConfig, setCloudinaryConfig, type CloudinaryConfig,
 } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { User, MenuItem } from '../types'
@@ -316,6 +317,88 @@ function ScannerHiddenToggle() {
   )
 }
 
+function CloudinarySection({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
+  const [cfg, setCfg] = useState<CloudinaryConfig | null>(null)
+  const [form, setForm] = useState({ cloud_name: '', upload_preset: '' })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    return subscribeCloudinaryConfig((c) => {
+      setCfg(c)
+      if (c) setForm({ cloud_name: c.cloud_name, upload_preset: c.upload_preset })
+    })
+  }, [])
+
+  const handleSave = async () => {
+    if (!form.cloud_name.trim() || !form.upload_preset.trim()) {
+      addToast('Preencha Cloud Name e Upload Preset')
+      return
+    }
+    setSaving(true)
+    try {
+      await setCloudinaryConfig({ cloud_name: form.cloud_name.trim(), upload_preset: form.upload_preset.trim() })
+      addToast('Configuração salva!', 'success')
+    } catch { addToast('Erro ao salvar') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center gap-3 mb-1">
+        <CloudUpload size={18} className="text-accent" />
+        <h3 className="font-bold text-gray-800">Cloudinary — Upload de Mídia</h3>
+        {cfg?.cloud_name && (
+          <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+            <Check size={10} /> Configurado
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-gray-400 mb-4">
+        Serviço gratuito para hospedar fotos e vídeos do painel externo. Sem cartão de crédito.
+      </p>
+
+      {/* Steps */}
+      <div className="bg-gray-50 rounded-2xl px-4 py-3 mb-4 text-xs text-gray-600 space-y-1.5">
+        <p className="font-semibold text-gray-700 mb-2">Como configurar (uma vez só):</p>
+        <p>1. Crie conta gratuita em <a href="https://cloudinary.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-0.5">cloudinary.com <ExternalLink size={10} /></a></p>
+        <p>2. Anote o <strong>Cloud Name</strong> exibido no dashboard</p>
+        <p>3. Vá em <strong>Settings → Upload → Upload presets → Add preset</strong></p>
+        <p>4. Defina o modo como <strong>Unsigned</strong> e salve — anote o nome do preset</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Cloud Name</label>
+          <input
+            type="text"
+            placeholder="meu-cloud"
+            value={form.cloud_name}
+            onChange={(e) => setForm((p) => ({ ...p, cloud_name: e.target.value }))}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Upload Preset (Unsigned)</label>
+          <input
+            type="text"
+            placeholder="arraia_media"
+            value={form.upload_preset}
+            onChange={(e) => setForm((p) => ({ ...p, upload_preset: e.target.value }))}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono"
+          />
+        </div>
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="flex items-center gap-1.5 bg-accent text-white px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+      >
+        <Check size={14} /> {saving ? 'Salvando…' : 'Salvar configuração'}
+      </button>
+    </div>
+  )
+}
+
 function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [orderCount, setOrderCount] = useState<number | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -341,6 +424,9 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
 
   return (
     <div className="space-y-4">
+      {/* Cloudinary */}
+      <CloudinarySection addToast={addToast} />
+
       {/* Zoom dos monitores */}
       <div className="bg-white rounded-3xl p-6 shadow-sm">
         <h3 className="font-bold text-gray-800 mb-1">Zoom dos monitores</h3>

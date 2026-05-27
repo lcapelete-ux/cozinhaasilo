@@ -6,7 +6,8 @@ import {
 } from 'lucide-react'
 import {
   subscribeMediaSlides, addMediaSlide, updateMediaSlide,
-  deleteMediaSlide, uploadMediaFile,
+  deleteMediaSlide, uploadMediaFile, subscribeCloudinaryConfig,
+  type CloudinaryConfig,
 } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MediaSlide } from '../types'
@@ -72,6 +73,7 @@ type Mode = 'file' | 'link'
 export default function MediaSlides() {
   const { addToast } = useApp()
   const [slides, setSlides] = useState<MediaSlide[]>([])
+  const [cloudinary, setCloudinary] = useState<CloudinaryConfig | null | undefined>(undefined)
   const [adding, setAdding] = useState(false)
   const [mode, setMode] = useState<Mode>('file')
 
@@ -90,6 +92,11 @@ export default function MediaSlides() {
 
   useEffect(() => {
     const unsub = subscribeMediaSlides(setSlides)
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const unsub = subscribeCloudinaryConfig((cfg) => setCloudinary(cfg))
     return unsub
   }, [])
 
@@ -119,9 +126,13 @@ export default function MediaSlides() {
 
     if (mode === 'file') {
       if (!pickedFile) { addToast('Selecione um arquivo'); return }
+      if (!cloudinary?.cloud_name || !cloudinary?.upload_preset) {
+        addToast('Configure o Cloudinary em Config → Dados antes de subir arquivos')
+        return
+      }
       setUploadPct(0)
       try {
-        const url = await uploadMediaFile(pickedFile, setUploadPct)
+        const url = await uploadMediaFile(pickedFile, cloudinary, setUploadPct)
         const type = detectTypeFromFile(pickedFile)
         await addMediaSlide({ url, type, title: title.trim(), duration: dur, order: slides.length, enabled: true })
         addToast('Mídia enviada!', 'success')
@@ -322,15 +333,22 @@ export default function MediaSlides() {
                 )}
               </div>
 
-              {/* Storage rules hint */}
+              {/* Cloudinary config status */}
               {mode === 'file' && (
-                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4 text-xs text-amber-700">
-                  <AlertCircle size={13} className="mt-0.5 shrink-0" />
-                  <span>
-                    Para upload funcionar, as regras do Firebase Storage precisam permitir escrita.
-                    Em <strong>Storage → Rules</strong> use: <code className="bg-amber-100 px-1 rounded">allow read, write: if true;</code>
-                  </span>
-                </div>
+                cloudinary?.cloud_name && cloudinary?.upload_preset ? (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-4 text-xs text-green-700">
+                    <Check size={13} className="shrink-0" />
+                    <span>Cloudinary configurado — <strong>{cloudinary.cloud_name}</strong></span>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4 text-xs text-amber-700">
+                    <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                    <span>
+                      Cloudinary não configurado. Acesse <strong>Config → Dados → Cloudinary</strong> e
+                      informe seu Cloud Name e Upload Preset para habilitar o upload de arquivos.
+                    </span>
+                  </div>
+                )
               )}
 
               <div className="flex gap-2">

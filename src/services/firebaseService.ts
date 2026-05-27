@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -18,7 +19,6 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type FirebaseStorage } from 'firebase/storage'
 import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User, StockEntry, MediaSlide } from '../types'
 
 const firebaseConfig = {
@@ -39,14 +39,12 @@ export const isFirebaseConfigured = !!(
 let _app: FirebaseApp | null = null
 let _db: Firestore | null = null
 let _auth: Auth | null = null
-let _storage: FirebaseStorage | null = null
 
 if (isFirebaseConfigured) {
   try {
     _app = initializeApp(firebaseConfig)
     _db = getFirestore(_app)
     _auth = getAuth(_app)
-    _storage = getStorage(_app)
   } catch (e) {
     console.error('Firebase init failed:', e)
   }
@@ -357,24 +355,56 @@ export async function seedInitialData(): Promise<void> {
   for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
 }
 
-// ── File Upload ──────────────────────────────────────────────────────────────
+// ── Cloudinary config ────────────────────────────────────────────────────────
+
+export interface CloudinaryConfig {
+  cloud_name: string
+  upload_preset: string
+}
+
+export function subscribeCloudinaryConfig(callback: (cfg: CloudinaryConfig | null) => void) {
+  if (!_db) return () => {}
+  return onSnapshot(doc(_db, 'config', 'cloudinary'), (snap) => {
+    if (!snap.exists()) { callback(null); return }
+    callback(snap.data() as CloudinaryConfig)
+  })
+}
+
+export async function setCloudinaryConfig(cfg: CloudinaryConfig): Promise<void> {
+  if (!_db) return
+  await setDoc(doc(_db, 'config', 'cloudinary'), cfg)
+}
+
+// ── File Upload (Cloudinary) ─────────────────────────────────────────────────
 
 export function uploadMediaFile(
   file: File,
+  config: CloudinaryConfig,
   onProgress?: (pct: number) => void
 ): Promise<string> {
-  if (!_storage) return Promise.reject(new Error('Firebase Storage não configurado'))
-  const ext = file.name.split('.').pop() ?? 'bin'
-  const path = `media_slides/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
-  const ref = storageRef(_storage, path)
+  const resourceType = file.type.startsWith('video/') ? 'video' : 'image'
+  const url = `https://api.cloudinary.com/v1_1/${config.cloud_name}/${resourceType}/upload`
+  const body = new FormData()
+  body.append('file', file)
+  body.append('upload_preset', config.upload_preset)
+
   return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(ref, file)
-    task.on(
-      'state_changed',
-      (snap) => onProgress?.((snap.bytesTransferred / snap.totalBytes) * 100),
-      reject,
-      () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject)
-    )
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.((e.loaded / e.total) * 100)
+    }
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        try {
+          resolve((JSON.parse(xhr.responseText) as { secure_url: string }).secure_url)
+        } catch { reject(new Error('Resposta inválida do Cloudinary')) }
+      } else {
+        reject(new Error(`Cloudinary retornou ${xhr.status} — verifique cloud name e upload preset`))
+      }
+    }
+    xhr.onerror = () => reject(new Error('Erro de rede ao enviar para Cloudinary'))
+    xhr.send(body)
   })
 }
 
