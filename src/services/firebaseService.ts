@@ -355,56 +355,58 @@ export async function seedInitialData(): Promise<void> {
   for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
 }
 
-// ── Cloudinary config ────────────────────────────────────────────────────────
+// ── Supabase Storage config ───────────────────────────────────────────────────
 
-export interface CloudinaryConfig {
-  cloud_name: string
-  upload_preset: string
+export interface SupabaseStorageConfig {
+  url: string       // https://xxxx.supabase.co
+  anon_key: string
+  bucket: string    // e.g. "media"
 }
 
-export function subscribeCloudinaryConfig(callback: (cfg: CloudinaryConfig | null) => void) {
+export function subscribeStorageConfig(callback: (cfg: SupabaseStorageConfig | null) => void) {
   if (!_db) return () => {}
-  return onSnapshot(doc(_db, 'config', 'cloudinary'), (snap) => {
+  return onSnapshot(doc(_db, 'config', 'storage'), (snap) => {
     if (!snap.exists()) { callback(null); return }
-    callback(snap.data() as CloudinaryConfig)
+    callback(snap.data() as SupabaseStorageConfig)
   })
 }
 
-export async function setCloudinaryConfig(cfg: CloudinaryConfig): Promise<void> {
+export async function setStorageConfig(cfg: SupabaseStorageConfig): Promise<void> {
   if (!_db) return
-  await setDoc(doc(_db, 'config', 'cloudinary'), cfg)
+  await setDoc(doc(_db, 'config', 'storage'), cfg)
 }
 
-// ── File Upload (Cloudinary) ─────────────────────────────────────────────────
+// ── File Upload (Supabase Storage) ────────────────────────────────────────────
 
 export function uploadMediaFile(
   file: File,
-  config: CloudinaryConfig,
+  config: SupabaseStorageConfig,
   onProgress?: (pct: number) => void
 ): Promise<string> {
-  const resourceType = file.type.startsWith('video/') ? 'video' : 'image'
-  const url = `https://api.cloudinary.com/v1_1/${config.cloud_name}/${resourceType}/upload`
-  const body = new FormData()
-  body.append('file', file)
-  body.append('upload_preset', config.upload_preset)
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+  const uploadUrl = `${config.url}/storage/v1/object/${config.bucket}/${filename}`
+  const publicUrl = `${config.url}/storage/v1/object/public/${config.bucket}/${filename}`
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', url)
+    xhr.open('POST', uploadUrl)
+    xhr.setRequestHeader('Authorization', `Bearer ${config.anon_key}`)
+    xhr.setRequestHeader('Content-Type', file.type)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress?.((e.loaded / e.total) * 100)
     }
     xhr.onload = () => {
       if (xhr.status === 200) {
-        try {
-          resolve((JSON.parse(xhr.responseText) as { secure_url: string }).secure_url)
-        } catch { reject(new Error('Resposta inválida do Cloudinary')) }
+        resolve(publicUrl)
       } else {
-        reject(new Error(`Cloudinary retornou ${xhr.status} — verifique cloud name e upload preset`))
+        let detail = ''
+        try { detail = JSON.parse(xhr.responseText)?.message ?? '' } catch { /* */ }
+        reject(new Error(`Supabase retornou ${xhr.status}${detail ? ` — ${detail}` : ''}`))
       }
     }
-    xhr.onerror = () => reject(new Error('Erro de rede ao enviar para Cloudinary'))
-    xhr.send(body)
+    xhr.onerror = () => reject(new Error('Erro de rede ao enviar para Supabase'))
+    xhr.send(file)
   })
 }
 

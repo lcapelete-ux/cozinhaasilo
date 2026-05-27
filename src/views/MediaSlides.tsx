@@ -6,8 +6,8 @@ import {
 } from 'lucide-react'
 import {
   subscribeMediaSlides, addMediaSlide, updateMediaSlide,
-  deleteMediaSlide, uploadMediaFile, subscribeCloudinaryConfig,
-  type CloudinaryConfig,
+  deleteMediaSlide, uploadMediaFile, subscribeStorageConfig,
+  type SupabaseStorageConfig,
 } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MediaSlide } from '../types'
@@ -73,7 +73,7 @@ type Mode = 'file' | 'link'
 export default function MediaSlides() {
   const { addToast } = useApp()
   const [slides, setSlides] = useState<MediaSlide[]>([])
-  const [cloudinary, setCloudinary] = useState<CloudinaryConfig | null | undefined>(undefined)
+  const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null | undefined>(undefined)
   const [adding, setAdding] = useState(false)
   const [mode, setMode] = useState<Mode>('file')
 
@@ -96,7 +96,7 @@ export default function MediaSlides() {
   }, [])
 
   useEffect(() => {
-    const unsub = subscribeCloudinaryConfig((cfg) => setCloudinary(cfg))
+    const unsub = subscribeStorageConfig((cfg) => setStorageCfg(cfg))
     return unsub
   }, [])
 
@@ -126,13 +126,13 @@ export default function MediaSlides() {
 
     if (mode === 'file') {
       if (!pickedFile) { addToast('Selecione um arquivo'); return }
-      if (!cloudinary?.cloud_name || !cloudinary?.upload_preset) {
-        addToast('Configure o Cloudinary em Config → Dados antes de subir arquivos')
+      if (!storageCfg?.url || !storageCfg?.anon_key) {
+        addToast('Configure o Supabase em Config → Dados antes de subir arquivos')
         return
       }
       setUploadPct(0)
       try {
-        const url = await uploadMediaFile(pickedFile, cloudinary, setUploadPct)
+        const url = await uploadMediaFile(pickedFile, storageCfg, setUploadPct)
         const type = detectTypeFromFile(pickedFile)
         await addMediaSlide({ url, type, title: title.trim(), duration: dur, order: slides.length, enabled: true })
         addToast('Mídia enviada!', 'success')
@@ -335,17 +335,17 @@ export default function MediaSlides() {
 
               {/* Cloudinary config status */}
               {mode === 'file' && (
-                cloudinary?.cloud_name && cloudinary?.upload_preset ? (
+                storageCfg?.url && storageCfg?.anon_key ? (
                   <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-4 text-xs text-green-700">
                     <Check size={13} className="shrink-0" />
-                    <span>Cloudinary configurado — <strong>{cloudinary.cloud_name}</strong></span>
+                    <span>Supabase Storage configurado — bucket <strong>{storageCfg.bucket}</strong></span>
                   </div>
                 ) : (
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4 text-xs text-amber-700">
                     <AlertCircle size={13} className="mt-0.5 shrink-0" />
                     <span>
-                      Cloudinary não configurado. Acesse <strong>Config → Dados → Cloudinary</strong> e
-                      informe seu Cloud Name e Upload Preset para habilitar o upload de arquivos.
+                      Supabase não configurado. Acesse <strong>Config → Dados → Supabase Storage</strong> e
+                      informe a URL do projeto e a anon key.
                     </span>
                   </div>
                 )

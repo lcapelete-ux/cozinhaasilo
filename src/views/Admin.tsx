@@ -7,7 +7,7 @@ import {
   subscribeUsers, addUser, updateUser, deleteUser,
   subscribeMenuItems, addMenuItem, updateMenuItem, deleteMenuItem,
   clearAllOrders, subscribeAllOrders,
-  subscribeCloudinaryConfig, setCloudinaryConfig, type CloudinaryConfig,
+  subscribeStorageConfig, setStorageConfig, type SupabaseStorageConfig,
 } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { User, MenuItem } from '../types'
@@ -317,26 +317,27 @@ function ScannerHiddenToggle() {
   )
 }
 
-function CloudinarySection({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
-  const [cfg, setCfg] = useState<CloudinaryConfig | null>(null)
-  const [form, setForm] = useState({ cloud_name: '', upload_preset: '' })
+function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
+  const [cfg, setCfg] = useState<SupabaseStorageConfig | null>(null)
+  const [form, setForm] = useState({ url: '', anon_key: '', bucket: 'media' })
   const [saving, setSaving] = useState(false)
+  const [showKey, setShowKey] = useState(false)
 
   useEffect(() => {
-    return subscribeCloudinaryConfig((c) => {
+    return subscribeStorageConfig((c) => {
       setCfg(c)
-      if (c) setForm({ cloud_name: c.cloud_name, upload_preset: c.upload_preset })
+      if (c) setForm({ url: c.url, anon_key: c.anon_key, bucket: c.bucket })
     })
   }, [])
 
   const handleSave = async () => {
-    if (!form.cloud_name.trim() || !form.upload_preset.trim()) {
-      addToast('Preencha Cloud Name e Upload Preset')
+    if (!form.url.trim() || !form.anon_key.trim() || !form.bucket.trim()) {
+      addToast('Preencha todos os campos')
       return
     }
     setSaving(true)
     try {
-      await setCloudinaryConfig({ cloud_name: form.cloud_name.trim(), upload_preset: form.upload_preset.trim() })
+      await setStorageConfig({ url: form.url.trim().replace(/\/$/, ''), anon_key: form.anon_key.trim(), bucket: form.bucket.trim() })
       addToast('Configuração salva!', 'success')
     } catch { addToast('Erro ao salvar') }
     finally { setSaving(false) }
@@ -346,44 +347,63 @@ function CloudinarySection({ addToast }: { addToast: (msg: string, type?: 'error
     <div className="bg-white rounded-3xl p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-1">
         <CloudUpload size={18} className="text-accent" />
-        <h3 className="font-bold text-gray-800">Cloudinary — Upload de Mídia</h3>
-        {cfg?.cloud_name && (
+        <h3 className="font-bold text-gray-800">Supabase Storage — Upload de Mídia</h3>
+        {cfg?.url && (
           <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
             <Check size={10} /> Configurado
           </span>
         )}
       </div>
       <p className="text-sm text-gray-400 mb-4">
-        Serviço gratuito para hospedar fotos e vídeos do painel externo. Sem cartão de crédito.
+        Usa o Supabase Storage do seu projeto para hospedar fotos e vídeos do painel externo.
       </p>
 
       {/* Steps */}
       <div className="bg-gray-50 rounded-2xl px-4 py-3 mb-4 text-xs text-gray-600 space-y-1.5">
-        <p className="font-semibold text-gray-700 mb-2">Como configurar (uma vez só):</p>
-        <p>1. Crie conta gratuita em <a href="https://cloudinary.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-0.5">cloudinary.com <ExternalLink size={10} /></a></p>
-        <p>2. Anote o <strong>Cloud Name</strong> exibido no dashboard</p>
-        <p>3. Vá em <strong>Settings → Upload → Upload presets → Add preset</strong></p>
-        <p>4. Defina o modo como <strong>Unsigned</strong> e salve — anote o nome do preset</p>
+        <p className="font-semibold text-gray-700 mb-2">Como configurar no seu Supabase:</p>
+        <p>1. Abra o projeto em <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-0.5">supabase.com/dashboard <ExternalLink size={10} /></a></p>
+        <p>2. Vá em <strong>Storage → New bucket</strong> → nomeie <code className="bg-gray-200 px-1 rounded">media</code> → marque <strong>Public bucket</strong></p>
+        <p>3. Em <strong>Storage → Policies</strong>, adicione política INSERT para o role <code className="bg-gray-200 px-1 rounded">anon</code></p>
+        <p>4. Copie a <strong>Project URL</strong> e a <strong>anon key</strong> em <strong>Settings → API</strong></p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div className="space-y-3 mb-4">
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Cloud Name</label>
+          <label className="text-xs text-gray-500 block mb-1">Project URL</label>
           <input
             type="text"
-            placeholder="meu-cloud"
-            value={form.cloud_name}
-            onChange={(e) => setForm((p) => ({ ...p, cloud_name: e.target.value }))}
+            placeholder="https://xxxx.supabase.co"
+            value={form.url}
+            onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
             className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono"
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Upload Preset (Unsigned)</label>
+          <label className="text-xs text-gray-500 block mb-1">Anon Key</label>
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              placeholder="eyJhbGci…"
+              value={form.anon_key}
+              onChange={(e) => setForm((p) => ({ ...p, anon_key: e.target.value }))}
+              className="w-full px-3 py-2 pr-9 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((v) => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Nome do bucket</label>
           <input
             type="text"
-            placeholder="arraia_media"
-            value={form.upload_preset}
-            onChange={(e) => setForm((p) => ({ ...p, upload_preset: e.target.value }))}
+            placeholder="media"
+            value={form.bucket}
+            onChange={(e) => setForm((p) => ({ ...p, bucket: e.target.value }))}
             className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono"
           />
         </div>
@@ -424,8 +444,8 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
 
   return (
     <div className="space-y-4">
-      {/* Cloudinary */}
-      <CloudinarySection addToast={addToast} />
+      {/* Supabase Storage */}
+      <SupabaseStorageSection addToast={addToast} />
 
       {/* Zoom dos monitores */}
       <div className="bg-white rounded-3xl p-6 shadow-sm">
