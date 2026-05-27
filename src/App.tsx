@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, useCallback } from 'rea
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ShoppingBag, ChefHat, Scan, LayoutGrid, Tv2, Package,
-  Clock, Boxes, QrCode, BarChart3, Settings, LogOut, Menu, X,
+  Clock, Boxes, QrCode, BarChart3, Film, Settings, LogOut, Menu, X,
   type LucideIcon,
 } from 'lucide-react'
 import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
@@ -17,6 +17,7 @@ import History from './views/History'
 import Inventory from './views/Inventory'
 import ExtraFichas from './views/ExtraFichas'
 import AdminDashboard from './views/AdminDashboard'
+import MediaSlides from './views/MediaSlides'
 import Admin from './views/Admin'
 import Toast, { type ToastMessage } from './components/Toast'
 import ViewErrorBoundary from './components/ViewErrorBoundary'
@@ -44,6 +45,7 @@ const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
   { view: 'inventory', label: 'Estoque', icon: Boxes },
   { view: 'extra-fichas', label: 'QR Extra', icon: QrCode },
   { view: 'admin-dashboard', label: 'Dashboard', icon: BarChart3 },
+  { view: 'media-slides', label: 'Mídia', icon: Film },
   { view: 'admin', label: 'Config', icon: Settings },
 ]
 
@@ -58,6 +60,7 @@ const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
   inventory: Inventory,
   'extra-fichas': ExtraFichas,
   'admin-dashboard': AdminDashboard,
+  'media-slides': MediaSlides,
   admin: Admin,
 }
 

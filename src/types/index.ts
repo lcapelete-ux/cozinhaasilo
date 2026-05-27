@@ -69,6 +69,16 @@ export interface AppUser {
   allowed_views: string[]
 }
 
+export interface MediaSlide {
+  id: string
+  url: string
+  type: 'image' | 'video' | 'youtube'
+  title: string
+  duration: number
+  order: number
+  enabled: boolean
+}
+
 export type ViewName =
   | 'reception'
   | 'kitchen'
@@ -80,4 +90,5 @@ export type ViewName =
   | 'inventory'
   | 'extra-fichas'
   | 'admin-dashboard'
+  | 'media-slides'
   | 'admin'

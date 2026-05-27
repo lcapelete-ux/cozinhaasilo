@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
-import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
-import type { Order } from '../types'
+import type { Order, MediaSlide } from '../types'
 
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
 export const DISPLAY_SCANNER_HIDDEN_KEY = 'display-scanner-hidden'
@@ -120,6 +120,87 @@ function dedup(orders: Order[]): Order[] {
   })
 }
 
+// ── Slideshow ────────────────────────────────────────────────────────────────
+function extractYoutubeId(url: string): string {
+  const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
+  return m ? m[1] : ''
+}
+
+function SlideshowPlayer({ slides }: { slides: MediaSlide[] }) {
+  const [idx, setIdx] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const current = slides[idx % slides.length]
+
+  useEffect(() => { setIdx(0) }, [slides.length])
+
+  useEffect(() => {
+    if (!current || current.type !== 'image') return
+    const ms = Math.max(2000, (current.duration || 10) * 1000)
+    timerRef.current = setTimeout(() => setIdx((i) => (i + 1) % slides.length), ms)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [idx, current, slides.length])
+
+  if (!current) return null
+
+  const ytId = current.type === 'youtube' ? extractYoutubeId(current.url) : ''
+
+  return (
+    <div className="absolute inset-0 bg-black overflow-hidden flex flex-col">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8 }}
+          className="absolute inset-0"
+        >
+          {current.type === 'image' && (
+            <img src={current.url} alt={current.title} className="w-full h-full object-cover" />
+          )}
+          {current.type === 'video' && (
+            <video
+              key={current.url}
+              src={current.url}
+              autoPlay muted loop playsInline
+              className="w-full h-full object-cover"
+              onEnded={() => setIdx((i) => (i + 1) % slides.length)}
+            />
+          )}
+          {current.type === 'youtube' && ytId && (
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&modestbranding=1`}
+              className="w-full h-full border-0"
+              allow="autoplay; fullscreen"
+              title={current.title}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Title overlay */}
+      {current.title && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-12 pb-5 px-6 z-10">
+          <p className="text-white font-bold text-xl drop-shadow">{current.title}</p>
+        </div>
+      )}
+
+      {/* Progress dots */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className={`h-2 rounded-full transition-all ${i === idx % slides.length ? 'bg-white w-6' : 'bg-white/40 w-2'}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Display ─────────────────────────────────────────────────────────────
 export default function Display() {
   const [activeOrders, setActiveOrders] = useState<Order[]>([])
@@ -149,6 +230,13 @@ export default function Display() {
       window.removeEventListener('display-zoom-change', onStorage)
       window.removeEventListener('display-scanner-hidden-change', onStorage)
     }
+  }, [])
+
+  const [slides, setSlides] = useState<MediaSlide[]>([])
+
+  useEffect(() => {
+    const unsub = subscribeMediaSlides(setSlides)
+    return unsub
   }, [])
 
   const prevReadyRef = useRef<Set<string>>(new Set())
@@ -205,6 +293,9 @@ export default function Display() {
       if (announcementTimer.current) clearTimeout(announcementTimer.current)
     }
   }, [])
+
+  const enabledSlides = slides.filter((s) => s.enabled)
+  const isIdle = activeOrders.length === 0 && readyOrders.length === 0
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#111111', zoom }}>
@@ -291,7 +382,7 @@ export default function Display() {
       </AnimatePresence>
 
       {/* Main panels */}
-      <div className="flex flex-1 divide-x divide-white/10">
+      <div className="flex flex-1 divide-x divide-white/10 relative">
         {/* LEFT — Em produção */}
         <div className="flex-1 flex flex-col" style={{ background: '#161616' }}>
           {/* Panel header */}
@@ -402,6 +493,20 @@ export default function Display() {
             )}
           </div>
         </div>
+        {/* Slideshow overlay — shown when no orders active */}
+        <AnimatePresence>
+          {isIdle && enabledSlides.length > 0 && (
+            <motion.div
+              className="absolute inset-0 z-10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <SlideshowPlayer slides={enabledSlides} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Debug banner: shows when scan received but ticket not matched */}

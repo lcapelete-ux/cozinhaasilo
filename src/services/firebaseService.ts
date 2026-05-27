@@ -18,7 +18,7 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
-import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User, StockEntry } from '../types'
+import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User, StockEntry, MediaSlide } from '../types'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
@@ -321,7 +321,7 @@ export async function seedInitialData(): Promise<void> {
   if (!usersSnap.empty) return
 
   const usersData: Omit<User, 'id'>[] = [
-    { name: 'admin', password: 'admin123', role: 'admin', allowed_views: 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,admin' },
+    { name: 'admin', password: 'admin123', role: 'admin', allowed_views: 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin' },
     { name: 'cozinha', password: 'cozinha123', role: 'kitchen', allowed_views: 'kitchen,kitchen-scanner,kitchen-sectors,display' },
     { name: 'recepcao', password: 'recepcao123', role: 'reception', allowed_views: 'reception,display' },
     { name: 'entrega', password: 'entrega123', role: 'dispatch', allowed_views: 'dispatch,display,history' },
@@ -352,6 +352,33 @@ export async function seedInitialData(): Promise<void> {
     { name: 'Milho verde', quantity: 50, initial_quantity: 50, unit: 'un' },
   ]
   for (const inv of inventoryData) await addDoc(collection(_db, 'inventory'), inv)
+}
+
+// ── Media Slides ─────────────────────────────────────────────────────────────
+
+export function subscribeMediaSlides(callback: (slides: MediaSlide[]) => void) {
+  if (!_db) return () => {}
+  const q = query(collection(_db, 'media_slides'), orderBy('order', 'asc'))
+  return onSnapshot(q, (snap) => {
+    callback(
+      snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MediaSlide, 'id'>) }))
+    )
+  }, (err) => console.error('subscribeMediaSlides error:', err))
+}
+
+export async function addMediaSlide(slide: Omit<MediaSlide, 'id'>): Promise<void> {
+  if (!_db) return
+  await addDoc(collection(_db, 'media_slides'), slide)
+}
+
+export async function updateMediaSlide(id: string, data: Partial<Omit<MediaSlide, 'id'>>): Promise<void> {
+  if (!_db) return
+  await updateDoc(doc(_db, 'media_slides', id), data)
+}
+
+export async function deleteMediaSlide(id: string): Promise<void> {
+  if (!_db) return
+  await deleteDoc(doc(_db, 'media_slides', id))
 }
 
 // ── Stock Entries ────────────────────────────────────────────────────────────
