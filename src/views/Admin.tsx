@@ -364,7 +364,7 @@ function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: '
         <p>1. Abra o projeto em <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-0.5">supabase.com/dashboard <ExternalLink size={10} /></a></p>
         <p>2. Vá em <strong>Storage → New bucket</strong> → nomeie <code className="bg-gray-200 px-1 rounded">media</code> → marque <strong>Public bucket</strong></p>
         <p>3. Em <strong>Storage → Policies</strong>, adicione política INSERT para o role <code className="bg-gray-200 px-1 rounded">anon</code></p>
-        <p>4. Copie a <strong>Project URL</strong> e a <strong>anon key</strong> em <strong>Settings → API</strong></p>
+        <p>4. Copie a <strong>Project URL</strong> e a <strong>Publishable key</strong> (ou anon key) em <strong>Settings → API</strong></p>
       </div>
 
       <div className="space-y-3 mb-4">
@@ -379,11 +379,11 @@ function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: '
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Anon Key</label>
+          <label className="text-xs text-gray-500 block mb-1">Publishable Key (ou anon key)</label>
           <div className="relative">
             <input
               type={showKey ? 'text' : 'password'}
-              placeholder="eyJhbGci…"
+              placeholder="sb_publishable_… ou eyJhbGci…"
               value={form.anon_key}
               onChange={(e) => setForm((p) => ({ ...p, anon_key: e.target.value }))}
               className="w-full px-3 py-2 pr-9 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-mono"

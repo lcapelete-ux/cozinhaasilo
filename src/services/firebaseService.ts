@@ -392,6 +392,7 @@ export function uploadMediaFile(
     const xhr = new XMLHttpRequest()
     xhr.open('POST', uploadUrl)
     xhr.setRequestHeader('Authorization', `Bearer ${config.anon_key}`)
+    xhr.setRequestHeader('apikey', config.anon_key)
     xhr.setRequestHeader('Content-Type', file.type)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress?.((e.loaded / e.total) * 100)
