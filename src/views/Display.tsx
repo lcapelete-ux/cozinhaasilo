@@ -126,19 +126,30 @@ function extractYoutubeId(url: string): string {
   return m ? m[1] : ''
 }
 
-function SlideshowPlayer({ slides }: { slides: MediaSlide[] }) {
+function SlideshowPlayer({ slides, onCycleComplete }: { slides: MediaSlide[]; onCycleComplete: () => void }) {
   const [idx, setIdx] = useState(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const current = slides[idx % slides.length]
+  const current = slides[idx]
 
   useEffect(() => { setIdx(0) }, [slides.length])
 
+  const advance = useCallback(() => {
+    setIdx((i) => {
+      const next = i + 1
+      if (next >= slides.length) {
+        onCycleComplete()
+        return 0
+      }
+      return next
+    })
+  }, [slides.length, onCycleComplete])
+
   useEffect(() => {
     if (!current || current.type !== 'image') return
-    const ms = Math.max(2000, (current.duration || 10) * 1000)
-    timerRef.current = setTimeout(() => setIdx((i) => (i + 1) % slides.length), ms)
+    const ms = Math.max(2000, (current.duration || 8) * 1000)
+    timerRef.current = setTimeout(advance, ms)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [idx, current, slides.length])
+  }, [idx, current, advance])
 
   if (!current) return null
 
@@ -162,9 +173,9 @@ function SlideshowPlayer({ slides }: { slides: MediaSlide[] }) {
             <video
               key={current.url}
               src={current.url}
-              autoPlay muted loop playsInline
+              autoPlay muted playsInline
               className="w-full h-full object-cover"
-              onEnded={() => setIdx((i) => (i + 1) % slides.length)}
+              onEnded={advance}
             />
           )}
           {current.type === 'youtube' && ytId && (
@@ -192,7 +203,7 @@ function SlideshowPlayer({ slides }: { slides: MediaSlide[] }) {
             <button
               key={i}
               onClick={() => setIdx(i)}
-              className={`h-2 rounded-full transition-all ${i === idx % slides.length ? 'bg-white w-6' : 'bg-white/40 w-2'}`}
+              className={`h-2 rounded-full transition-all ${i === idx ? 'bg-white w-6' : 'bg-white/40 w-2'}`}
             />
           ))}
         </div>
@@ -295,7 +306,57 @@ export default function Display() {
   }, [])
 
   const enabledSlides = slides.filter((s) => s.enabled)
-  const isIdle = activeOrders.length === 0 && readyOrders.length === 0
+
+  // ── Display mode rotation ─────────────────────────────────────────────────
+  // Cycle: slideshow (8s per image) → orders panel (60s) → slideshow → …
+  // Interrupted immediately if a new order arrives during slideshow
+  const ORDERS_PANEL_MS = 60_000
+
+  const [displayMode, setDisplayMode] = useState<'orders' | 'slideshow'>('orders')
+  const displayModeRef = useRef<'orders' | 'slideshow'>('orders')
+  const ordersTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevOrderTotalRef = useRef(activeOrders.length + readyOrders.length)
+  const enabledSlidesRef = useRef(enabledSlides)
+  useEffect(() => { enabledSlidesRef.current = enabledSlides }, [enabledSlides])
+
+  const setMode = useCallback((m: 'orders' | 'slideshow') => {
+    displayModeRef.current = m
+    setDisplayMode(m)
+  }, [])
+
+  // Start first slideshow as soon as slides load
+  const slideshowStartedRef = useRef(false)
+  useEffect(() => {
+    if (!slideshowStartedRef.current && enabledSlides.length > 0) {
+      slideshowStartedRef.current = true
+      setMode('slideshow')
+    }
+  }, [enabledSlides.length, setMode])
+
+  // Called by SlideshowPlayer when all slides have been shown once
+  const handleSlideshowComplete = useCallback(() => {
+    setMode('orders')
+    if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current)
+    ordersTimerRef.current = setTimeout(() => {
+      if (enabledSlidesRef.current.length > 0) setMode('slideshow')
+    }, ORDERS_PANEL_MS)
+  }, [setMode])
+
+  // New order arrives during slideshow → interrupt immediately, schedule return
+  useEffect(() => {
+    const total = activeOrders.length + readyOrders.length
+    if (displayModeRef.current === 'slideshow' && total > prevOrderTotalRef.current) {
+      setMode('orders')
+      if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current)
+      ordersTimerRef.current = setTimeout(() => {
+        if (enabledSlidesRef.current.length > 0) setMode('slideshow')
+      }, ORDERS_PANEL_MS)
+    }
+    prevOrderTotalRef.current = total
+  }, [activeOrders.length, readyOrders.length, setMode])
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current) }, [])
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#111111', zoom }}>
@@ -493,9 +554,9 @@ export default function Display() {
             )}
           </div>
         </div>
-        {/* Slideshow overlay — shown when no orders active */}
+        {/* Slideshow overlay — timed rotation */}
         <AnimatePresence>
-          {isIdle && enabledSlides.length > 0 && (
+          {displayMode === 'slideshow' && enabledSlides.length > 0 && (
             <motion.div
               className="absolute inset-0 z-10"
               initial={{ opacity: 0 }}
@@ -503,7 +564,7 @@ export default function Display() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <SlideshowPlayer slides={enabledSlides} />
+              <SlideshowPlayer slides={enabledSlides} onCycleComplete={handleSlideshowComplete} />
             </motion.div>
           )}
         </AnimatePresence>
