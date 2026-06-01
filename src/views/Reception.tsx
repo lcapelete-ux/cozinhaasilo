@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History } from 'lucide-react'
-import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket } from '../services/firebaseService'
+import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem } from '../types'
 
@@ -184,11 +184,19 @@ export default function Reception() {
 
       const current = sessionRef.current
 
+      // Check for existing active order first
+      const existing = await getActiveOrderByTicket(ticket)
+
+      // Ready order → confirm delivery immediately (single-computer: Reception intercepts all scans)
+      if (existing?.status === 'ready') {
+        await setOrderStatus(existing.id, 'delivered')
+        setLastScan({ type: 'ficha', label: `Ficha #${ticket} entregue!` })
+        return
+      }
+
       if (!current) {
-        // Block if ficha already has an active order in the kitchen
-        const existing = await getActiveOrderByTicket(ticket)
         if (existing) {
-          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (${existing.status === 'ready' ? 'pronta' : 'em preparo'})` })
+          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (em preparo)` })
           return
         }
         const newSession: Session = { ficha: ticket, items: [] }
@@ -197,10 +205,8 @@ export default function Reception() {
         setLastScan({ type: 'ficha', label: `Ficha #${ticket} aberta` })
         startCountdown()
       } else if (current.ficha !== ticket) {
-        // Block new ficha if it already has an active order too
-        const existing = await getActiveOrderByTicket(ticket)
         if (existing) {
-          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (${existing.status === 'ready' ? 'pronta' : 'em preparo'})` })
+          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (em preparo)` })
           return
         }
         await submitSession(current)
