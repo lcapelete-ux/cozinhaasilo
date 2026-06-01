@@ -9,8 +9,8 @@ const LOW_STOCK_THRESHOLD = 15
 
 const SECTOR_COLOR: Record<string, string> = {
   Fritadeira: 'text-orange-500',
-  Lanches:    'text-blue-500',
-  Outros:     'text-purple-500',
+  Chapa:      'text-blue-500',
+  Assados:    'text-purple-500',
 }
 
 function stockColors(qty: number | undefined, initial: number | undefined) {
@@ -228,7 +228,7 @@ export default function Inventory() {
   const emptyItems = stockItems.filter((i) => (i.stock ?? 0) <= 0)
 
   const bySector = stockItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
-    const s = item.sector ?? 'Outros'
+    const s = item.sector ?? 'Assados'
     if (!acc[s]) acc[s] = []
     acc[s].push(item)
     return acc

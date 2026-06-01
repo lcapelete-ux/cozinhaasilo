@@ -348,14 +348,14 @@ export async function seedInitialData(): Promise<void> {
     { name: 'Pastel de Carne', price: 5.0, sector: 'Fritadeira', category: 'Salgados', code: '1002' },
     { name: 'Pastel de Queijo', price: 5.0, sector: 'Fritadeira', category: 'Salgados', code: '1003' },
     { name: 'Rissole', price: 5.0, sector: 'Fritadeira', category: 'Salgados', code: '1004' },
-    { name: 'Hambúrguer', price: 12.0, sector: 'Lanches', category: 'Lanches', code: '2001' },
-    { name: 'X-Salada', price: 14.0, sector: 'Lanches', category: 'Lanches', code: '2002' },
-    { name: 'Hot Dog', price: 10.0, sector: 'Lanches', category: 'Lanches', code: '2003' },
-    { name: 'Milho Verde', price: 6.0, sector: 'Outros', category: 'Outros', code: '3001' },
-    { name: 'Pamonha', price: 7.0, sector: 'Outros', category: 'Outros', code: '3002' },
-    { name: 'Canjica', price: 6.0, sector: 'Outros', category: 'Outros', code: '3003' },
-    { name: 'Quentão', price: 5.0, sector: 'Outros', category: 'Bebidas', code: '4001' },
-    { name: 'Refrigerante', price: 4.0, sector: 'Outros', category: 'Bebidas', code: '4002' },
+    { name: 'Hambúrguer', price: 12.0, sector: 'Chapa', category: 'Lanches', code: '2001' },
+    { name: 'X-Salada', price: 14.0, sector: 'Chapa', category: 'Lanches', code: '2002' },
+    { name: 'Hot Dog', price: 10.0, sector: 'Chapa', category: 'Lanches', code: '2003' },
+    { name: 'Milho Verde', price: 6.0, sector: 'Assados', category: 'Outros', code: '3001' },
+    { name: 'Pamonha', price: 7.0, sector: 'Assados', category: 'Outros', code: '3002' },
+    { name: 'Canjica', price: 6.0, sector: 'Assados', category: 'Outros', code: '3003' },
+    { name: 'Quentão', price: 5.0, sector: 'Assados', category: 'Bebidas', code: '4001' },
+    { name: 'Refrigerante', price: 4.0, sector: 'Assados', category: 'Bebidas', code: '4002' },
   ]
   for (const m of menuData) await addDoc(collection(_db, 'menu_items'), m)
 

@@ -36,8 +36,8 @@ function ZoomControls({ zoom, onChange }: { zoom: number; onChange: (z: number) 
 
 const SECTORS = [
   { name: 'Fritadeira', icon: Flame, color: 'text-orange-500', border: 'border-orange-400', bg: 'bg-orange-50' },
-  { name: 'Lanches', icon: Utensils, color: 'text-blue-500', border: 'border-blue-400', bg: 'bg-blue-50' },
-  { name: 'Outros', icon: Star, color: 'text-purple-500', border: 'border-purple-400', bg: 'bg-purple-50' },
+  { name: 'Chapa', icon: Utensils, color: 'text-blue-500', border: 'border-blue-400', bg: 'bg-blue-50' },
+  { name: 'Assados', icon: Star, color: 'text-purple-500', border: 'border-purple-400', bg: 'bg-purple-50' },
 ]
 
 interface SectorItem {

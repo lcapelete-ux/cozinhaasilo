@@ -691,7 +691,7 @@ function UsersTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
 
 // ── Menu Tab ─────────────────────────────────────────────────────────────────
 
-const SECTORS_LIST = ['Fritadeira', 'Lanches', 'Outros']
+const SECTORS_LIST = ['Fritadeira', 'Chapa', 'Assados']
 const CATEGORIES_LIST = ['Salgados', 'Lanches', 'Outros', 'Bebidas']
 
 function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {

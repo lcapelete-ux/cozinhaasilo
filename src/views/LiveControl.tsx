@@ -26,8 +26,8 @@ const STATUS_PILL: Record<OrderStatus, string> = {
 
 const SECTOR_COLOR: Record<string, string> = {
   Fritadeira: '#FF8800',
-  Lanches:    '#4488FF',
-  Outros:     '#9966CC',
+  Chapa:      '#4488FF',
+  Assados:    '#9966CC',
 }
 
 interface ActivityEvent {
@@ -161,7 +161,7 @@ export default function LiveControl() {
       .filter((o) => o.status !== 'ready')
       .forEach((order) => {
         order.items.forEach((item) => {
-          const s = item.sector || 'Outros'
+          const s = item.sector || 'Assados'
           if (!map[s]) map[s] = { qty: 0, fichas: new Set() }
           map[s].qty += item.quantity
           map[s].fichas.add(order.ticket_number)

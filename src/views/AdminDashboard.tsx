@@ -17,8 +17,8 @@ type Period = 'today' | 'all' | 'date'
 
 const SECTOR_COLORS: Record<string, string> = {
   Fritadeira: '#FF8800',
-  Lanches: '#4488FF',
-  Outros: '#9966CC',
+  Chapa: '#4488FF',
+  Assados: '#9966CC',
 }
 const SECTOR_COLOR_DEFAULT = '#5A5A40'
 
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
     const stats: Record<string, { qty: number; revenue: number; sector: string }> = {}
     delivered.forEach((o) =>
       o.items.forEach((i) => {
-        if (!stats[i.name]) stats[i.name] = { qty: 0, revenue: 0, sector: i.sector || 'Outros' }
+        if (!stats[i.name]) stats[i.name] = { qty: 0, revenue: 0, sector: i.sector || 'Assados' }
         stats[i.name].qty += i.quantity
         stats[i.name].revenue += i.price * i.quantity
       })
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
     const rev: Record<string, number> = {}
     delivered.forEach((o) =>
       o.items.forEach((i) => {
-        const s = i.sector || 'Outros'
+        const s = i.sector || 'Assados'
         rev[s] = (rev[s] || 0) + i.price * i.quantity
       })
     )
