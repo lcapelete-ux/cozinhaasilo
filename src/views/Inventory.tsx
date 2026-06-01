@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X, History, ChevronDown, ChevronUp, PackagePlus, RefreshCw } from 'lucide-react'
 import { subscribeMenuItems, updateMenuItem, addStockEntry, subscribeStockEntries } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem, StockEntry } from '../types'
@@ -38,6 +38,7 @@ const TYPE_LABEL: Record<StockEntry['type'], string> = {
   adjust: 'Ajuste',
   set:    'Definido',
   reset:  'Reposto',
+  entry:  'Entrada',
 }
 
 export default function Inventory() {
@@ -49,6 +50,14 @@ export default function Inventory() {
   const [initialId, setInitialId] = useState<string | null>(null)
   const [initialVal, setInitialVal] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+
+  // Entrada de estoque (bulk entry)
+  const [entryMode, setEntryMode] = useState(false)
+  const [entryValues, setEntryValues] = useState<Record<string, string>>({})
+
+  // Repor tudo
+  const [resetAllPending, setResetAllPending] = useState(false)
+  const [resetAllWorking, setResetAllWorking] = useState(false)
 
   useEffect(() => {
     const unsub = subscribeMenuItems(setItems)
@@ -133,6 +142,86 @@ export default function Inventory() {
     } catch { addToast('Erro ao repor') }
   }
 
+  // Bulk entry: add quantities to multiple items at once
+  const handleBulkEntry = async () => {
+    const user = getCurrentUser()
+    const tasks: Array<() => Promise<void>> = []
+
+    for (const [id, raw] of Object.entries(entryValues)) {
+      const val = parseInt(raw, 10)
+      if (!val || val <= 0) continue
+      const item = items.find((i) => i.id === id)
+      if (!item) continue
+
+      if ((item.stock_initial ?? 0) > 0) {
+        const before = item.stock ?? 0
+        const after = before + val
+        tasks.push(async () => {
+          await updateMenuItem(id, { stock: after })
+          await addStockEntry({
+            menu_item_id: id,
+            menu_item_name: item.name,
+            type: 'entry',
+            qty_before: before,
+            qty_after: after,
+            inserted_by: user,
+          })
+        })
+      } else {
+        // Activate stock for unconfigured item
+        tasks.push(async () => {
+          await updateMenuItem(id, { stock_initial: val, stock: val })
+          await addStockEntry({
+            menu_item_id: id,
+            menu_item_name: item.name,
+            type: 'entry',
+            qty_before: item.stock ?? 0,
+            qty_after: val,
+            inserted_by: user,
+          })
+        })
+      }
+    }
+
+    if (tasks.length === 0) {
+      addToast('Nenhuma quantidade informada')
+      return
+    }
+
+    try {
+      await Promise.all(tasks.map((t) => t()))
+      addToast(`${tasks.length} produto(s) atualizado(s)`, 'success')
+      setEntryValues({})
+      setEntryMode(false)
+    } catch { addToast('Erro ao salvar entradas') }
+  }
+
+  // Reset all configured items to their initial stock
+  const handleResetAll = async () => {
+    const configured = items.filter((i) => (i.stock_initial ?? 0) > 0)
+    if (configured.length === 0) return
+    setResetAllWorking(true)
+    const user = getCurrentUser()
+    try {
+      await Promise.all(
+        configured.map(async (item) => {
+          await updateMenuItem(item.id, { stock: item.stock_initial! })
+          await addStockEntry({
+            menu_item_id: item.id,
+            menu_item_name: item.name,
+            type: 'reset',
+            qty_before: item.stock ?? 0,
+            qty_after: item.stock_initial!,
+            inserted_by: user,
+          })
+        })
+      )
+      addToast(`${configured.length} produto(s) repostos ao estoque inicial`, 'success')
+      setResetAllPending(false)
+    } catch { addToast('Erro ao repor estoques') }
+    finally { setResetAllWorking(false) }
+  }
+
   const stockItems = items.filter((i) => i.stock_initial !== undefined && i.stock_initial > 0)
   const noStockItems = items.filter((i) => !i.stock_initial)
   const lowItems = stockItems.filter((i) => (i.stock ?? 0) > 0 && (i.stock ?? 0) <= LOW_STOCK_THRESHOLD)
@@ -145,11 +234,147 @@ export default function Inventory() {
     return acc
   }, {})
 
+  // ── Entry mode ─────────────────────────────────────────────────────────────
+
+  if (entryMode) {
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <div className="mb-6 flex items-center gap-3">
+          <div>
+            <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
+              <PackagePlus className="text-accent" size={26} />
+              Entrada de Estoque
+            </h1>
+            <p className="text-gray-400 text-xs mt-0.5">
+              Informe a quantidade a adicionar em cada produto · deixe 0 para não alterar
+            </p>
+          </div>
+          <div className="flex-1" />
+          <button
+            onClick={() => { setEntryMode(false); setEntryValues({}) }}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-2xl px-3 py-2 transition-colors"
+          >
+            <X size={14} />
+            Cancelar
+          </button>
+        </div>
+
+        {/* Configured items */}
+        {Object.entries(bySector).map(([sector, sectorItems]) => (
+          <div key={sector} className="mb-6">
+            <h2 className={`text-xs font-black uppercase tracking-widest mb-3 ${SECTOR_COLOR[sector] ?? 'text-gray-500'}`}>
+              {sector}
+            </h2>
+            <div className="space-y-2">
+              {sectorItems.map((item) => {
+                const qty = item.stock ?? 0
+                const initial = item.stock_initial ?? 0
+                const delta = parseInt(entryValues[item.id] ?? '0', 10)
+                const preview = qty + (isNaN(delta) || delta <= 0 ? 0 : delta)
+                const hasEntry = !isNaN(delta) && delta > 0
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-2xl border px-4 py-3 flex items-center gap-4 transition-colors ${
+                      hasEntry ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-gray-800">{item.name}</p>
+                      <p className="text-xs text-gray-400">
+                        Atual:{' '}
+                        <span className={`font-bold ${qty <= 0 ? 'text-red-500' : qty <= LOW_STOCK_THRESHOLD ? 'text-orange-500' : 'text-gray-700'}`}>
+                          {qty}
+                        </span>
+                        {' '}/ {initial}
+                        {hasEntry && (
+                          <span className="ml-2 text-green-600 font-semibold">
+                            → {preview}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-gray-400 text-sm font-medium">+</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={entryValues[item.id] ?? ''}
+                        onChange={(e) => setEntryValues((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        placeholder="0"
+                        className="w-20 px-3 py-1.5 rounded-xl border-2 border-gray-200 focus:border-accent/60 focus:outline-none text-sm font-bold text-center"
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Unconfigured items — activate with initial quantity */}
+        {noStockItems.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xs font-black uppercase tracking-widest text-gray-300 mb-3">
+              Ativar estoque ({noStockItems.length})
+            </h2>
+            <div className="space-y-2">
+              {noStockItems.map((item) => {
+                const val = parseInt(entryValues[item.id] ?? '0', 10)
+                const hasEntry = !isNaN(val) && val > 0
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-2xl border border-dashed px-4 py-3 flex items-center gap-4 transition-colors ${
+                      hasEntry ? 'border-accent/40 bg-accent/5' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-gray-500">{item.name}</p>
+                      <p className="text-xs text-gray-400">{item.sector} · quantidade inicial</p>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      value={entryValues[item.id] ?? ''}
+                      onChange={(e) => setEntryValues((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      placeholder="0"
+                      className="w-20 px-3 py-1.5 rounded-xl border-2 border-dashed border-gray-300 focus:border-accent/60 focus:outline-none text-sm font-bold text-center"
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Confirm */}
+        <div className="mt-8 flex justify-end gap-3 pb-8">
+          <button
+            onClick={() => { setEntryMode(false); setEntryValues({}) }}
+            className="px-4 py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleBulkEntry}
+            className="px-6 py-2.5 rounded-2xl bg-accent hover:bg-accent-dark text-white text-sm font-semibold transition-colors flex items-center gap-2"
+          >
+            <Check size={15} />
+            Confirmar Entradas
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Normal view ────────────────────────────────────────────────────────────
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <div>
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <div className="mr-auto">
           <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
             <Boxes className="text-accent" size={26} />
             Estoque Diário
@@ -158,7 +383,60 @@ export default function Inventory() {
             {stockItems.length} produto(s) com estoque configurado · alerta abaixo de {LOW_STOCK_THRESHOLD} · negativo permitido
           </p>
         </div>
-        <div className="flex-1" />
+
+        {/* Repor Tudo */}
+        {stockItems.length > 0 && (
+          <AnimatePresence mode="wait">
+            {resetAllPending ? (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-2xl px-3 py-2"
+              >
+                <span className="text-xs text-orange-700 font-medium">Repor todos?</span>
+                <button
+                  onClick={handleResetAll}
+                  disabled={resetAllWorking}
+                  className="flex items-center gap-1 text-xs text-white bg-orange-500 hover:bg-orange-600 px-3 py-1 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                >
+                  {resetAllWorking ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => setResetAllPending(false)}
+                  className="text-orange-400 hover:text-orange-600"
+                >
+                  <X size={14} />
+                </button>
+              </motion.div>
+            ) : (
+              <motion.button
+                key="btn"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setResetAllPending(true)}
+                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-accent-dark border border-gray-200 hover:border-accent/40 rounded-2xl px-3 py-2 transition-colors"
+                title="Repor todos os produtos ao estoque inicial"
+              >
+                <RotateCcw size={14} />
+                Repor Tudo
+              </motion.button>
+            )}
+          </AnimatePresence>
+        )}
+
+        {/* Entrada de Estoque */}
+        <button
+          onClick={() => { setEntryMode(true); setEntryValues({}) }}
+          className="flex items-center gap-1.5 text-sm text-white bg-accent hover:bg-accent-dark rounded-2xl px-3 py-2 transition-colors font-medium"
+        >
+          <PackagePlus size={15} />
+          Entrada
+        </button>
+
         <button
           onClick={() => setShowHistory((p) => !p)}
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-accent-dark border border-gray-200 hover:border-accent/40 rounded-2xl px-3 py-2 transition-colors"
@@ -413,9 +691,10 @@ export default function Inventory() {
                           </td>
                           <td className="px-4 py-2.5 text-center">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              e.type === 'reset' ? 'bg-blue-100 text-blue-600' :
-                              e.type === 'set'   ? 'bg-purple-100 text-purple-600' :
-                                                   'bg-gray-100 text-gray-500'
+                              e.type === 'entry'  ? 'bg-green-100 text-green-600' :
+                              e.type === 'reset'  ? 'bg-blue-100 text-blue-600' :
+                              e.type === 'set'    ? 'bg-purple-100 text-purple-600' :
+                                                    'bg-gray-100 text-gray-500'
                             }`}>
                               {TYPE_LABEL[e.type]}
                             </span>
