@@ -149,12 +149,10 @@ export default function Reception() {
     const digits = rawTrimmed.replace(/\D/g, '')
     const first4 = digits.substring(0, 4)
 
-    // Fichas geradas pelo sistema são números puros de 1–3 dígitos.
-    // Barcodes de produto têm 4+ caracteres (ex: "0844-124791").
-    // Só tenta match de produto se o scan não parece um número de ficha.
-    const looksLikeFicha = /^\d{1,3}$/.test(rawTrimmed)
-
-    if (!looksLikeFicha) {
+    // Cupons de produto usam códigos 08XX ou 09XX (ex: 0844, 0850).
+    // Fichas são números puros — nunca começam com zero.
+    // Só tenta match de produto quando o código começa com 08 ou 09.
+    if (digits.length >= 4 && /^0[89]/.test(first4)) {
       const matchedProduct = items.find(m => m.code && first4 === m.code)
 
       if (matchedProduct) {
@@ -177,11 +175,9 @@ export default function Reception() {
         return
       }
 
-      // Parece cupom de produto (começa com 08xx ou 09xx) mas não está cadastrado
-      if (/^0[89]\d{2}/.test(first4)) {
-        setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
-        return
-      }
+      // Código 08XX/09XX não cadastrado no cardápio
+      setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
+      return
     }
 
     // É uma ficha (1–200)
