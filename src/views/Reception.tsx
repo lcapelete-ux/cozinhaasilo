@@ -141,16 +141,20 @@ export default function Reception() {
 
   // ── Process QR scan ──────────────────────────────────────────────────────
   // QR do cupom físico: "0844-124791" → 4 primeiros dígitos = código do produto
-  // Fichas: 1–999 (número puro, sem zero à esquerda)
+  // Fichas: número puro 1–999 (String(n) sem zeros à esquerda, sem traços)
 
   const processQrScan = useCallback(async (raw: string) => {
     const items = menuItemsRef.current
-    const digits = raw.replace(/\D/g, '')          // remove traços, letras, etc.
-    const first4 = digits.substring(0, 4)          // ex: "0844"
+    const rawTrimmed = raw.trim()
+    const digits = rawTrimmed.replace(/\D/g, '')
+    const first4 = digits.substring(0, 4)
 
-    // Cupons físicos têm pelo menos 4 dígitos; fichas têm no máximo 3 dígitos (1–999)
-    // Só tenta match de produto se há dígitos suficientes para ser um cupom
-    if (digits.length >= 4) {
+    // Fichas geradas pelo sistema são números puros de 1–3 dígitos.
+    // Barcodes de produto têm 4+ caracteres (ex: "0844-124791").
+    // Só tenta match de produto se o scan não parece um número de ficha.
+    const looksLikeFicha = /^\d{1,3}$/.test(rawTrimmed)
+
+    if (!looksLikeFicha) {
       const matchedProduct = items.find(m => m.code && first4 === m.code)
 
       if (matchedProduct) {
