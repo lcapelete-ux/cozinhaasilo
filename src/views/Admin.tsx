@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, type LucideIcon } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, type LucideIcon } from 'lucide-react'
 import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -750,6 +750,18 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
     } catch { addToast('Erro ao remover') }
   }
 
+  const handleMove = async (item: MenuItem, direction: 'up' | 'down') => {
+    const idx = items.findIndex((i) => i.id === item.id)
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (targetIdx < 0 || targetIdx >= items.length) return
+    try {
+      await Promise.all([
+        updateMenuItem(item.id, { sort_order: targetIdx * 10 }),
+        updateMenuItem(items[targetIdx].id, { sort_order: idx * 10 }),
+      ])
+    } catch { addToast('Erro ao reordenar') }
+  }
+
   return (
     <div>
       <div className="flex justify-end mb-3">
@@ -805,6 +817,7 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
+              <th className="text-center px-2 py-3 text-gray-400 font-medium text-xs w-16">Ordem</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Nome</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Preço</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Setor</th>
@@ -814,10 +827,22 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {items.map((item, idx) => (
               <tr key={item.id} className="border-t border-gray-100">
                 {editId === item.id ? (
                   <>
+                    <td className="px-2 py-2 text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <button onClick={() => handleMove(item, 'up')} disabled={idx === 0}
+                          className="w-6 h-6 rounded-md bg-gray-50 hover:bg-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-20 flex items-center justify-center transition-colors">
+                          <ArrowUp size={11} />
+                        </button>
+                        <button onClick={() => handleMove(item, 'down')} disabled={idx === items.length - 1}
+                          className="w-6 h-6 rounded-md bg-gray-50 hover:bg-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-20 flex items-center justify-center transition-colors">
+                          <ArrowDown size={11} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-2">
                       <input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
                         className="w-full px-2 py-1 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-accent" />
@@ -863,6 +888,18 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
                   </>
                 ) : (
                   <>
+                    <td className="px-2 py-3 text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <button onClick={() => handleMove(item, 'up')} disabled={idx === 0}
+                          className="w-6 h-6 rounded-md bg-gray-50 hover:bg-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-20 flex items-center justify-center transition-colors">
+                          <ArrowUp size={11} />
+                        </button>
+                        <button onClick={() => handleMove(item, 'down')} disabled={idx === items.length - 1}
+                          className="w-6 h-6 rounded-md bg-gray-50 hover:bg-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-20 flex items-center justify-center transition-colors">
+                          <ArrowDown size={11} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-800">{item.name}</td>
                     <td className="px-4 py-3 text-gray-600">R$ {item.price.toFixed(2)}</td>
                     <td className="px-4 py-3"><span className="bg-accent/10 text-accent-dark text-xs px-2 py-0.5 rounded-lg">{item.sector}</span></td>

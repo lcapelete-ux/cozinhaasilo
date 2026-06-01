@@ -222,7 +222,14 @@ export async function markItemCompleted(orderId: string, itemIndex: number, item
 export function subscribeMenuItems(callback: (items: MenuItem[]) => void) {
   if (!_db) return () => {}
   return onSnapshot(collection(_db, 'menu_items'), (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MenuItem, 'id'>) })))
+    const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MenuItem, 'id'>) }))
+    items.sort((a, b) => {
+      const ao = a.sort_order ?? 999999
+      const bo = b.sort_order ?? 999999
+      if (ao !== bo) return ao - bo
+      return a.name.localeCompare(b.name, 'pt-BR')
+    })
+    callback(items)
   })
 }
 

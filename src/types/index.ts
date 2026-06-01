@@ -34,6 +34,7 @@ export interface MenuItem {
   code?: string
   stock?: number
   stock_initial?: number
+  sort_order?: number
 }
 
 export interface InventoryItem {
