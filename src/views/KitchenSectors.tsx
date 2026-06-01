@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Utensils, Star, QrCode, Keyboard, Hash, Package, AlertTriangle, ZoomIn, ZoomOut } from 'lucide-react'
+import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, ZoomIn, ZoomOut } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -36,8 +36,8 @@ function ZoomControls({ zoom, onChange }: { zoom: number; onChange: (z: number) 
 
 const SECTORS = [
   { name: 'Fritadeira', icon: Flame, color: 'text-orange-500', border: 'border-orange-400', bg: 'bg-orange-50' },
-  { name: 'Chapa', icon: Utensils, color: 'text-blue-500', border: 'border-blue-400', bg: 'bg-blue-50' },
-  { name: 'Assados', icon: Star, color: 'text-purple-500', border: 'border-purple-400', bg: 'bg-purple-50' },
+  { name: 'Chapa', icon: Beef, color: 'text-blue-500', border: 'border-blue-400', bg: 'bg-blue-50' },
+  { name: 'Assados', icon: Drumstick, color: 'text-purple-500', border: 'border-purple-400', bg: 'bg-purple-50' },
 ]
 
 // Compatibilidade com itens gravados antes da renomeação dos setores
