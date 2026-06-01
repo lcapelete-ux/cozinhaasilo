@@ -471,7 +471,7 @@ function FichaTag({ ticket, status, qty }: { ticket: string; status: OrderStatus
   }
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${colors[status]}`}>
-      <span className={isReady ? 'line-through decoration-2' : ''}>#{ticket}</span>
+      <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{ticket}</span>
       {qty > 1 && <span className="opacity-70">×{qty}</span>}
     </span>
   )
