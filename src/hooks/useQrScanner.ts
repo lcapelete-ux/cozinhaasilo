@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 
 // Max ms between characters to be classified as scanner (not human typing)
-const SCAN_THRESHOLD_MS = 55
+const SCAN_THRESHOLD_MS = 80
 
 interface UseQrScannerOptions {
   onScan: (value: string) => void

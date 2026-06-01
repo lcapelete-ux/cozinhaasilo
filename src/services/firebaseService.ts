@@ -63,6 +63,21 @@ export async function initAuth(): Promise<void> {
 export async function resolveFicha(raw: string): Promise<string> {
   let cleaned = raw.trim()
 
+  // Strip AIM Code Identifiers added by some scanners: ]Q2, ]C1, ]E0, etc.
+  cleaned = cleaned.replace(/^\][A-Za-z]\d/, '')
+
+  // Strip common control characters (STX, ETX, GS, RS, EOT)
+  cleaned = cleaned.replace(/[\x02\x03\x1C\x1D\x1E\x04]/g, '')
+
+  // Check ExtraFichas mapping using raw value first (custom QR codes registered by user)
+  if (_db) {
+    const q = query(collection(_db, 'extra_fichas'), where('qr_code', '==', raw.trim()))
+    const snap = await getDocs(q)
+    if (!snap.empty) {
+      return snap.docs[0].data().alias as string
+    }
+  }
+
   try {
     const url = new URL(cleaned)
     const fichaParam = url.searchParams.get('ficha')
@@ -76,14 +91,6 @@ export async function resolveFicha(raw: string): Promise<string> {
   const numericMatch = cleaned.match(/\d+/)
   if (numericMatch) {
     cleaned = String(parseInt(numericMatch[0], 10))
-  }
-
-  if (_db) {
-    const q = query(collection(_db, 'extra_fichas'), where('qr_code', '==', raw.trim()))
-    const snap = await getDocs(q)
-    if (!snap.empty) {
-      return snap.docs[0].data().alias as string
-    }
   }
 
   return cleaned
