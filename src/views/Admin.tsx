@@ -98,28 +98,25 @@ function FichasTab() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Fichas — Arraiá do Lar São Cristóvão</title>
+          <title>Fichas</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Georgia, serif; background: white; }
-            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 16px; }
+            body { font-family: Arial, sans-serif; background: white; }
+            .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 12px; }
             .ficha {
-              border: 2px dashed #5A5A40;
-              border-radius: 12px;
-              padding: 12px 8px;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              padding: 10px 6px;
               text-align: center;
               page-break-inside: avoid;
-              background: #FFFDF5;
+              background: white;
             }
-            .ficha-title { font-size: 7px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-            .ficha-event { font-size: 8px; font-style: italic; color: #5A5A40; margin-bottom: 6px; font-weight: bold; }
-            .ficha-number { font-size: 28px; font-weight: 900; color: #3A3A28; line-height: 1; margin-bottom: 6px; }
-            .ficha-qr { display: flex; justify-content: center; margin-bottom: 4px; }
-            .ficha-qr svg { width: 72px !important; height: 72px !important; }
-            .ficha-code { font-size: 8px; color: #aaa; font-family: monospace; }
+            .ficha-number { font-size: 26px; font-weight: 900; color: #111; line-height: 1; margin-bottom: 8px; }
+            .ficha-qr { display: flex; justify-content: center; }
+            .ficha-qr svg { width: 80px !important; height: 80px !important; }
             @media print {
               body { margin: 0; }
-              .grid { padding: 8px; gap: 6px; }
+              .grid { padding: 8px; gap: 4px; }
             }
           </style>
         </head>
@@ -130,11 +127,8 @@ function FichasTab() {
               const svgHtml = svgEl ? svgEl.outerHTML : ''
               return `
                 <div class="ficha">
-                  <div class="ficha-title">Ficha</div>
-                  <div class="ficha-event">Arraiá do Lar São Cristóvão</div>
                   <div class="ficha-number">#${n}</div>
                   <div class="ficha-qr">${svgHtml}</div>
-                  <div class="ficha-code">${n}</div>
                 </div>
               `
             }).join('')}
@@ -205,17 +199,15 @@ function FichasTab() {
           <h3 className="font-medium text-gray-700 mb-4 text-sm">
             Pré-visualização (primeiras {Math.min(numbers.length, 12)} fichas)
           </h3>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
             {numbers.slice(0, 12).map((n) => (
               <div
                 key={n}
-                className="border-2 border-dashed border-accent/40 rounded-2xl p-3 text-center bg-amber-50/50"
+                className="border border-gray-200 rounded-xl p-3 text-center bg-white"
               >
-                <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Ficha</p>
-                <p className="text-xs text-accent italic mb-2 font-semibold leading-tight">Arraiá do Lar</p>
-                <p className="font-black text-xl text-accent-dark mb-2">#{n}</p>
+                <p className="font-black text-xl text-gray-900 mb-2">#{n}</p>
                 <div className="flex justify-center">
-                  <QRCodeSVG value={String(n)} size={60} />
+                  <QRCodeSVG value={String(n)} size={64} />
                 </div>
               </div>
             ))}
