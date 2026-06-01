@@ -161,7 +161,8 @@ export default function LiveControl() {
       .filter((o) => o.status !== 'ready')
       .forEach((order) => {
         order.items.forEach((item) => {
-          const s = item.sector || 'Assados'
+          const rawSector = item.sector || 'Assados'
+          const s = ({ Lanches: 'Chapa', Outros: 'Assados' } as Record<string, string>)[rawSector] ?? rawSector
           if (!map[s]) map[s] = { qty: 0, fichas: new Set() }
           map[s].qty += item.quantity
           map[s].fichas.add(order.ticket_number)

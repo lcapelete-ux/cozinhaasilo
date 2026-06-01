@@ -40,6 +40,12 @@ const SECTORS = [
   { name: 'Assados', icon: Star, color: 'text-purple-500', border: 'border-purple-400', bg: 'bg-purple-50' },
 ]
 
+// Compatibilidade com itens gravados antes da renomeação dos setores
+const SECTOR_ALIASES: Record<string, string> = {
+  Lanches: 'Chapa',
+  Outros: 'Assados',
+}
+
 interface SectorItem {
   name: string
   totalQty: number
@@ -190,7 +196,8 @@ export default function KitchenSectors() {
     const itemMap = new Map<string, SectorItem>()
     for (const order of orders) {
       for (const item of order.items) {
-        if (item.sector !== sectorName) continue
+        const sector = SECTOR_ALIASES[item.sector] ?? item.sector
+        if (sector !== sectorName) continue
         const existing = itemMap.get(item.name)
         if (existing) {
           existing.totalQty += item.quantity
@@ -436,7 +443,7 @@ export default function KitchenSectors() {
                       >
                         <div>
                           <p className="text-xs font-semibold text-gray-700 leading-tight">{item.name}</p>
-                          <p className="text-[10px] text-gray-400">{item.sector}</p>
+                          <p className="text-[10px] text-gray-400">{SECTOR_ALIASES[item.sector] ?? item.sector}</p>
                         </div>
                         <span className="font-black text-sm text-accent-dark bg-white rounded-lg px-2 py-0.5 border border-gray-200">
                           ×{item.quantity}

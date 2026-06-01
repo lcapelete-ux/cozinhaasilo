@@ -125,7 +125,9 @@ export default function AdminDashboard() {
     const stats: Record<string, { qty: number; revenue: number; sector: string }> = {}
     delivered.forEach((o) =>
       o.items.forEach((i) => {
-        if (!stats[i.name]) stats[i.name] = { qty: 0, revenue: 0, sector: i.sector || 'Assados' }
+        const rawSector = i.sector || 'Assados'
+        const resolvedSector = ({ Lanches: 'Chapa', Outros: 'Assados' } as Record<string, string>)[rawSector] ?? rawSector
+        if (!stats[i.name]) stats[i.name] = { qty: 0, revenue: 0, sector: resolvedSector }
         stats[i.name].qty += i.quantity
         stats[i.name].revenue += i.price * i.quantity
       })
@@ -148,7 +150,8 @@ export default function AdminDashboard() {
     const rev: Record<string, number> = {}
     delivered.forEach((o) =>
       o.items.forEach((i) => {
-        const s = i.sector || 'Assados'
+        const rawS = i.sector || 'Assados'
+        const s = ({ Lanches: 'Chapa', Outros: 'Assados' } as Record<string, string>)[rawS] ?? rawS
         rev[s] = (rev[s] || 0) + i.price * i.quantity
       })
     )
