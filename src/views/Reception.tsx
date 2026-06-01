@@ -141,40 +141,43 @@ export default function Reception() {
 
   // ── Process QR scan ──────────────────────────────────────────────────────
   // QR do cupom físico: "0844-124791" → 4 primeiros dígitos = código do produto
-  // Fichas: 1–200 (sem zero à esquerda)
+  // Fichas: 1–999 (número puro, sem zero à esquerda)
 
   const processQrScan = useCallback(async (raw: string) => {
     const items = menuItemsRef.current
     const digits = raw.replace(/\D/g, '')          // remove traços, letras, etc.
     const first4 = digits.substring(0, 4)          // ex: "0844"
 
-    // Compara os 4 primeiros dígitos contra os códigos cadastrados no cardápio
-    const matchedProduct = items.find(m => m.code && first4 === m.code)
+    // Cupons físicos têm pelo menos 4 dígitos; fichas têm no máximo 3 dígitos (1–999)
+    // Só tenta match de produto se há dígitos suficientes para ser um cupom
+    if (digits.length >= 4) {
+      const matchedProduct = items.find(m => m.code && first4 === m.code)
 
-    if (matchedProduct) {
-      if (!sessionRef.current) {
-        setLastScan({ type: 'error', label: 'Bipe a ficha primeiro!' })
+      if (matchedProduct) {
+        if (!sessionRef.current) {
+          setLastScan({ type: 'error', label: 'Bipe a ficha primeiro!' })
+          return
+        }
+        playProductAddSound()
+        setLastScan({ type: 'product', label: `+1 ${matchedProduct.name}` })
+        setSession(prev => {
+          if (!prev) return prev
+          const existing = prev.items.find(i => i.name === matchedProduct.name)
+          const updated: Session = existing
+            ? { ...prev, items: prev.items.map(i => i.name === matchedProduct.name ? { ...i, quantity: i.quantity + 1 } : i) }
+            : { ...prev, items: [...prev.items, { name: matchedProduct.name, quantity: 1, sector: matchedProduct.sector, price: matchedProduct.price, completed: false }] }
+          sessionRef.current = updated
+          return updated
+        })
+        startCountdown()
         return
       }
-      playProductAddSound()
-      setLastScan({ type: 'product', label: `+1 ${matchedProduct.name}` })
-      setSession(prev => {
-        if (!prev) return prev
-        const existing = prev.items.find(i => i.name === matchedProduct.name)
-        const updated: Session = existing
-          ? { ...prev, items: prev.items.map(i => i.name === matchedProduct.name ? { ...i, quantity: i.quantity + 1 } : i) }
-          : { ...prev, items: [...prev.items, { name: matchedProduct.name, quantity: 1, sector: matchedProduct.sector, price: matchedProduct.price, completed: false }] }
-        sessionRef.current = updated
-        return updated
-      })
-      startCountdown()
-      return
-    }
 
-    // Parece cupom de produto (começa com 08xx ou 09xx) mas não está cadastrado
-    if (/^0[89]\d{2}/.test(first4)) {
-      setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
-      return
+      // Parece cupom de produto (começa com 08xx ou 09xx) mas não está cadastrado
+      if (/^0[89]\d{2}/.test(first4)) {
+        setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
+        return
+      }
     }
 
     // É uma ficha (1–200)
