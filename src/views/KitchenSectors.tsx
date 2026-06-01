@@ -462,15 +462,16 @@ export default function KitchenSectors() {
 }
 
 function FichaTag({ ticket, status, qty }: { ticket: string; status: OrderStatus; qty: number }) {
+  const isReady = status === 'ready'
   const colors: Record<OrderStatus, string> = {
-    pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    pending:   'bg-yellow-100 text-yellow-700 border-yellow-200',
     preparing: 'bg-blue-100 text-blue-700 border-blue-200',
-    ready: 'bg-green-100 text-green-700 border-green-200',
-    delivered: 'bg-gray-100 text-gray-500 border-gray-200',
+    ready:     'bg-gray-100 text-gray-500 border-gray-200',
+    delivered: 'bg-gray-100 text-gray-400 border-gray-200',
   }
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${colors[status]}`}>
-      <span>#{ticket}</span>
+      <span className={isReady ? 'line-through decoration-2' : ''}>#{ticket}</span>
       {qty > 1 && <span className="opacity-70">×{qty}</span>}
     </span>
   )
