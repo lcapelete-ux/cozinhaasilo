@@ -72,7 +72,6 @@ export default function Reception() {
   const menuItemsRef = useRef<MenuItem[]>([])
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const bufferRef = useRef('')
-  const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -232,33 +231,22 @@ export default function Reception() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
-        if (bufferRef.current.length > 0) {
-          e.preventDefault(); e.stopPropagation()
-          if (timerRef.current) clearTimeout(timerRef.current)
-          const val = bufferRef.current.trim()
-          bufferRef.current = ''; lastKeyTimeRef.current = 0
-          if (val) processQrScan(val)
-        }
+        e.preventDefault(); e.stopPropagation()
+        if (timerRef.current) clearTimeout(timerRef.current)
+        const val = bufferRef.current.trim()
+        bufferRef.current = ''
+        if (val.length >= 1) processQrScan(val)
         return
       }
       if (e.key.length !== 1) return
-      const now = Date.now()
-      const delta = now - lastKeyTimeRef.current
-      if (lastKeyTimeRef.current !== 0 && delta < 80) {
-        e.preventDefault(); e.stopPropagation()
-        bufferRef.current += e.key
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => {
-          const val = bufferRef.current.trim()
-          bufferRef.current = ''; lastKeyTimeRef.current = 0
-          if (val) processQrScan(val)
-        }, 150)
-      } else {
-        bufferRef.current = e.key
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => { bufferRef.current = '' }, 200)
-      }
-      lastKeyTimeRef.current = now
+      e.preventDefault(); e.stopPropagation()
+      bufferRef.current += e.key
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => {
+        const val = bufferRef.current.trim()
+        bufferRef.current = ''
+        if (val.length >= 2) processQrScan(val)
+      }, 150)
     }
     window.addEventListener('keydown', handler, { capture: true })
     return () => {
