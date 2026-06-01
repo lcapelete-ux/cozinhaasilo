@@ -220,14 +220,31 @@ export default function KitchenSectors() {
   }
 
   const totalActive = orders.length
+  const [clockTime, setClockTime] = useState(() =>
+    new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  )
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setClockTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
 
   return (
     <div style={{ zoom }} className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+      <div className="relative flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark">Monitor de Produção</h1>
           <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mt-0.5">Consolidado por setor</p>
+        </div>
+
+        {/* Clock — centered */}
+        <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none">
+          <span className="font-mono font-black text-3xl md:text-4xl text-gray-200 tracking-widest tabular-nums">
+            {clockTime}
+          </span>
         </div>
 
         <div className="flex items-center gap-3">
