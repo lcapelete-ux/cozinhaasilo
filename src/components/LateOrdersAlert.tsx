@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import { subscribeOrders } from '../services/firebaseService'
-import type { Order } from '../types'
+import type { Order, ViewName } from '../types'
 
 const LATE_MS = 10 * 60 * 1000 // 10 minutes
+
+// Only show alert on internal production panels
+const INTERNAL_VIEWS: ViewName[] = ['kitchen', 'kitchen-scanner', 'kitchen-sectors', 'dispatch']
 
 function formatDelay(ms: number): string {
   const mins = Math.floor(ms / 60_000)
@@ -14,10 +17,35 @@ function formatDelay(ms: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
-export default function LateOrdersAlert() {
+function playLateAlert() {
+  try {
+    const ctx = new AudioContext()
+    // 3 short urgent beeps — distinct from the ready sound
+    ;[0, 0.22, 0.44].forEach((offset) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.value = 1100
+      gain.gain.setValueAtTime(0, ctx.currentTime + offset)
+      gain.gain.linearRampToValueAtTime(0.45, ctx.currentTime + offset + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.18)
+      osc.start(ctx.currentTime + offset)
+      osc.stop(ctx.currentTime + offset + 0.2)
+    })
+  } catch { /* audio not available */ }
+}
+
+interface Props {
+  currentView: ViewName
+}
+
+export default function LateOrdersAlert({ currentView }: Props) {
   const [orders, setOrders] = useState<Order[]>([])
   const [now, setNow] = useState(Date.now())
   const [expanded, setExpanded] = useState(true)
+  const prevLateCount = useRef(0)
 
   useEffect(() => {
     const unsub = subscribeOrders(['pending', 'preparing'], setOrders)
@@ -32,11 +60,17 @@ export default function LateOrdersAlert() {
 
   const late = orders.filter((o) => now - o.created_at.getTime() > LATE_MS)
 
-  // Auto-expand whenever a new late order appears
+  // Play sound and auto-expand when new late orders appear
   useEffect(() => {
-    if (late.length > 0) setExpanded(true)
+    if (late.length > prevLateCount.current) {
+      playLateAlert()
+      setExpanded(true)
+    }
+    prevLateCount.current = late.length
   }, [late.length])
 
+  // Only render on internal kitchen views
+  if (!INTERNAL_VIEWS.includes(currentView)) return null
   if (late.length === 0) return null
 
   return (

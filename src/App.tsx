@@ -290,7 +290,7 @@ export default function App() {
           </motion.div>
         </main>
       </div>
-      <LateOrdersAlert />
+      <LateOrdersAlert currentView={currentView} />
       <Toast toasts={toasts} onRemove={removeToast} />
     </AppContext.Provider>
   )
