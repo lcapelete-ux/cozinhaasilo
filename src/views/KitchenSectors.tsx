@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, ZoomIn, ZoomOut } from 'lucide-react'
+import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, ZoomIn, ZoomOut, Moon, Sun } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -8,6 +8,7 @@ import type { Order, OrderStatus, MenuItem } from '../types'
 
 const LOW_STOCK_THRESHOLD = 15
 const ZOOM_KEY = 'sectors-zoom'
+const NIGHT_KEY = 'sectors-night'
 const ZOOM_STEPS = [0.75, 0.85, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3]
 
 function playReadySound() {
@@ -65,6 +66,7 @@ export default function KitchenSectors() {
     const val = saved ? parseFloat(saved) : 1
     return ZOOM_STEPS.includes(val) ? val : 1
   })
+  const [nightMode, setNightMode] = useState(() => localStorage.getItem(NIGHT_KEY) === 'true')
 
   const handleZoom = (z: number) => {
     setZoom(z)
@@ -231,18 +233,27 @@ export default function KitchenSectors() {
     return () => clearInterval(id)
   }, [])
 
+  const toggleNight = () => {
+    const next = !nightMode
+    setNightMode(next)
+    localStorage.setItem(NIGHT_KEY, String(next))
+  }
+
+  const n = nightMode // shorthand for conditional classes
+
   return (
+    <div className={n ? 'min-h-screen bg-gray-950' : ''}>
     <div style={{ zoom }} className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="relative flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark">Monitor de Produção</h1>
-          <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mt-0.5">Consolidado por setor</p>
+          <h1 className={`font-serif italic text-2xl md:text-3xl ${n ? 'text-white' : 'text-accent-dark'}`}>Monitor de Produção</h1>
+          <p className={`text-xs font-semibold tracking-widest uppercase mt-0.5 ${n ? 'text-gray-500' : 'text-gray-400'}`}>Consolidado por setor</p>
         </div>
 
         {/* Clock — centered */}
         <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none">
-          <span className="font-mono font-black text-3xl md:text-4xl text-gray-200 tracking-widest tabular-nums">
+          <span className={`font-mono font-black text-3xl md:text-4xl tracking-widest tabular-nums ${n ? 'text-white/25' : 'text-gray-200'}`}>
             {clockTime}
           </span>
         </div>
@@ -284,9 +295,19 @@ export default function KitchenSectors() {
             </button>
           </form>
 
+          <button
+            onClick={toggleNight}
+            title={n ? 'Modo diurno' : 'Modo noturno'}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              n ? 'bg-gray-700 text-yellow-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            {n ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
           <ZoomControls zoom={zoom} onChange={handleZoom} />
 
-          <div className="bg-accent/10 text-accent-dark text-sm font-bold px-3 py-2 rounded-xl">
+          <div className={`text-sm font-bold px-3 py-2 rounded-xl ${n ? 'bg-gray-800 text-gray-300' : 'bg-accent/10 text-accent-dark'}`}>
             {totalActive} ativo{totalActive !== 1 ? 's' : ''}
           </div>
         </div>
@@ -372,13 +393,13 @@ export default function KitchenSectors() {
           const count = items.reduce((s, i) => s + i.totalQty, 0)
 
           return (
-            <div key={name} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+            <div key={name} className={`rounded-2xl shadow-sm overflow-hidden ${n ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-100'}`}>
               <div className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Icon size={18} className={color} />
-                  <span className="font-bold text-sm tracking-wider text-gray-700 uppercase">{name}</span>
+                  <Icon size={n ? 22 : 18} className={color} />
+                  <span className={`font-bold tracking-wider uppercase ${n ? 'text-base text-gray-100' : 'text-sm text-gray-700'}`}>{name}</span>
                 </div>
-                <span className={`text-sm font-bold px-2 py-0.5 rounded-lg ${color} bg-gray-50`}>
+                <span className={`font-black px-2 py-0.5 rounded-lg ${n ? 'text-2xl text-white bg-gray-700' : `text-sm ${color} bg-gray-50`}`}>
                   {count}
                 </span>
               </div>
@@ -387,7 +408,7 @@ export default function KitchenSectors() {
 
               <div className="p-3 min-h-[320px]">
                 {items.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-60 text-gray-300">
+                  <div className={`flex flex-col items-center justify-center h-60 ${n ? 'text-gray-700' : 'text-gray-300'}`}>
                     <Package size={48} className="mb-2" strokeWidth={1.5} />
                     <span className="text-xs font-semibold tracking-widest uppercase">Limpo</span>
                   </div>
@@ -400,17 +421,17 @@ export default function KitchenSectors() {
                           initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, x: -10 }}
-                          className="border border-gray-100 rounded-xl p-3"
+                          className={`rounded-xl p-3 ${n ? 'border border-gray-700 bg-gray-900/40' : 'border border-gray-100'}`}
                         >
                           <div className="flex items-center justify-between mb-2">
-                            <span className="font-semibold text-sm text-gray-800">{item.name}</span>
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700">
+                            <span className={`font-semibold ${n ? 'text-white text-lg' : 'text-gray-800 text-sm'}`}>{item.name}</span>
+                            <span className={`font-black px-2 py-0.5 rounded-lg ${n ? 'text-2xl bg-gray-700 text-white' : 'text-xs bg-gray-100 text-gray-700'}`}>
                               ×{item.totalQty}
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {item.fichas.map(({ ticket, status, qty }) => (
-                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} />
+                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} nightMode={n} />
                             ))}
                           </div>
                         </motion.div>
@@ -475,19 +496,28 @@ export default function KitchenSectors() {
         )}
       </AnimatePresence>
     </div>
+    </div>
   )
 }
 
-function FichaTag({ ticket, status, qty }: { ticket: string; status: OrderStatus; qty: number }) {
+function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean }) {
   const isReady = status === 'ready'
-  const colors: Record<OrderStatus, string> = {
+  const lightColors: Record<OrderStatus, string> = {
     pending:   'bg-yellow-100 text-yellow-700 border-yellow-200',
     preparing: 'bg-blue-100 text-blue-700 border-blue-200',
     ready:     'bg-gray-100 text-gray-500 border-gray-200',
     delivered: 'bg-gray-100 text-gray-400 border-gray-200',
   }
+  const darkColors: Record<OrderStatus, string> = {
+    pending:   'bg-yellow-900/60 text-yellow-300 border-yellow-700',
+    preparing: 'bg-blue-900/60 text-blue-300 border-blue-700',
+    ready:     'bg-gray-700 text-gray-400 border-gray-600',
+    delivered: 'bg-gray-800 text-gray-500 border-gray-700',
+  }
+  const colors = nightMode ? darkColors : lightColors
+  const size = nightMode ? 'text-sm' : 'text-xs'
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${colors[status]}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold border ${size} ${colors[status]}`}>
       <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{ticket}</span>
       <span className="opacity-70">×{qty}</span>
     </span>
