@@ -376,7 +376,16 @@ export default function Display() {
   useEffect(() => () => { if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current) }, [])
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#111111', zoom }}>
+    <div style={orientation === 'portrait' ? { position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: 'hidden' } : {}}>
+    <div
+      className="flex flex-col"
+      style={{
+        background: '#111111',
+        ...(orientation === 'portrait'
+          ? { width: '100vh', height: '100vw', transform: 'rotate(90deg)', overflow: 'hidden', flexShrink: 0 }
+          : { minHeight: '100vh', zoom }),
+      }}
+    >
       {/* Bunting */}
       <Bunting />
 
@@ -460,8 +469,8 @@ export default function Display() {
       </AnimatePresence>
 
       {/* Main panels */}
-      <div className={`flex flex-1 relative ${orientation === 'portrait' ? 'flex-col divide-y' : 'divide-x'} divide-white/10`}>
-        {/* TOP/LEFT — Em produção */}
+      <div className="flex flex-1 divide-x divide-white/10 relative">
+        {/* LEFT — Em produção */}
         <div className="flex-1 flex flex-col" style={{ background: '#161616' }}>
           {/* Panel header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
@@ -486,7 +495,7 @@ export default function Display() {
                 <p className="text-white/60 text-xl italic">Cozinha livre no momento</p>
               </div>
             ) : (
-              <div className={`grid gap-4 ${orientation === 'portrait' ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+              <div className={"grid grid-cols-2 sm:grid-cols-3 gap-4"}>
                 <AnimatePresence>
                   {activeOrders.map((order) => (
                     <motion.div
@@ -510,7 +519,7 @@ export default function Display() {
           </div>
         </div>
 
-        {/* BOTTOM/RIGHT — Pronto */}
+        {/* RIGHT — Pronto */}
         <div className="flex-1 flex flex-col" style={{ background: '#1a1a1a' }}>
           {/* Panel header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
@@ -538,7 +547,7 @@ export default function Display() {
                 <p className="text-white/60 text-xl italic uppercase tracking-widest">O Arraiá tá começando...</p>
               </div>
             ) : (
-              <div className={`grid gap-4 ${orientation === 'portrait' ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+              <div className={"grid grid-cols-2 sm:grid-cols-3 gap-4"}>
                 <AnimatePresence>
                   {readyOrders.map((order) => (
                     <motion.div
@@ -631,6 +640,7 @@ export default function Display() {
       ) : (
         <div style={{ background: '#0d0d0d', height: 4 }} />
       )}
+    </div>
     </div>
   )
 }
