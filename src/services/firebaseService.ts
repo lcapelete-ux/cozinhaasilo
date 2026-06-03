@@ -90,7 +90,10 @@ export async function resolveFicha(raw: string): Promise<string> {
 
   const numericMatch = cleaned.match(/\d+/)
   if (numericMatch) {
-    cleaned = String(parseInt(numericMatch[0], 10))
+    let num = parseInt(numericMatch[0], 10)
+    // Fichas 101–133: strip leading "1" (101→1, 115→15, 133→33)
+    if (num >= 101 && num <= 133) num = num - 100
+    cleaned = String(num)
   }
 
   return cleaned
