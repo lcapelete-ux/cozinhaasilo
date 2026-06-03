@@ -18,6 +18,26 @@ function playReadySound() {
   } catch { /* audio not available */ }
 }
 
+function playNewOrderSound() {
+  try {
+    const ctx = new AudioContext()
+    // Two ascending tones — quick "ding ding" to signal new order
+    ;[0, 0.18].forEach((offset, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.value = i === 0 ? 660 : 880
+      gain.gain.setValueAtTime(0, ctx.currentTime + offset)
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + offset + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.22)
+      osc.start(ctx.currentTime + offset)
+      osc.stop(ctx.currentTime + offset + 0.25)
+    })
+  } catch { /* audio not available */ }
+}
+
 function ZoomControls({ zoom, onChange }: { zoom: number; onChange: (z: number) => void }) {
   const idx = ZOOM_STEPS.indexOf(zoom)
   const dec = () => { if (idx > 0) onChange(ZOOM_STEPS[idx - 1]) }
@@ -77,13 +97,26 @@ export default function KitchenSectors() {
   const prevStatusMapRef = useRef<Map<string, string>>(new Map())
   const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const knownOrderIdsRef = useRef<Set<string>>(new Set())
+
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const unsub = subscribeOrders(['pending', 'preparing', 'ready'], setOrders)
+    const unsub = subscribeOrders(['pending', 'preparing', 'ready'], (incoming) => {
+      const isFirstLoad = knownOrderIdsRef.current.size === 0
+      let hasNew = false
+      for (const o of incoming) {
+        if (!knownOrderIdsRef.current.has(o.id)) {
+          knownOrderIdsRef.current.add(o.id)
+          if (!isFirstLoad) hasNew = true
+        }
+      }
+      if (hasNew) playNewOrderSound()
+      setOrders(incoming)
+    })
     return unsub
   }, [])
 
