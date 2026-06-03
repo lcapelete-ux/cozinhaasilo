@@ -185,6 +185,7 @@ export default function KitchenSectors() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (document.activeElement === manualRef.current) return
+      if (e.key === 'Tab') { e.preventDefault(); return }
       if (e.key === 'Enter') {
         if (bufferRef.current.length > 0) {
           e.preventDefault(); e.stopPropagation()
