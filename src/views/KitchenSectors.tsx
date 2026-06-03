@@ -11,17 +11,16 @@ const ZOOM_KEY = 'sectors-zoom'
 const NIGHT_KEY = 'sectors-night'
 const ZOOM_STEPS = [0.75, 0.85, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3]
 
-function playReadySound() {
+function playNewOrderSound() {
   try {
     const audio = new Audio(readySound)
     audio.play().catch(() => {})
   } catch { /* audio not available */ }
 }
 
-function playNewOrderSound() {
+function playReadySound() {
   try {
     const ctx = new AudioContext()
-    // Two ascending tones — quick "ding ding" to signal new order
     ;[0, 0.18].forEach((offset, i) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
