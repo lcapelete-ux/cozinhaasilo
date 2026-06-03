@@ -148,10 +148,9 @@ export default function Reception() {
     const digits = rawTrimmed.replace(/\D/g, '')
     const first4 = digits.substring(0, 4)
 
-    // Cupons de produto usam códigos 08XX ou 09XX (ex: 0844, 0850).
-    // Fichas são números puros — nunca começam com zero.
-    // Só tenta match de produto quando o código começa com 08 ou 09.
-    if (digits.length >= 4 && /^0[89]/.test(first4)) {
+    // Tenta match de produto para qualquer código de 4+ dígitos cadastrado no cardápio.
+    // Isso suporta tanto códigos padrão 08XX/09XX quanto códigos personalizados (ex: 1120).
+    if (digits.length >= 4) {
       const matchedProduct = items.find(m => m.code && first4 === m.code)
 
       if (matchedProduct) {
@@ -174,9 +173,11 @@ export default function Reception() {
         return
       }
 
-      // Código 08XX/09XX não cadastrado no cardápio
-      setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
-      return
+      // Código 08XX/09XX não cadastrado no cardápio → erro explícito
+      if (/^0[89]/.test(first4)) {
+        setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
+        return
+      }
     }
 
     // É uma ficha (1–200)
