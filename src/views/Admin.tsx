@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, type LucideIcon } from 'lucide-react'
-import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY } from './Display'
+import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   subscribeUsers, addUser, updateUser, deleteUser,
@@ -445,6 +445,7 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
         <p className="text-sm text-gray-400 mb-4">Ajuste o tamanho da interface em cada TV. As alterações têm efeito imediato.</p>
         <ZoomRow label="Monitor de Produção (Setores)" icon={Monitor} storageKey={SECTORS_ZOOM_KEY} eventName="sectors-zoom-change" />
         <ZoomRow label="Painel Externo (Display)" icon={Tv2} storageKey={DISPLAY_ZOOM_KEY} eventName="display-zoom-change" />
+        <ZoomRow label="Tamanho das fichas (Painel Externo)" icon={Ticket} storageKey={DISPLAY_CARD_SIZE_KEY} eventName="display-card-size-change" />
         <ScannerHiddenToggle />
       </div>
 

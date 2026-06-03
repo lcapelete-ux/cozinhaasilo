@@ -7,6 +7,7 @@ import type { Order, MediaSlide } from '../types'
 
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
 export const DISPLAY_SCANNER_HIDDEN_KEY = 'display-scanner-hidden'
+export const DISPLAY_CARD_SIZE_KEY = 'display-card-size'
 
 const JUNINA_PHRASES = [
   'Eita! O trem tá pronto, sô!',
@@ -224,7 +225,13 @@ export default function Display() {
     const val = saved ? parseFloat(saved) : 1
     return isNaN(val) ? 1 : val
   }
+  const readCardSize = () => {
+    const saved = localStorage.getItem(DISPLAY_CARD_SIZE_KEY)
+    const val = saved ? parseFloat(saved) : 1
+    return isNaN(val) ? 1 : val
+  }
   const [zoom, setZoom] = useState<number>(readZoom)
+  const [cardSize, setCardSize] = useState<number>(readCardSize)
   const readScannerHidden = () => localStorage.getItem(DISPLAY_SCANNER_HIDDEN_KEY) === 'true'
   const [scannerHidden, setScannerHidden] = useState<boolean>(readScannerHidden)
 
@@ -232,14 +239,17 @@ export default function Display() {
     const onStorage = () => {
       setZoom(readZoom())
       setScannerHidden(readScannerHidden())
+      setCardSize(readCardSize())
     }
     window.addEventListener('storage', onStorage)
     window.addEventListener('display-zoom-change', onStorage)
     window.addEventListener('display-scanner-hidden-change', onStorage)
+    window.addEventListener('display-card-size-change', onStorage)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('display-zoom-change', onStorage)
       window.removeEventListener('display-scanner-hidden-change', onStorage)
+      window.removeEventListener('display-card-size-change', onStorage)
     }
   }, [])
 
@@ -480,10 +490,10 @@ export default function Display() {
                       className="rounded-3xl p-5 flex flex-col items-center gap-3"
                       style={{ background: '#222' }}
                     >
-                      <FireAnimated size={56} />
+                      <FireAnimated size={Math.round(36 * cardSize)} />
                       <div className="text-center">
                         <p className="text-white/40 text-sm uppercase tracking-widest">Ficha</p>
-                        <p className="font-black text-5xl text-white leading-none mt-1">#{order.ticket_number}</p>
+                        <p className="font-black text-white leading-none mt-1" style={{ fontSize: `${2.5 * cardSize}rem` }}>#{order.ticket_number}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -536,7 +546,7 @@ export default function Display() {
                         <p className="text-yellow-400/60 text-sm uppercase tracking-widest mb-1">Ficha</p>
                         <motion.p
                           className="font-black leading-none"
-                          style={{ color: '#FFD700', fontSize: 'clamp(3rem, 8vw, 6rem)' }}
+                          style={{ color: '#FFD700', fontSize: `${3 * cardSize}rem` }}
                           animate={{ scale: [1, 1.08, 1], textShadow: ['0 0 0px #FFD700', '0 0 32px #FFD700', '0 0 0px #FFD700'] }}
                           transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
                         >
