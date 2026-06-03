@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
-import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
-import type { Order, MediaSlide } from '../types'
+import type { Order, MediaSlide, MenuItem } from '../types'
 
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
 export const DISPLAY_SCANNER_HIDDEN_KEY = 'display-scanner-hidden'
@@ -278,13 +278,85 @@ export default function Display() {
   useEffect(() => { readyOrdersRef.current = readyOrders }, [readyOrders])
   useEffect(() => { activeOrdersRef.current = activeOrders }, [activeOrders])
 
+  // ── Background entry session (hidden from display UI) ─────────────────────
+  const menuItemsRef = useRef<MenuItem[]>([])
+  const bgFichaRef = useRef<string | null>(null)
+  const bgItemsRef = useRef<Order['items']>([])
+  const bgCountdownRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return subscribeMenuItems((items) => { menuItemsRef.current = items })
+  }, [])
+
+  const confirmBgSession = useCallback(async () => {
+    const ficha = bgFichaRef.current
+    const items = bgItemsRef.current
+    bgFichaRef.current = null
+    bgItemsRef.current = []
+    if (!ficha || items.length === 0) return
+    try {
+      await createOrder(ficha, items)
+    } catch (e) {
+      console.error('Display bg-entry failed:', e)
+    }
+  }, [])
+
+  const restartBgCountdown = useCallback(() => {
+    if (bgCountdownRef.current) clearTimeout(bgCountdownRef.current)
+    bgCountdownRef.current = setTimeout(confirmBgSession, 8000)
+  }, [confirmBgSession])
+
+  const processDisplayScan = useCallback(async (raw: string) => {
+    const digits = raw.trim().replace(/\D/g, '')
+    const first4 = digits.substring(0, 4)
+
+    // Product code (4+ digits matching a menu item)
+    if (digits.length >= 4) {
+      const matched = menuItemsRef.current.find((m) => m.code && first4 === m.code)
+      if (matched) {
+        if (!bgFichaRef.current) return // need ficha first
+        const existing = bgItemsRef.current.find((i) => i.name === matched.name)
+        if (existing) {
+          existing.quantity += 1
+        } else {
+          bgItemsRef.current.push({ name: matched.name, quantity: 1, sector: matched.sector, price: matched.price, completed: false })
+        }
+        restartBgCountdown()
+        return
+      }
+      if (/^0[89]/.test(first4)) return // unknown standard code
+    }
+
+    // Ficha scan
+    const ticket = await resolveFicha(raw)
+    if (!ticket) return
+
+    // Ready order → deliver
+    const readyOrder = readyOrdersRef.current.find((o) => o.ticket_number === ticket)
+    if (readyOrder) {
+      setScanDebug(null)
+      await setOrderStatus(readyOrder.id, 'delivered')
+      return
+    }
+
+    // Existing pending/preparing order → ignore
+    const activeOrder = await getActiveOrderByTicket(ticket)
+    if (activeOrder) return
+
+    // New ficha → flush previous session and start a new one
+    if (bgCountdownRef.current) clearTimeout(bgCountdownRef.current)
+    await confirmBgSession()
+    bgFichaRef.current = ticket
+    bgItemsRef.current = []
+    restartBgCountdown()
+  }, [confirmBgSession, restartBgCountdown])
+
   const confirmDelivery = useCallback(async (raw: string) => {
     const ticket = await resolveFicha(raw)
     const order =
       readyOrdersRef.current.find((o) => o.ticket_number === ticket) ??
       activeOrdersRef.current.find((o) => o.ticket_number === ticket)
     if (!order) {
-      // Show debug info so operator knows the scan was received but ticket not found
       setScanDebug(`Lido: "${raw}" → ficha "${ticket}" não encontrada`)
       if (scanDebugTimer.current) clearTimeout(scanDebugTimer.current)
       scanDebugTimer.current = setTimeout(() => setScanDebug(null), 5000)
@@ -295,7 +367,7 @@ export default function Display() {
   }, [])
 
   // minLength:1 so single-digit ticket numbers (ficha #1, #2…) are not silently dropped
-  useQrScanner({ onScan: confirmDelivery, minLength: 1 })
+  useQrScanner({ onScan: processDisplayScan, minLength: 1 })
 
   useEffect(() => {
     const unsub1 = subscribeOrders(['pending', 'preparing'], (orders) => setActiveOrders(dedup(orders)))
