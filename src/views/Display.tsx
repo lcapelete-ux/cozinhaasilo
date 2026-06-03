@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
-import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
 import type { Order, MediaSlide, MenuItem } from '../types'
 
@@ -293,6 +293,7 @@ export default function Display() {
     const items = bgItemsRef.current
     bgFichaRef.current = null
     bgItemsRef.current = []
+    await clearActiveSession()
     if (!ficha || items.length === 0) return
     try {
       await createOrder(ficha, items)
@@ -321,6 +322,7 @@ export default function Display() {
         } else {
           bgItemsRef.current.push({ name: matched.name, quantity: 1, sector: matched.sector, price: matched.price, completed: false })
         }
+        setActiveSession({ ficha: bgFichaRef.current, items: bgItemsRef.current.map((i) => ({ name: i.name, quantity: i.quantity, sector: i.sector })) })
         restartBgCountdown()
         return
       }
@@ -348,6 +350,7 @@ export default function Display() {
     await confirmBgSession()
     bgFichaRef.current = ticket
     bgItemsRef.current = []
+    setActiveSession({ ficha: ticket, items: [] })
     restartBgCountdown()
   }, [confirmBgSession, restartBgCountdown])
 
