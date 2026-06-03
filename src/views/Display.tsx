@@ -8,6 +8,7 @@ import type { Order, MediaSlide } from '../types'
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
 export const DISPLAY_SCANNER_HIDDEN_KEY = 'display-scanner-hidden'
 export const DISPLAY_CARD_SIZE_KEY = 'display-card-size'
+export const DISPLAY_ORIENTATION_KEY = 'display-orientation'
 
 const JUNINA_PHRASES = [
   'Eita! O trem tá pronto, sô!',
@@ -230,8 +231,11 @@ export default function Display() {
     const val = saved ? parseFloat(saved) : 1
     return isNaN(val) ? 1 : val
   }
+  const readOrientation = () =>
+    localStorage.getItem(DISPLAY_ORIENTATION_KEY) === 'portrait' ? 'portrait' : 'landscape' as const
   const [zoom, setZoom] = useState<number>(readZoom)
   const [cardSize, setCardSize] = useState<number>(readCardSize)
+  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(readOrientation)
   const readScannerHidden = () => localStorage.getItem(DISPLAY_SCANNER_HIDDEN_KEY) === 'true'
   const [scannerHidden, setScannerHidden] = useState<boolean>(readScannerHidden)
 
@@ -240,16 +244,19 @@ export default function Display() {
       setZoom(readZoom())
       setScannerHidden(readScannerHidden())
       setCardSize(readCardSize())
+      setOrientation(readOrientation())
     }
     window.addEventListener('storage', onStorage)
     window.addEventListener('display-zoom-change', onStorage)
     window.addEventListener('display-scanner-hidden-change', onStorage)
     window.addEventListener('display-card-size-change', onStorage)
+    window.addEventListener('display-orientation-change', onStorage)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('display-zoom-change', onStorage)
       window.removeEventListener('display-scanner-hidden-change', onStorage)
       window.removeEventListener('display-card-size-change', onStorage)
+      window.removeEventListener('display-orientation-change', onStorage)
     }
   }, [])
 
@@ -453,8 +460,8 @@ export default function Display() {
       </AnimatePresence>
 
       {/* Main panels */}
-      <div className="flex flex-1 divide-x divide-white/10 relative">
-        {/* LEFT — Em produção */}
+      <div className={`flex flex-1 relative ${orientation === 'portrait' ? 'flex-col divide-y' : 'divide-x'} divide-white/10`}>
+        {/* TOP/LEFT — Em produção */}
         <div className="flex-1 flex flex-col" style={{ background: '#161616' }}>
           {/* Panel header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
@@ -479,7 +486,7 @@ export default function Display() {
                 <p className="text-white/60 text-xl italic">Cozinha livre no momento</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className={`grid gap-4 ${orientation === 'portrait' ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
                 <AnimatePresence>
                   {activeOrders.map((order) => (
                     <motion.div
@@ -503,7 +510,7 @@ export default function Display() {
           </div>
         </div>
 
-        {/* RIGHT — Pronto */}
+        {/* BOTTOM/RIGHT — Pronto */}
         <div className="flex-1 flex flex-col" style={{ background: '#1a1a1a' }}>
           {/* Panel header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
@@ -531,7 +538,7 @@ export default function Display() {
                 <p className="text-white/60 text-xl italic uppercase tracking-widest">O Arraiá tá começando...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className={`grid gap-4 ${orientation === 'portrait' ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
                 <AnimatePresence>
                   {readyOrders.map((order) => (
                     <motion.div

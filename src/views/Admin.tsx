@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, type LucideIcon } from 'lucide-react'
-import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY } from './Display'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, type LucideIcon } from 'lucide-react'
+import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY, DISPLAY_ORIENTATION_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   subscribeUsers, addUser, updateUser, deleteUser,
@@ -280,6 +280,35 @@ function ZoomRow({ label, icon: Icon, storageKey, eventName }: { label: string; 
   )
 }
 
+function OrientationToggle() {
+  const [portrait, setPortrait] = useState(() => localStorage.getItem(DISPLAY_ORIENTATION_KEY) === 'portrait')
+
+  const toggle = () => {
+    const next = !portrait
+    setPortrait(next)
+    localStorage.setItem(DISPLAY_ORIENTATION_KEY, next ? 'portrait' : 'landscape')
+    window.dispatchEvent(new Event('display-orientation-change'))
+  }
+
+  return (
+    <div className="flex items-center gap-4 py-3 border-t border-gray-100">
+      <div className="flex items-center gap-2 flex-1">
+        <Smartphone size={16} className="text-gray-400" />
+        <div>
+          <p className="text-sm font-medium text-gray-700">Orientação vertical (portrait)</p>
+          <p className="text-xs text-gray-400">Para TV na vertical. Empilha os painéis em vez de colocá-los lado a lado.</p>
+        </div>
+      </div>
+      <button
+        onClick={toggle}
+        className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${portrait ? 'bg-accent' : 'bg-gray-200'}`}
+      >
+        <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${portrait ? 'translate-x-6' : 'translate-x-0.5'}`} />
+      </button>
+    </div>
+  )
+}
+
 function ScannerHiddenToggle() {
   const [enabled, setEnabled] = useState(() => localStorage.getItem(DISPLAY_SCANNER_HIDDEN_KEY) === 'true')
 
@@ -446,6 +475,7 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
         <ZoomRow label="Monitor de Produção (Setores)" icon={Monitor} storageKey={SECTORS_ZOOM_KEY} eventName="sectors-zoom-change" />
         <ZoomRow label="Painel Externo (Display)" icon={Tv2} storageKey={DISPLAY_ZOOM_KEY} eventName="display-zoom-change" />
         <ZoomRow label="Tamanho das fichas (Painel Externo)" icon={Ticket} storageKey={DISPLAY_CARD_SIZE_KEY} eventName="display-card-size-change" />
+        <OrientationToggle />
         <ScannerHiddenToggle />
       </div>
 
