@@ -200,9 +200,10 @@ export default function KitchenSectors() {
       for (const item of order.items) {
         const sector = SECTOR_ALIASES[item.sector] ?? item.sector
         if (sector !== sectorName) continue
+        const pendingQty = order.status !== 'ready' ? item.quantity : 0
         const existing = itemMap.get(item.name)
         if (existing) {
-          existing.totalQty += item.quantity
+          existing.totalQty += pendingQty
           const fichaEntry = existing.fichas.find((f) => f.ticket === order.ticket_number)
           if (fichaEntry) {
             fichaEntry.qty += item.quantity
@@ -212,7 +213,7 @@ export default function KitchenSectors() {
         } else {
           itemMap.set(item.name, {
             name: item.name,
-            totalQty: item.quantity,
+            totalQty: pendingQty,
             fichas: [{ ticket: order.ticket_number, orderId: order.id, status: order.status, qty: item.quantity }],
           })
         }
