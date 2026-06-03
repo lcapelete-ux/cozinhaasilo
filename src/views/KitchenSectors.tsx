@@ -30,7 +30,7 @@ function playNewOrderSound() {
       osc.type = 'sine'
       osc.frequency.value = i === 0 ? 660 : 880
       gain.gain.setValueAtTime(0, ctx.currentTime + offset)
-      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + offset + 0.02)
+      gain.gain.linearRampToValueAtTime(0.7, ctx.currentTime + offset + 0.02)
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.22)
       osc.start(ctx.currentTime + offset)
       osc.stop(ctx.currentTime + offset + 0.25)
