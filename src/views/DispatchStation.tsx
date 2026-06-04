@@ -61,13 +61,41 @@ interface CardProps {
   onDeliver: (order: Order) => void
 }
 
+const CARD_THEME: Record<OrderStatus, {
+  light: { card: string; header: string; divider: string; row: string; qty: string; seq: string; fichaLabel: string; fichaNum: string }
+  dark:  { card: string; header: string; divider: string; row: string; qty: string; seq: string; fichaLabel: string; fichaNum: string }
+  wrapClass: string
+}> = {
+  pending: {
+    light: { card: 'border-yellow-300 bg-yellow-50',      header: 'bg-yellow-100',    divider: 'bg-yellow-200',  row: 'bg-yellow-100/70',  qty: 'bg-yellow-200 text-yellow-800 border-yellow-300',   seq: 'bg-yellow-200 text-yellow-700',   fichaLabel: 'text-yellow-600', fichaNum: 'text-gray-900' },
+    dark:  { card: 'border-yellow-700 bg-yellow-950/30',  header: 'bg-yellow-900/50', divider: 'bg-yellow-800',  row: 'bg-yellow-950/40',  qty: 'bg-yellow-900 text-yellow-300 border-yellow-700',   seq: 'bg-yellow-900/70 text-yellow-400',fichaLabel: 'text-yellow-500', fichaNum: 'text-white'     },
+    wrapClass: '',
+  },
+  preparing: {
+    light: { card: 'border-blue-300 bg-blue-50',          header: 'bg-blue-100',      divider: 'bg-blue-200',    row: 'bg-blue-100/70',    qty: 'bg-blue-200 text-blue-800 border-blue-300',         seq: 'bg-blue-200 text-blue-700',       fichaLabel: 'text-blue-600',   fichaNum: 'text-gray-900' },
+    dark:  { card: 'border-blue-700 bg-blue-950/30',      header: 'bg-blue-900/50',   divider: 'bg-blue-800',    row: 'bg-blue-950/40',    qty: 'bg-blue-900 text-blue-300 border-blue-700',         seq: 'bg-blue-900/70 text-blue-400',    fichaLabel: 'text-blue-400',   fichaNum: 'text-white'     },
+    wrapClass: '',
+  },
+  ready: {
+    light: { card: 'border-green-200 bg-green-50/50',     header: 'bg-green-50',      divider: 'bg-green-100',   row: 'bg-white/60',       qty: 'bg-white text-gray-500 border-gray-200',            seq: 'bg-green-100 text-green-600',     fichaLabel: 'text-green-600',  fichaNum: 'text-gray-600'  },
+    dark:  { card: 'border-green-800/60 bg-green-950/15', header: 'bg-green-950/30',  divider: 'bg-green-900/50',row: 'bg-gray-900/30',    qty: 'bg-gray-700/60 text-gray-400 border-gray-600',      seq: 'bg-green-900/50 text-green-600',  fichaLabel: 'text-green-600',  fichaNum: 'text-gray-400'  },
+    wrapClass: 'opacity-75',
+  },
+  delivered: {
+    light: { card: 'border-gray-100 bg-white',            header: 'bg-gray-50',       divider: 'bg-gray-100',    row: 'bg-gray-50',        qty: 'bg-white text-gray-700 border-gray-200',            seq: 'bg-gray-200 text-gray-500',       fichaLabel: 'text-gray-400',   fichaNum: 'text-gray-900'  },
+    dark:  { card: 'border-gray-700 bg-gray-800',         header: 'bg-gray-900/50',   divider: 'bg-gray-700',    row: 'bg-gray-900/50',    qty: 'bg-gray-700 text-white border-gray-600',            seq: 'bg-gray-700 text-gray-400',       fichaLabel: 'text-gray-500',   fichaNum: 'text-white'     },
+    wrapClass: '',
+  },
+}
+
 function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
+  const theme = CARD_THEME[order.status]
+  const t = n ? theme.dark : theme.light
   const status = STATUS_STYLE[order.status]
   const isReady = order.status === 'ready'
   const age = formatAge(order.created_at, now)
   const isOld = (now - order.created_at.getTime()) > 10 * 60 * 1000
 
-  // Group items by sector
   const bySector = order.items.reduce<Record<string, typeof order.items>>((acc, item) => {
     const s = item.sector || 'Outros'
     ;(acc[s] ??= []).push(item)
@@ -81,27 +109,19 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-      className={`flex flex-col rounded-3xl overflow-hidden shadow-md border ${
-        n
-          ? isReady ? 'border-green-700 bg-gray-800' : 'border-gray-700 bg-gray-800'
-          : isReady ? 'border-green-200 bg-white' : 'border-gray-100 bg-white'
-      }`}
+      className={`flex flex-col rounded-3xl overflow-hidden shadow-md border ${t.card} ${theme.wrapClass}`}
     >
       {/* Card header */}
-      <div className={`px-4 pt-4 pb-3 flex items-start justify-between ${
-        n ? 'bg-gray-900/50' : 'bg-gray-50'
-      }`}>
+      <div className={`px-4 pt-4 pb-3 flex items-start justify-between ${t.header}`}>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-black tabular-nums px-1.5 py-0.5 rounded-lg ${
-            n ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'
-          }`}>
+          <span className={`text-xs font-black tabular-nums px-1.5 py-0.5 rounded-lg ${t.seq}`}>
             #{String(idx + 1).padStart(2, '0')}
           </span>
           <div>
-            <p className={`text-xs uppercase tracking-widest font-semibold ${n ? 'text-gray-500' : 'text-gray-400'}`}>
+            <p className={`text-xs uppercase tracking-widest font-semibold ${t.fichaLabel}`}>
               Ficha
             </p>
-            <p className={`font-black text-3xl leading-none ${n ? 'text-white' : 'text-gray-900'}`}>
+            <p className={`font-black text-3xl leading-none ${t.fichaNum}`}>
               {order.ticket_number}
             </p>
           </div>
@@ -121,7 +141,7 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
       </div>
 
       {/* Divider */}
-      <div className={`h-px w-full ${isReady ? 'bg-green-200' : n ? 'bg-gray-700' : 'bg-gray-100'}`} />
+      <div className={`h-px w-full ${t.divider}`} />
 
       {/* Items */}
       <div className="flex-1 p-4 space-y-3">
@@ -130,23 +150,17 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
           const Icon = style?.icon
           return (
             <div key={sector}>
-              <div className={`flex items-center gap-1.5 mb-1.5`}>
-                {Icon && <Icon size={11} className={n ? (style.dark.split(' ')[0]) : (style.light.split(' ')[0])} />}
-                <span className={`text-xs font-black uppercase tracking-widest ${
-                  n ? 'text-gray-500' : 'text-gray-400'
-                }`}>{sector}</span>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                {Icon && <Icon size={11} className={n ? style.dark.split(' ')[0] : style.light.split(' ')[0]} />}
+                <span className={`text-xs font-black uppercase tracking-widest ${n ? 'text-gray-500' : 'text-gray-400'}`}>{sector}</span>
               </div>
               <div className="space-y-1">
                 {items.map((item, i) => (
-                  <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-xl ${
-                    n ? 'bg-gray-900/50' : 'bg-gray-50'
-                  }`}>
+                  <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-xl ${t.row}`}>
                     <span className={`text-sm font-semibold leading-tight ${n ? 'text-gray-200' : 'text-gray-800'}`}>
                       {item.name}
                     </span>
-                    <span className={`text-sm font-black ml-3 shrink-0 px-2 py-0.5 rounded-lg ${
-                      n ? 'bg-gray-700 text-white' : 'bg-white text-gray-700 border border-gray-200'
-                    }`}>
+                    <span className={`text-sm font-black ml-3 shrink-0 px-2 py-0.5 rounded-lg border ${t.qty}`}>
                       ×{item.quantity}
                     </span>
                   </div>
@@ -169,8 +183,8 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
                 ? 'bg-green-600 hover:bg-green-500 text-white'
                 : 'bg-green-500 hover:bg-green-600 text-white'
               : n
-                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed'
+                : 'bg-gray-100/80 text-gray-400 cursor-not-allowed'
           }`}
         >
           <Check size={15} />
