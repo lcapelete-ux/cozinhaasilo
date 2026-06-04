@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History } from 'lucide-react'
+import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send } from 'lucide-react'
 import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem } from '../types'
@@ -57,6 +57,127 @@ interface SentOrder {
   sentAt: Date
 }
 
+// ── Manual Entry Drawer ──────────────────────────────────────────────────────
+
+function ManualEntryDrawer({
+  menuItems,
+  onClose,
+  onSend,
+}: {
+  menuItems: MenuItem[]
+  onClose: () => void
+  onSend: (ficha: string, items: SessionItem[]) => Promise<void>
+}) {
+  const [ficha, setFicha] = useState('')
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [sending, setSending] = useState(false)
+  const fichaInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { fichaInputRef.current?.focus() }, [])
+
+  const sectors = Array.from(new Set(menuItems.map(m => m.sector))).sort()
+  const totalItems = Object.values(quantities).reduce((sum, q) => sum + q, 0)
+
+  const handleSend = async () => {
+    if (!ficha.trim() || totalItems === 0) return
+    setSending(true)
+    try {
+      const items: SessionItem[] = menuItems
+        .filter(m => (quantities[m.name] || 0) > 0)
+        .map(m => ({ name: m.name, quantity: quantities[m.name], sector: m.sector, price: m.price, completed: false }))
+      await onSend(ficha.trim(), items)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 400 }}
+        className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <PenLine size={18} className="text-accent" />
+            <h2 className="font-bold text-gray-800">Entrada Manual</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-gray-100 transition-colors">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 border-b border-gray-100">
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Número da Ficha</label>
+          <input
+            ref={fichaInputRef}
+            type="text"
+            inputMode="numeric"
+            value={ficha}
+            onChange={e => setFicha(e.target.value.replace(/\D/g, ''))}
+            placeholder="Ex: 42"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-2xl font-black text-accent-dark focus:outline-none focus:ring-2 focus:ring-accent/30 text-center"
+          />
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-3">
+          {sectors.map(sector => (
+            <div key={sector} className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">{sector}</p>
+              <div className="space-y-1.5">
+                {menuItems.filter(m => m.sector === sector).map(item => (
+                  <div key={item.name} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+                    <span className="text-sm text-gray-700 font-medium flex-1 mr-3">{item.name}</span>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => setQuantities(q => ({ ...q, [item.name]: Math.max(0, (q[item.name] || 0) - 1) }))}
+                        className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100 active:scale-95 transition"
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <span className="w-6 text-center text-sm font-black text-accent-dark">
+                        {quantities[item.name] || 0}
+                      </span>
+                      <button
+                        onClick={() => setQuantities(q => ({ ...q, [item.name]: (q[item.name] || 0) + 1 }))}
+                        className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-white hover:bg-accent-dark active:scale-95 transition"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-5 py-4 border-t border-gray-100">
+          <button
+            onClick={handleSend}
+            disabled={sending || !ficha.trim() || totalItems === 0}
+            className="w-full flex items-center justify-center gap-2 bg-accent text-white rounded-2xl py-3.5 font-bold text-base disabled:opacity-40 transition-colors hover:bg-accent-dark active:scale-[0.98]"
+          >
+            <Send size={16} />
+            {sending ? 'Enviando...' : `Enviar para a cozinha${totalItems > 0 ? ` (${totalItems} item${totalItems !== 1 ? 's' : ''})` : ''}`}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 export default function Reception() {
   const { addToast } = useApp()
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
@@ -66,6 +187,7 @@ export default function Reception() {
   const [sending, setSending] = useState(false)
   const [lastSent, setLastSent] = useState<string | null>(null)
   const [sentHistory, setSentHistory] = useState<SentOrder[]>([])
+  const [showManual, setShowManual] = useState(false)
 
   // Refs to avoid stale closures in callbacks
   const sessionRef = useRef<Session | null>(null)
@@ -119,6 +241,19 @@ export default function Reception() {
       addToast('Erro ao enviar pedido para a cozinha')
     } finally {
       setSending(false)
+    }
+  }, [addToast])
+
+  const handleManualSend = useCallback(async (ficha: string, items: SessionItem[]) => {
+    try {
+      await createOrder(ficha, items)
+      playOrderSentSound()
+      setLastSent(ficha)
+      setSentHistory(prev => [{ ficha, items, sentAt: new Date() }, ...prev].slice(0, 20))
+      setShowManual(false)
+    } catch (err) {
+      console.error('manual createOrder error:', err)
+      addToast('Erro ao enviar pedido manual')
     }
   }, [addToast])
 
@@ -231,6 +366,7 @@ export default function Reception() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return
       if (e.key === 'Enter') {
         e.preventDefault(); e.stopPropagation()
         if (timerRef.current) clearTimeout(timerRef.current)
@@ -268,9 +404,18 @@ export default function Reception() {
       <div className="max-w-3xl mx-auto">
 
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="font-serif italic text-3xl text-accent-dark">Recepção</h1>
-          <p className="text-gray-500 text-sm">Bipe a ficha e os cupons dos produtos</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="font-serif italic text-3xl text-accent-dark">Recepção</h1>
+            <p className="text-gray-500 text-sm">Bipe a ficha e os cupons dos produtos</p>
+          </div>
+          <button
+            onClick={() => setShowManual(true)}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 rounded-2xl px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+          >
+            <PenLine size={15} className="text-accent" />
+            Manual
+          </button>
         </div>
 
         {/* Last sent confirmation */}
@@ -471,6 +616,17 @@ export default function Reception() {
           </div>
         )}
       </div>
+
+      {/* Manual entry drawer */}
+      <AnimatePresence>
+        {showManual && (
+          <ManualEntryDrawer
+            menuItems={menuItems}
+            onClose={() => setShowManual(false)}
+            onSend={handleManualSend}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
