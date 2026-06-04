@@ -1,11 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick } from 'lucide-react'
-import { subscribeOrders, setOrderStatus, resolveFicha } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, subscribeAllOrders } from '../services/firebaseService'
+import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import type { Order, OrderStatus } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
+
+function playReadySound() {
+  try {
+    const ctx = new AudioContext()
+    ;[0, 0.18].forEach((offset, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = 'sine'; osc.frequency.value = i === 0 ? 660 : 880
+      gain.gain.setValueAtTime(0, ctx.currentTime + offset)
+      gain.gain.linearRampToValueAtTime(0.7, ctx.currentTime + offset + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.22)
+      osc.start(ctx.currentTime + offset); osc.stop(ctx.currentTime + offset + 0.25)
+    })
+  } catch { /* audio not available */ }
+}
+
+function playDeliveredSound() {
+  try {
+    const audio = new Audio(readySound)
+    audio.play().catch(() => {})
+  } catch { /* audio not available */ }
+}
 
 const SECTOR_STYLE: Record<string, { icon: React.ElementType; light: string; dark: string }> = {
   Fritadeira: { icon: Flame,    light: 'text-orange-500 bg-orange-50',  dark: 'text-orange-400 bg-orange-950/40' },
@@ -165,7 +189,12 @@ export default function DispatchStation() {
   const [nightMode, setNightMode] = useState(() => localStorage.getItem(NIGHT_KEY) === 'true')
   const [now, setNow] = useState(Date.now())
 
+  const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
+  const [lastScanned, setLastScanned] = useState('')
+
   const ordersRef = useRef<Order[]>([])
+  const prevStatusMapRef = useRef<Map<string, string>>(new Map())
+  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -185,6 +214,24 @@ export default function DispatchStation() {
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    const unsub = subscribeAllOrders((allOrders) => {
+      allOrders.forEach((order) => {
+        const prev = prevStatusMapRef.current.get(order.id)
+        if (prev && prev !== 'delivered' && order.status === 'delivered') {
+          setReleasedFicha(order.ticket_number)
+          if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+          releaseTimerRef.current = setTimeout(() => setReleasedFicha(null), 6000)
+        }
+        prevStatusMapRef.current.set(order.id, order.status)
+      })
+    })
+    return () => {
+      unsub()
+      if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+    }
   }, [])
 
   const toggleNight = () => {
@@ -212,14 +259,25 @@ export default function DispatchStation() {
     else flashMode('keyboard')
     try {
       const ticket = await resolveFicha(raw)
-      const order = ordersRef.current.find((o) => o.ticket_number === ticket)
-      if (!order) { addToast(`Ficha #${ticket} não encontrada`); return }
-      if (order.status !== 'ready') { addToast(`Ficha #${ticket} ainda não está pronta`); return }
-      await handleDeliver(order)
+      setLastScanned(ticket)
+      const order = await getActiveOrderByTicket(ticket)
+      if (!order) { addToast(`Ficha #${ticket} não encontrada ou já entregue`); return }
+      let nextStatus: OrderStatus | null = null
+      if (order.status === 'pending' || order.status === 'preparing') nextStatus = 'ready'
+      else if (order.status === 'ready') nextStatus = 'delivered'
+      if (!nextStatus) return
+      await setOrderStatus(order.id, nextStatus)
+      if (nextStatus === 'ready') {
+        playReadySound()
+        addToast(`Ficha #${ticket} pronta! 🔔 Aparece no painel.`, 'success')
+      } else {
+        playDeliveredSound()
+        addToast(`Ficha #${ticket} entregue! ✅ Liberada para uso.`, 'success')
+      }
     } catch {
       addToast('Erro ao processar ficha')
     }
-  }, [flashMode, addToast, handleDeliver])
+  }, [flashMode, addToast])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -339,6 +397,50 @@ export default function DispatchStation() {
             </button>
           </div>
         </div>
+
+        {/* Released ficha banner */}
+        <AnimatePresence>
+          {releasedFicha && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-4 rounded-2xl border border-green-300 bg-green-50 px-5 py-3 flex items-center gap-3"
+            >
+              <motion.span
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 0.6, repeat: 2 }}
+                className="text-2xl"
+              >
+                ✅
+              </motion.span>
+              <div>
+                <p className="font-black text-green-800 text-base">
+                  Ficha <span className="text-2xl">#{releasedFicha}</span> liberada!
+                </p>
+                <p className="text-xs text-green-600 font-medium">Entregue ao cliente — pode usar de novo.</p>
+              </div>
+              <button
+                onClick={() => setReleasedFicha(null)}
+                className="ml-auto text-green-400 hover:text-green-700 text-lg font-black"
+              >
+                ×
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {lastScanned && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mb-4 rounded-2xl px-4 py-2 text-sm border ${
+              n ? 'bg-accent/20 border-accent/30 text-accent' : 'bg-accent/10 border-accent/20 text-accent-dark'
+            }`}
+          >
+            Última ficha: <strong>#{lastScanned}</strong>
+          </motion.div>
+        )}
 
         {/* Orders grid */}
         {orders.length === 0 ? (
