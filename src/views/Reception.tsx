@@ -49,7 +49,7 @@ function playProductAddSound() {
   } catch { /* audio not available */ }
 }
 
-const COUNTDOWN_SECONDS = 12
+const COUNTDOWN_SECONDS = 45
 
 interface SentOrder {
   ficha: string

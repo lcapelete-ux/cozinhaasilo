@@ -304,7 +304,7 @@ export default function Display() {
 
   const restartBgCountdown = useCallback(() => {
     if (bgCountdownRef.current) clearTimeout(bgCountdownRef.current)
-    bgCountdownRef.current = setTimeout(confirmBgSession, 8000)
+    bgCountdownRef.current = setTimeout(confirmBgSession, 45000)
   }, [confirmBgSession])
 
   const processDisplayScan = useCallback(async (raw: string) => {
