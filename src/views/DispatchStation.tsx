@@ -109,8 +109,24 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-      className={`flex flex-col rounded-3xl overflow-hidden shadow-md border ${t.card} ${theme.wrapClass}`}
+      className={`relative flex flex-col rounded-3xl overflow-hidden shadow-md border ${t.card} ${theme.wrapClass}`}
     >
+      {/* Diagonal slash for ready-but-not-delivered */}
+      {isReady && (
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none z-10"
+          preserveAspectRatio="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <line
+            x1="100%" y1="0"
+            x2="0"   y2="100%"
+            stroke={n ? 'rgba(74,222,128,0.18)' : 'rgba(34,197,94,0.30)'}
+            strokeWidth="3"
+          />
+        </svg>
+      )}
+
       {/* Card header */}
       <div className={`px-4 pt-4 pb-3 flex items-start justify-between ${t.header}`}>
         <div className="flex items-center gap-2">
