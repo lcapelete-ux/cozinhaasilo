@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick } from 'lucide-react'
+import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick, Plane } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, subscribeAllOrders } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
+import { isTakeoutTicket } from '../utils/ticket'
 import type { Order, OrderStatus } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
@@ -93,6 +94,7 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
   const t = n ? theme.dark : theme.light
   const status = STATUS_STYLE[order.status]
   const isReady = order.status === 'ready'
+  const isTakeout = isTakeoutTicket(order.ticket_number)
   const age = formatAge(order.created_at, now)
   const isOld = (now - order.created_at.getTime()) > 10 * 60 * 1000
 
@@ -109,8 +111,20 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-      className={`relative flex flex-col rounded-3xl overflow-hidden shadow-md border ${t.card} ${theme.wrapClass}`}
+      className={`relative flex flex-col rounded-3xl overflow-hidden shadow-md border ${t.card} ${theme.wrapClass} ${
+        isTakeout ? (n ? 'ring-2 ring-purple-500' : 'ring-2 ring-purple-400') : ''
+      }`}
     >
+      {/* Para Viagem banner */}
+      {isTakeout && (
+        <div className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-black uppercase tracking-widest ${
+          n ? 'bg-purple-900/70 text-purple-200' : 'bg-purple-500 text-white'
+        }`}>
+          <Plane size={12} />
+          Para Viagem
+        </div>
+      )}
+
       {/* Diagonal slash for ready-but-not-delivered */}
       {isReady && (
         <svg
@@ -450,6 +464,12 @@ export default function DispatchStation() {
                 </p>
                 <p className="text-xs text-green-600 font-medium">Entregue ao cliente — pode usar de novo.</p>
               </div>
+              {isTakeoutTicket(releasedFicha) && (
+                <span className="flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-300 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wide">
+                  <Plane size={12} />
+                  Para Viagem
+                </span>
+              )}
               <button
                 onClick={() => setReleasedFicha(null)}
                 className="ml-auto text-green-400 hover:text-green-700 text-lg font-black"
@@ -464,11 +484,17 @@ export default function DispatchStation() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`mb-4 rounded-2xl px-4 py-2 text-sm border ${
+            className={`mb-4 rounded-2xl px-4 py-2 text-sm border flex items-center gap-2 ${
               n ? 'bg-accent/20 border-accent/30 text-accent' : 'bg-accent/10 border-accent/20 text-accent-dark'
             }`}
           >
             Última ficha: <strong>#{lastScanned}</strong>
+            {isTakeoutTicket(lastScanned) && (
+              <span className="flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wide">
+                <Plane size={11} />
+                Para Viagem
+              </span>
+            )}
           </motion.div>
         )}
 

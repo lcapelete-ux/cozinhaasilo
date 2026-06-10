@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, ZoomIn, ZoomOut, Moon, Sun } from 'lucide-react'
+import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, ZoomIn, ZoomOut, Moon, Sun, Plane } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, setOrderStatus, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
+import { isTakeoutTicket } from '../utils/ticket'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const LOW_STOCK_THRESHOLD = 15
@@ -400,6 +401,12 @@ export default function KitchenSectors() {
               </p>
               <p className="text-xs text-green-600 font-medium">Entregue ao cliente — pode usar de novo.</p>
             </div>
+            {isTakeoutTicket(releasedFicha) && (
+              <span className="flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-300 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wide">
+                <Plane size={12} />
+                Para Viagem
+              </span>
+            )}
             <button
               onClick={() => setReleasedFicha(null)}
               className="ml-auto text-green-400 hover:text-green-700 text-lg font-black"
@@ -414,9 +421,15 @@ export default function KitchenSectors() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 bg-accent/10 border border-accent/20 rounded-2xl px-4 py-2 text-sm text-accent-dark"
+          className="mb-4 bg-accent/10 border border-accent/20 rounded-2xl px-4 py-2 text-sm text-accent-dark flex items-center gap-2"
         >
           Última ficha: <strong>#{lastScanned}</strong>
+          {isTakeoutTicket(lastScanned) && (
+            <span className="flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wide">
+              <Plane size={11} />
+              Para Viagem
+            </span>
+          )}
         </motion.div>
       )}
 
@@ -536,6 +549,7 @@ export default function KitchenSectors() {
 
 function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean }) {
   const isReady = status === 'ready'
+  const isTakeout = isTakeoutTicket(ticket)
   const lightColors: Record<OrderStatus, string> = {
     pending:   'bg-yellow-100 text-yellow-700 border-yellow-200',
     preparing: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -548,10 +562,14 @@ function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: 
     ready:     'bg-gray-700 text-gray-400 border-gray-600',
     delivered: 'bg-gray-800 text-gray-500 border-gray-700',
   }
+  const takeoutColors = nightMode
+    ? 'bg-purple-900/60 text-purple-300 border-purple-600'
+    : 'bg-purple-100 text-purple-700 border-purple-300'
   const colors = nightMode ? darkColors : lightColors
   const size = nightMode ? 'text-sm' : 'text-xs'
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold border ${size} ${colors[status]}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold border ${size} ${isTakeout ? takeoutColors : colors[status]}`}>
+      {isTakeout && <Plane size={nightMode ? 13 : 11} className="shrink-0" />}
       <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{ticket}</span>
       <span className="opacity-70">×{qty}</span>
     </span>
