@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X, History, ChevronDown, ChevronUp, PackagePlus, RefreshCw, DoorOpen } from 'lucide-react'
-import { subscribeMenuItems, updateMenuItem, addStockEntry, subscribeStockEntries } from '../services/firebaseService'
+import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X, History, ChevronDown, ChevronUp, PackagePlus, RefreshCw, DoorOpen, Trash2 } from 'lucide-react'
+import { subscribeMenuItems, updateMenuItem, addStockEntry, subscribeStockEntries, deleteMenuItem } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem, StockEntry } from '../types'
 
@@ -42,6 +42,18 @@ const TYPE_LABEL: Record<StockEntry['type'], string> = {
   open:   'Abertura',
 }
 
+// Itens antigos da carga inicial de exemplo (seedMenuItems), substituídos pelo
+// cardápio real cadastrado em Config → Cardápio. Não devem aparecer como sugestão.
+const LEGACY_SEED_NAMES = new Set([
+  'coxinha', 'pastel de carne', 'pastel de queijo', 'rissole',
+  'hambúrguer', 'x-salada', 'hot dog', 'milho verde', 'pamonha',
+  'canjica', 'quentão', 'refrigerante',
+])
+
+function isLegacyItem(item: MenuItem): boolean {
+  return LEGACY_SEED_NAMES.has(item.name.toLowerCase()) && item.name !== item.name.toUpperCase()
+}
+
 export default function Inventory() {
   const { addToast } = useApp()
   const [items, setItems] = useState<MenuItem[]>([])
@@ -64,6 +76,10 @@ export default function Inventory() {
   // Repor tudo
   const [resetAllPending, setResetAllPending] = useState(false)
   const [resetAllWorking, setResetAllWorking] = useState(false)
+
+  // Limpar itens antigos (seed de exemplo)
+  const [cleanupPending, setCleanupPending] = useState(false)
+  const [cleanupWorking, setCleanupWorking] = useState(false)
 
   useEffect(() => {
     const unsub = subscribeMenuItems(setItems)
@@ -228,6 +244,18 @@ export default function Inventory() {
     finally { setResetAllWorking(false) }
   }
 
+  // Remove itens antigos da carga de exemplo que não fazem parte do cardápio atual
+  const handleCleanupLegacy = async () => {
+    if (legacyItems.length === 0) return
+    setCleanupWorking(true)
+    try {
+      await Promise.all(legacyItems.map((item) => deleteMenuItem(item.id)))
+      addToast(`${legacyItems.length} item(ns) antigo(s) removido(s)`, 'success')
+      setCleanupPending(false)
+    } catch { addToast('Erro ao remover itens antigos') }
+    finally { setCleanupWorking(false) }
+  }
+
   // Abrir estoque: define stock_initial e stock para cada item digitado
   const handleOpenStock = async () => {
     const user = getCurrentUser()
@@ -268,7 +296,8 @@ export default function Inventory() {
   }
 
   const stockItems = items.filter((i) => i.stock_initial !== undefined && i.stock_initial > 0)
-  const noStockItems = items.filter((i) => !i.stock_initial)
+  const legacyItems = items.filter(isLegacyItem)
+  const noStockItems = items.filter((i) => !i.stock_initial && !isLegacyItem(i))
   const lowItems = stockItems.filter((i) => (i.stock ?? 0) > 0 && (i.stock ?? 0) <= LOW_STOCK_THRESHOLD)
   const emptyItems = stockItems.filter((i) => (i.stock ?? 0) <= 0)
 
@@ -279,7 +308,7 @@ export default function Inventory() {
     return acc
   }, {})
 
-  const allBySector = items.reduce<Record<string, MenuItem[]>>((acc, item) => {
+  const allBySector = items.filter((i) => !isLegacyItem(i)).reduce<Record<string, MenuItem[]>>((acc, item) => {
     const s = item.sector ?? 'Assados'
     if (!acc[s]) acc[s] = []
     acc[s].push(item)
@@ -780,6 +809,60 @@ export default function Inventory() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Legacy seed items not present in the current cardápio */}
+      {legacyItems.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-500">
+              {legacyItems.length} item(ns) antigo(s) de exemplo, fora do cardápio atual
+            </p>
+            <p className="text-xs text-gray-400 truncate">
+              {legacyItems.map((i) => i.name).join(', ')}
+            </p>
+          </div>
+          <AnimatePresence mode="wait">
+            {cleanupPending ? (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-2xl px-3 py-2"
+              >
+                <span className="text-xs text-red-700 font-medium">Excluir definitivamente?</span>
+                <button
+                  onClick={handleCleanupLegacy}
+                  disabled={cleanupWorking}
+                  className="flex items-center gap-1 text-xs text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                >
+                  {cleanupWorking ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => setCleanupPending(false)}
+                  className="text-red-400 hover:text-red-600"
+                >
+                  <X size={14} />
+                </button>
+              </motion.div>
+            ) : (
+              <motion.button
+                key="btn"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setCleanupPending(true)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-600 border border-gray-200 hover:border-red-300 rounded-2xl px-3 py-2 transition-colors shrink-0"
+                title="Remover itens antigos que não fazem parte do cardápio atual"
+              >
+                <Trash2 size={14} />
+                Limpar antigos
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
