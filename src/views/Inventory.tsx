@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X, History, ChevronDown, ChevronUp, PackagePlus, RefreshCw } from 'lucide-react'
+import { Boxes, RotateCcw, AlertTriangle, Minus, Plus, Check, X, History, ChevronDown, ChevronUp, PackagePlus, RefreshCw, DoorOpen } from 'lucide-react'
 import { subscribeMenuItems, updateMenuItem, addStockEntry, subscribeStockEntries } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { MenuItem, StockEntry } from '../types'
@@ -39,6 +39,7 @@ const TYPE_LABEL: Record<StockEntry['type'], string> = {
   set:    'Definido',
   reset:  'Reposto',
   entry:  'Entrada',
+  open:   'Abertura',
 }
 
 export default function Inventory() {
@@ -54,6 +55,11 @@ export default function Inventory() {
   // Entrada de estoque (bulk entry)
   const [entryMode, setEntryMode] = useState(false)
   const [entryValues, setEntryValues] = useState<Record<string, string>>({})
+
+  // Abrir estoque (define a quantidade do dia para cada item cadastrado)
+  const [openMode, setOpenMode] = useState(false)
+  const [openValues, setOpenValues] = useState<Record<string, string>>({})
+  const [openWorking, setOpenWorking] = useState(false)
 
   // Repor tudo
   const [resetAllPending, setResetAllPending] = useState(false)
@@ -222,6 +228,45 @@ export default function Inventory() {
     finally { setResetAllWorking(false) }
   }
 
+  // Abrir estoque: define stock_initial e stock para cada item digitado
+  const handleOpenStock = async () => {
+    const user = getCurrentUser()
+    const tasks: Array<() => Promise<void>> = []
+
+    for (const item of items) {
+      const raw = openValues[item.id]
+      if (raw === undefined || raw === '') continue
+      const val = parseInt(raw, 10)
+      if (isNaN(val) || val < 0) continue
+      const before = item.stock ?? 0
+      tasks.push(async () => {
+        await updateMenuItem(item.id, { stock_initial: val, stock: val })
+        await addStockEntry({
+          menu_item_id: item.id,
+          menu_item_name: item.name,
+          type: 'open',
+          qty_before: before,
+          qty_after: val,
+          inserted_by: user,
+        })
+      })
+    }
+
+    if (tasks.length === 0) {
+      addToast('Nenhuma quantidade informada')
+      return
+    }
+
+    setOpenWorking(true)
+    try {
+      await Promise.all(tasks.map((t) => t()))
+      addToast(`Estoque aberto para ${tasks.length} produto(s)`, 'success')
+      setOpenValues({})
+      setOpenMode(false)
+    } catch { addToast('Erro ao abrir estoque') }
+    finally { setOpenWorking(false) }
+  }
+
   const stockItems = items.filter((i) => i.stock_initial !== undefined && i.stock_initial > 0)
   const noStockItems = items.filter((i) => !i.stock_initial)
   const lowItems = stockItems.filter((i) => (i.stock ?? 0) > 0 && (i.stock ?? 0) <= LOW_STOCK_THRESHOLD)
@@ -233,6 +278,102 @@ export default function Inventory() {
     acc[s].push(item)
     return acc
   }, {})
+
+  const allBySector = items.reduce<Record<string, MenuItem[]>>((acc, item) => {
+    const s = item.sector ?? 'Assados'
+    if (!acc[s]) acc[s] = []
+    acc[s].push(item)
+    return acc
+  }, {})
+
+  // ── Open stock mode ──────────────────────────────────────────────────────
+
+  if (openMode) {
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <div className="mb-6 flex items-center gap-3">
+          <div>
+            <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
+              <DoorOpen className="text-accent" size={26} />
+              Abrir Estoque
+            </h1>
+            <p className="text-gray-400 text-xs mt-0.5">
+              Digite a quantidade de hoje para cada produto · deixe em branco para não alterar
+            </p>
+          </div>
+          <div className="flex-1" />
+          <button
+            onClick={() => { setOpenMode(false); setOpenValues({}) }}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-2xl px-3 py-2 transition-colors"
+          >
+            <X size={14} />
+            Cancelar
+          </button>
+        </div>
+
+        {Object.entries(allBySector).map(([sector, sectorItems]) => (
+          <div key={sector} className="mb-6">
+            <h2 className={`text-xs font-black uppercase tracking-widest mb-3 ${SECTOR_COLOR[sector] ?? 'text-gray-500'}`}>
+              {sector}
+            </h2>
+            <div className="space-y-2">
+              {sectorItems.map((item) => {
+                const hasEntry = (openValues[item.id] ?? '') !== ''
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-2xl border px-4 py-3 flex items-center gap-4 transition-colors ${
+                      hasEntry ? 'border-accent/40 bg-accent/5' : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-gray-800">{item.name}</p>
+                      {item.stock_initial !== undefined && item.stock_initial > 0 && (
+                        <p className="text-xs text-gray-400">Atual: {item.stock ?? 0} / {item.stock_initial}</p>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      value={openValues[item.id] ?? ''}
+                      onChange={(e) => setOpenValues((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      placeholder="qtd"
+                      className="w-24 px-3 py-1.5 rounded-xl border-2 border-gray-200 focus:border-accent/60 focus:outline-none text-lg font-black text-center"
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+        {items.length === 0 && (
+          <div className="bg-white rounded-3xl p-16 text-center shadow-sm">
+            <Boxes size={48} className="mx-auto mb-3 text-gray-200" />
+            <p className="text-gray-400 text-sm">Nenhum produto no cardápio</p>
+            <p className="text-gray-300 text-xs mt-1">Cadastre produtos em Config → Cardápio</p>
+          </div>
+        )}
+
+        <div className="mt-8 flex justify-end gap-3 pb-8">
+          <button
+            onClick={() => { setOpenMode(false); setOpenValues({}) }}
+            className="px-4 py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleOpenStock}
+            disabled={openWorking}
+            className="px-6 py-2.5 rounded-2xl bg-accent hover:bg-accent-dark text-white text-sm font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            {openWorking ? <RefreshCw size={15} className="animate-spin" /> : <DoorOpen size={15} />}
+            Abrir Estoque
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // ── Entry mode ─────────────────────────────────────────────────────────────
 
@@ -428,10 +569,19 @@ export default function Inventory() {
           </AnimatePresence>
         )}
 
+        {/* Abrir Estoque */}
+        <button
+          onClick={() => { setOpenMode(true); setOpenValues({}) }}
+          className="flex items-center gap-1.5 text-sm text-white bg-accent hover:bg-accent-dark rounded-2xl px-3 py-2 transition-colors font-medium"
+        >
+          <DoorOpen size={15} />
+          Abrir Estoque
+        </button>
+
         {/* Entrada de Estoque */}
         <button
           onClick={() => { setEntryMode(true); setEntryValues({}) }}
-          className="flex items-center gap-1.5 text-sm text-white bg-accent hover:bg-accent-dark rounded-2xl px-3 py-2 transition-colors font-medium"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-accent-dark border border-gray-200 hover:border-accent/40 rounded-2xl px-3 py-2 transition-colors"
         >
           <PackagePlus size={15} />
           Entrada
