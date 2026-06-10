@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick, Plane } from 'lucide-react'
-import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, subscribeAllOrders } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import { isTakeoutTicket } from '../utils/ticket'
@@ -29,6 +29,22 @@ function playDeliveredSound() {
   try {
     const audio = new Audio(readySound)
     audio.play().catch(() => {})
+  } catch { /* audio not available */ }
+}
+
+function playCancelSound() {
+  try {
+    const ctx = new AudioContext()
+    ;[0, 0.16].forEach((offset, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = 'square'; osc.frequency.value = i === 0 ? 320 : 200
+      gain.gain.setValueAtTime(0, ctx.currentTime + offset)
+      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + offset + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.25)
+      osc.start(ctx.currentTime + offset); osc.stop(ctx.currentTime + offset + 0.28)
+    })
   } catch { /* audio not available */ }
 }
 
@@ -237,11 +253,16 @@ export default function DispatchStation() {
   const [now, setNow] = useState(Date.now())
 
   const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
+  const [cancelledFicha, setCancelledFicha] = useState<string | null>(null)
   const [lastScanned, setLastScanned] = useState('')
 
   const ordersRef = useRef<Order[]>([])
   const prevStatusMapRef = useRef<Map<string, string>>(new Map())
   const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scanTicketRef = useRef<string | null>(null)
+  const scanCountRef = useRef(0)
+  const scanTimeRef = useRef(0)
   const bufferRef = useRef('')
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -281,6 +302,10 @@ export default function DispatchStation() {
     }
   }, [])
 
+  useEffect(() => {
+    return () => { if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current) }
+  }, [])
+
   const toggleNight = () => {
     const next = !nightMode
     setNightMode(next)
@@ -307,6 +332,31 @@ export default function DispatchStation() {
     try {
       const ticket = await resolveFicha(raw)
       setLastScanned(ticket)
+
+      // 3 bipadas seguidas na mesma ficha (em até 5s) = pedido entrou errado, cancelar
+      const now = Date.now()
+      if (scanTicketRef.current === ticket && now - scanTimeRef.current < 5000) {
+        scanCountRef.current += 1
+      } else {
+        scanTicketRef.current = ticket
+        scanCountRef.current = 1
+      }
+      scanTimeRef.current = now
+
+      if (scanCountRef.current >= 3) {
+        scanCountRef.current = 0
+        scanTicketRef.current = null
+        const order = await getOrderByTicket(ticket)
+        if (!order) { addToast(`Ficha #${ticket} não encontrada`); return }
+        await deleteOrder(order.id)
+        playCancelSound()
+        addToast(`Pedido da ficha #${ticket} cancelado! Ficha liberada.`, 'success')
+        setCancelledFicha(ticket)
+        if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current)
+        cancelTimerRef.current = setTimeout(() => setCancelledFicha(null), 6000)
+        return
+      }
+
       const order = await getActiveOrderByTicket(ticket)
       if (!order) { addToast(`Ficha #${ticket} não encontrada ou já entregue`); return }
       let nextStatus: OrderStatus | null = null
@@ -476,6 +526,38 @@ export default function DispatchStation() {
               <button
                 onClick={() => setReleasedFicha(null)}
                 className="ml-auto text-green-400 hover:text-green-700 text-lg font-black"
+              >
+                ×
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Cancelled order banner */}
+        <AnimatePresence>
+          {cancelledFicha && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-4 rounded-2xl border border-red-300 bg-red-50 px-5 py-3 flex items-center gap-3"
+            >
+              <motion.span
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 0.6, repeat: 2 }}
+                className="text-2xl"
+              >
+                🗑️
+              </motion.span>
+              <div>
+                <p className="font-black text-red-800 text-base">
+                  Pedido da ficha <span className="text-2xl">#{cancelledFicha}</span> cancelado!
+                </p>
+                <p className="text-xs text-red-600 font-medium">Removido da tela — a ficha já pode ser usada de novo.</p>
+              </div>
+              <button
+                onClick={() => setCancelledFicha(null)}
+                className="ml-auto text-red-400 hover:text-red-700 text-lg font-black"
               >
                 ×
               </button>

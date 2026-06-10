@@ -181,6 +181,11 @@ export async function setOrderStatus(orderId: string, status: OrderStatus): Prom
   })
 }
 
+export async function deleteOrder(orderId: string): Promise<void> {
+  if (!_db) return
+  await deleteDoc(doc(_db, 'orders', orderId))
+}
+
 export async function getOrderByTicket(ticket: string): Promise<Order | null> {
   if (!_db) return null
   const q = query(collection(_db, 'orders'), where('ticket_number', '==', ticket))
