@@ -70,6 +70,18 @@ function formatAge(created: Date, now: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
+// Ajusta o tamanho dos cards conforme a quantidade de pedidos na fila, para
+// caber ~16 cards em um monitor de 21" sem precisar rolar a tela.
+function getAutoZoom(count: number): number {
+  if (count <= 2) return 1.4
+  if (count <= 4) return 1.2
+  if (count <= 8) return 1
+  if (count <= 12) return 0.85
+  if (count <= 16) return 0.7
+  if (count <= 20) return 0.6
+  return 0.5
+}
+
 interface CardProps {
   order: Order
   idx: number
@@ -599,7 +611,10 @@ export default function DispatchStation() {
             </p>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            style={{ zoom: getAutoZoom(orders.length) }}
+          >
             <AnimatePresence mode="popLayout">
               {orders.map((order, idx) => (
                 <OrderCard
