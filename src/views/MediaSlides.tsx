@@ -139,7 +139,8 @@ export default function MediaSlides() {
         resetForm()
       } catch (err) {
         console.error(err)
-        addToast('Erro no upload — verifique as regras do Firebase Storage')
+        const detail = err instanceof Error ? err.message : ''
+        addToast(`Erro no upload${detail ? ` — ${detail}` : ''} — verifique o bucket e as políticas do Supabase Storage em Config → Dados`)
         setUploadPct(null)
       }
       return
