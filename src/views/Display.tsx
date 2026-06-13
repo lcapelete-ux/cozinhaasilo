@@ -169,14 +169,14 @@ function SlideshowPlayer({ slides, onCycleComplete }: { slides: MediaSlide[]; on
           className="absolute inset-0"
         >
           {current.type === 'image' && (
-            <img src={current.url} alt={current.title} className="w-full h-full object-cover" />
+            <img src={current.url} alt={current.title} className="w-full h-full object-contain" />
           )}
           {current.type === 'video' && (
             <video
               key={current.url}
               src={current.url}
               autoPlay muted playsInline
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               onEnded={advance}
             />
           )}
