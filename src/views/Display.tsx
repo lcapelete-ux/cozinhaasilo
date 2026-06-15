@@ -375,27 +375,32 @@ export default function Display() {
   const enabledSlides = slides.filter((s) => s.enabled)
 
   // ── Display mode rotation ─────────────────────────────────────────────────
-  // Painel de pedidos por 1 min, depois 1 min de UMA mídia por vez (nunca duas
-  // juntas), alternando: pedidos → mídia 1 → pedidos → mídia 2 → pedidos → …
-  // Interrompido imediatamente se um novo pedido chegar durante a mídia.
-  const SLOT_MS = 60_000
+  // Painel de pedidos por 1 min, depois UMA mídia por vez pelo tempo
+  // configurado nela (slide.duration), alternando: pedidos → mídia 1 →
+  // pedidos → mídia 2 → pedidos → … Interrompido imediatamente se um novo
+  // pedido chegar durante a mídia.
+  const ORDERS_MS = 60_000
 
   const [displayMode, setDisplayMode] = useState<'orders' | 'slideshow'>('orders')
   const displayModeRef = useRef<'orders' | 'slideshow'>('orders')
   const [mediaIdx, setMediaIdx] = useState(0)
-  const [rotationKey, setRotationKey] = useState(0)
   const prevOrderTotalRef = useRef(activeOrders.length + readyOrders.length)
   const enabledSlidesRef = useRef(enabledSlides)
-  useEffect(() => { enabledSlidesRef.current = enabledSlides }, [enabledSlides])
+  useEffect(() => { enabledSlidesRef.current = enabledSlides })
 
   const setMode = useCallback((m: 'orders' | 'slideshow') => {
     displayModeRef.current = m
     setDisplayMode(m)
   }, [])
 
-  // Tick every minute: alternate between orders panel and the next media slide
+  // Agenda a próxima troca: 1 min para o painel de pedidos, ou o tempo
+  // configurado na mídia atual (slide.duration, em segundos) para a mídia.
   useEffect(() => {
-    const id = setInterval(() => {
+    const slides = enabledSlidesRef.current
+    const slide = displayMode === 'slideshow' && slides.length > 0 ? slides[mediaIdx % slides.length] : null
+    const ms = slide ? Math.max(2, slide.duration) * 1000 : ORDERS_MS
+
+    const t = setTimeout(() => {
       if (displayModeRef.current === 'orders') {
         if (enabledSlidesRef.current.length > 0) setMode('slideshow')
       } else {
@@ -403,18 +408,17 @@ export default function Display() {
         setMediaIdx((i) => (len > 0 ? (i + 1) % len : 0))
         setMode('orders')
       }
-    }, SLOT_MS)
-    return () => clearInterval(id)
-  }, [setMode, rotationKey])
+    }, ms)
+    return () => clearTimeout(t)
+  }, [displayMode, mediaIdx, enabledSlides.length, setMode])
 
-  // New order arrives during slideshow → interrupt immediately, restart the 1min cycle
+  // New order arrives during slideshow → interrompe imediatamente, volta ao painel
   useEffect(() => {
     const total = activeOrders.length + readyOrders.length
     if (displayModeRef.current === 'slideshow' && total > prevOrderTotalRef.current) {
       const len = enabledSlidesRef.current.length
       setMediaIdx((i) => (len > 0 ? (i + 1) % len : 0))
       setMode('orders')
-      setRotationKey((k) => k + 1)
     }
     prevOrderTotalRef.current = total
   }, [activeOrders.length, readyOrders.length, setMode])
