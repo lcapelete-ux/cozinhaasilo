@@ -128,83 +128,57 @@ function extractYoutubeId(url: string): string {
   return m ? m[1] : ''
 }
 
-function SlideshowPlayer({ slides, onCycleComplete }: { slides: MediaSlide[]; onCycleComplete: () => void }) {
-  const [idx, setIdx] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const current = slides[idx]
-
-  useEffect(() => { setIdx(0) }, [slides.length])
-
-  const advance = useCallback(() => {
-    setIdx((i) => {
-      const next = i + 1
-      if (next >= slides.length) {
-        onCycleComplete()
-        return 0
-      }
-      return next
-    })
-  }, [slides.length, onCycleComplete])
-
-  useEffect(() => {
-    if (!current || current.type !== 'image') return
-    const ms = Math.max(2000, (current.duration || 8) * 1000)
-    timerRef.current = setTimeout(advance, ms)
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [idx, current, advance])
-
-  if (!current) return null
-
-  const ytId = current.type === 'youtube' ? extractYoutubeId(current.url) : ''
+// Mostra uma única mídia por vez — a troca de mídia é controlada pelo
+// rodízio do Display (1 minuto por mídia, alternando com o painel de pedidos).
+function MediaSlideView({ slide, idx, total }: { slide: MediaSlide; idx: number; total: number }) {
+  const ytId = slide.type === 'youtube' ? extractYoutubeId(slide.url) : ''
 
   return (
     <div className="absolute inset-0 bg-black overflow-hidden flex flex-col">
       <AnimatePresence mode="wait">
         <motion.div
-          key={current.id}
+          key={slide.id}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.8 }}
           className="absolute inset-0"
         >
-          {current.type === 'image' && (
-            <img src={current.url} alt={current.title} className="w-full h-full object-contain" />
+          {slide.type === 'image' && (
+            <img src={slide.url} alt={slide.title} className="w-full h-full object-contain" />
           )}
-          {current.type === 'video' && (
+          {slide.type === 'video' && (
             <video
-              key={current.url}
-              src={current.url}
-              autoPlay muted playsInline
+              key={slide.url}
+              src={slide.url}
+              autoPlay muted loop playsInline
               className="w-full h-full object-contain"
-              onEnded={advance}
             />
           )}
-          {current.type === 'youtube' && ytId && (
+          {slide.type === 'youtube' && ytId && (
             <iframe
               src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&modestbranding=1`}
               className="w-full h-full border-0"
               allow="autoplay; fullscreen"
-              title={current.title}
+              title={slide.title}
             />
           )}
         </motion.div>
       </AnimatePresence>
 
       {/* Title overlay */}
-      {current.title && (
+      {slide.title && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-12 pb-5 px-6 z-10">
-          <p className="text-white font-bold text-xl drop-shadow">{current.title}</p>
+          <p className="text-white font-bold text-xl drop-shadow">{slide.title}</p>
         </div>
       )}
 
       {/* Progress dots */}
-      {slides.length > 1 && (
+      {total > 1 && (
         <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10">
-          {slides.map((_, i) => (
-            <button
+          {Array.from({ length: total }).map((_, i) => (
+            <span
               key={i}
-              onClick={() => setIdx(i)}
               className={`h-2 rounded-full transition-all ${i === idx ? 'bg-white w-6' : 'bg-white/40 w-2'}`}
             />
           ))}
@@ -213,6 +187,7 @@ function SlideshowPlayer({ slides, onCycleComplete }: { slides: MediaSlide[]; on
     </div>
   )
 }
+
 
 // ── Main Display ─────────────────────────────────────────────────────────────
 export default function Display() {
@@ -400,13 +375,15 @@ export default function Display() {
   const enabledSlides = slides.filter((s) => s.enabled)
 
   // ── Display mode rotation ─────────────────────────────────────────────────
-  // Cycle: slideshow (8s per image) → orders panel (60s) → slideshow → …
-  // Interrupted immediately if a new order arrives during slideshow
-  const ORDERS_PANEL_MS = 60_000
+  // Painel de pedidos por 1 min, depois 1 min de UMA mídia por vez (nunca duas
+  // juntas), alternando: pedidos → mídia 1 → pedidos → mídia 2 → pedidos → …
+  // Interrompido imediatamente se um novo pedido chegar durante a mídia.
+  const SLOT_MS = 60_000
 
   const [displayMode, setDisplayMode] = useState<'orders' | 'slideshow'>('orders')
   const displayModeRef = useRef<'orders' | 'slideshow'>('orders')
-  const ordersTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [mediaIdx, setMediaIdx] = useState(0)
+  const [rotationKey, setRotationKey] = useState(0)
   const prevOrderTotalRef = useRef(activeOrders.length + readyOrders.length)
   const enabledSlidesRef = useRef(enabledSlides)
   useEffect(() => { enabledSlidesRef.current = enabledSlides }, [enabledSlides])
@@ -416,39 +393,31 @@ export default function Display() {
     setDisplayMode(m)
   }, [])
 
-  // Start first slideshow as soon as slides load
-  const slideshowStartedRef = useRef(false)
+  // Tick every minute: alternate between orders panel and the next media slide
   useEffect(() => {
-    if (!slideshowStartedRef.current && enabledSlides.length > 0) {
-      slideshowStartedRef.current = true
-      setMode('slideshow')
-    }
-  }, [enabledSlides.length, setMode])
+    const id = setInterval(() => {
+      if (displayModeRef.current === 'orders') {
+        if (enabledSlidesRef.current.length > 0) setMode('slideshow')
+      } else {
+        const len = enabledSlidesRef.current.length
+        setMediaIdx((i) => (len > 0 ? (i + 1) % len : 0))
+        setMode('orders')
+      }
+    }, SLOT_MS)
+    return () => clearInterval(id)
+  }, [setMode, rotationKey])
 
-  // Called by SlideshowPlayer when all slides have been shown once
-  const handleSlideshowComplete = useCallback(() => {
-    setMode('orders')
-    if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current)
-    ordersTimerRef.current = setTimeout(() => {
-      if (enabledSlidesRef.current.length > 0) setMode('slideshow')
-    }, ORDERS_PANEL_MS)
-  }, [setMode])
-
-  // New order arrives during slideshow → interrupt immediately, schedule return
+  // New order arrives during slideshow → interrupt immediately, restart the 1min cycle
   useEffect(() => {
     const total = activeOrders.length + readyOrders.length
     if (displayModeRef.current === 'slideshow' && total > prevOrderTotalRef.current) {
+      const len = enabledSlidesRef.current.length
+      setMediaIdx((i) => (len > 0 ? (i + 1) % len : 0))
       setMode('orders')
-      if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current)
-      ordersTimerRef.current = setTimeout(() => {
-        if (enabledSlidesRef.current.length > 0) setMode('slideshow')
-      }, ORDERS_PANEL_MS)
+      setRotationKey((k) => k + 1)
     }
     prevOrderTotalRef.current = total
   }, [activeOrders.length, readyOrders.length, setMode])
-
-  // Cleanup timer on unmount
-  useEffect(() => () => { if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current) }, [])
 
   return (
     <div style={orientation === 'portrait' ? { position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: 'hidden' } : {}}>
@@ -655,7 +624,7 @@ export default function Display() {
             )}
           </div>
         </div>
-        {/* Slideshow overlay — timed rotation */}
+        {/* Media overlay — 1 mídia por minuto, alternando com o painel */}
         <AnimatePresence>
           {displayMode === 'slideshow' && enabledSlides.length > 0 && (
             <motion.div
@@ -665,7 +634,11 @@ export default function Display() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <SlideshowPlayer slides={enabledSlides} onCycleComplete={handleSlideshowComplete} />
+              <MediaSlideView
+                slide={enabledSlides[mediaIdx % enabledSlides.length]}
+                idx={mediaIdx % enabledSlides.length}
+                total={enabledSlides.length}
+              />
             </motion.div>
           )}
         </AnimatePresence>
