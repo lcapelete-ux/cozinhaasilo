@@ -64,14 +64,11 @@ export default function Inventory() {
   const [initialVal, setInitialVal] = useState('')
   const [showHistory, setShowHistory] = useState(false)
 
-  // Entrada de estoque (bulk entry)
-  const [entryMode, setEntryMode] = useState(false)
-  const [entryValues, setEntryValues] = useState<Record<string, string>>({})
-
-  // Abrir estoque (define a quantidade do dia para cada item cadastrado)
-  const [openMode, setOpenMode] = useState(false)
-  const [openValues, setOpenValues] = useState<Record<string, string>>({})
-  const [openWorking, setOpenWorking] = useState(false)
+  // Lançar estoque — tela única para definir a contagem do dia OU adicionar entrada
+  const [stockMode, setStockMode] = useState(false)
+  const [stockKind, setStockKind] = useState<'set' | 'add'>('set')
+  const [stockValues, setStockValues] = useState<Record<string, string>>({})
+  const [stockWorking, setStockWorking] = useState(false)
 
   // Repor tudo
   const [resetAllPending, setResetAllPending] = useState(false)
@@ -164,41 +161,44 @@ export default function Inventory() {
     } catch { addToast('Erro ao repor') }
   }
 
-  // Bulk entry: add quantities to multiple items at once
-  const handleBulkEntry = async () => {
+  // Lançar estoque: aplica os valores digitados na tela única.
+  // 'set' = define a contagem (substitui stock e o estoque inicial de referência)
+  // 'add' = soma a quantidade que chegou ao estoque atual
+  const handleSaveStock = async () => {
     const user = getCurrentUser()
     const tasks: Array<() => Promise<void>> = []
 
-    for (const [id, raw] of Object.entries(entryValues)) {
+    for (const item of items.filter((i) => !isLegacyItem(i))) {
+      const raw = stockValues[item.id]
+      if (raw === undefined || raw === '') continue
       const val = parseInt(raw, 10)
-      if (!val || val <= 0) continue
-      const item = items.find((i) => i.id === id)
-      if (!item) continue
+      if (isNaN(val) || val < 0) continue
+      const before = item.stock ?? 0
 
-      if ((item.stock_initial ?? 0) > 0) {
-        const before = item.stock ?? 0
-        const after = before + val
+      if (stockKind === 'set') {
         tasks.push(async () => {
-          await updateMenuItem(id, { stock: after })
+          await updateMenuItem(item.id, { stock_initial: val, stock: val })
           await addStockEntry({
-            menu_item_id: id,
+            menu_item_id: item.id,
             menu_item_name: item.name,
-            type: 'entry',
+            type: 'open',
             qty_before: before,
-            qty_after: after,
+            qty_after: val,
             inserted_by: user,
           })
         })
       } else {
-        // Activate stock for unconfigured item
+        if (val <= 0) continue
+        const after = before + val
+        const configured = (item.stock_initial ?? 0) > 0
         tasks.push(async () => {
-          await updateMenuItem(id, { stock_initial: val, stock: val })
+          await updateMenuItem(item.id, configured ? { stock: after } : { stock_initial: after, stock: after })
           await addStockEntry({
-            menu_item_id: id,
+            menu_item_id: item.id,
             menu_item_name: item.name,
             type: 'entry',
-            qty_before: item.stock ?? 0,
-            qty_after: val,
+            qty_before: before,
+            qty_after: after,
             inserted_by: user,
           })
         })
@@ -210,12 +210,19 @@ export default function Inventory() {
       return
     }
 
+    setStockWorking(true)
     try {
       await Promise.all(tasks.map((t) => t()))
-      addToast(`${tasks.length} produto(s) atualizado(s)`, 'success')
-      setEntryValues({})
-      setEntryMode(false)
-    } catch { addToast('Erro ao salvar entradas') }
+      addToast(
+        stockKind === 'set'
+          ? `Estoque definido para ${tasks.length} produto(s)`
+          : `Entrada registrada em ${tasks.length} produto(s)`,
+        'success',
+      )
+      setStockValues({})
+      setStockMode(false)
+    } catch { addToast('Erro ao salvar estoque') }
+    finally { setStockWorking(false) }
   }
 
   // Reset all configured items to their initial stock
@@ -256,45 +263,6 @@ export default function Inventory() {
     finally { setCleanupWorking(false) }
   }
 
-  // Abrir estoque: define stock_initial e stock para cada item digitado
-  const handleOpenStock = async () => {
-    const user = getCurrentUser()
-    const tasks: Array<() => Promise<void>> = []
-
-    for (const item of items) {
-      const raw = openValues[item.id]
-      if (raw === undefined || raw === '') continue
-      const val = parseInt(raw, 10)
-      if (isNaN(val) || val < 0) continue
-      const before = item.stock ?? 0
-      tasks.push(async () => {
-        await updateMenuItem(item.id, { stock_initial: val, stock: val })
-        await addStockEntry({
-          menu_item_id: item.id,
-          menu_item_name: item.name,
-          type: 'open',
-          qty_before: before,
-          qty_after: val,
-          inserted_by: user,
-        })
-      })
-    }
-
-    if (tasks.length === 0) {
-      addToast('Nenhuma quantidade informada')
-      return
-    }
-
-    setOpenWorking(true)
-    try {
-      await Promise.all(tasks.map((t) => t()))
-      addToast(`Estoque aberto para ${tasks.length} produto(s)`, 'success')
-      setOpenValues({})
-      setOpenMode(false)
-    } catch { addToast('Erro ao abrir estoque') }
-    finally { setOpenWorking(false) }
-  }
-
   const stockItems = items.filter((i) => i.stock_initial !== undefined && i.stock_initial > 0)
   const legacyItems = items.filter(isLegacyItem)
   const noStockItems = items.filter((i) => !i.stock_initial && !isLegacyItem(i))
@@ -315,28 +283,59 @@ export default function Inventory() {
     return acc
   }, {})
 
-  // ── Open stock mode ──────────────────────────────────────────────────────
+  // ── Lançar estoque (tela única: Definir contagem OU Adicionar entrada) ──────
 
-  if (openMode) {
+  if (stockMode) {
+    const isSet = stockKind === 'set'
     return (
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
-        <div className="mb-6 flex items-center gap-3">
+        <div className="mb-5 flex items-center gap-3">
           <div>
             <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
-              <DoorOpen className="text-accent" size={26} />
-              Abrir Estoque
+              <Boxes className="text-accent" size={26} />
+              Lançar Estoque
             </h1>
             <p className="text-gray-400 text-xs mt-0.5">
-              Digite a quantidade de hoje para cada produto · deixe em branco para não alterar
+              Preencha só os itens que quer alterar · deixe em branco os demais
             </p>
           </div>
           <div className="flex-1" />
           <button
-            onClick={() => { setOpenMode(false); setOpenValues({}) }}
+            onClick={() => { setStockMode(false); setStockValues({}) }}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-2xl px-3 py-2 transition-colors"
           >
             <X size={14} />
             Cancelar
+          </button>
+        </div>
+
+        {/* Seletor: o que o número digitado significa */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+          <button
+            onClick={() => setStockKind('set')}
+            className={`text-left rounded-2xl border-2 px-4 py-3 transition-colors ${
+              isSet ? 'border-accent bg-accent/5' : 'border-gray-200 bg-white hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-0.5">
+              <DoorOpen size={16} className={isSet ? 'text-accent' : 'text-gray-400'} />
+              <span className={`font-bold text-sm ${isSet ? 'text-accent-dark' : 'text-gray-600'}`}>Definir quantidade</span>
+              {isSet && <Check size={14} className="text-accent ml-auto" />}
+            </div>
+            <p className="text-xs text-gray-400">Quantos você tem agora. O número digitado vira o total (use ao abrir a cozinha).</p>
+          </button>
+          <button
+            onClick={() => setStockKind('add')}
+            className={`text-left rounded-2xl border-2 px-4 py-3 transition-colors ${
+              !isSet ? 'border-accent bg-accent/5' : 'border-gray-200 bg-white hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-0.5">
+              <PackagePlus size={16} className={!isSet ? 'text-accent' : 'text-gray-400'} />
+              <span className={`font-bold text-sm ${!isSet ? 'text-accent-dark' : 'text-gray-600'}`}>Adicionar entrada</span>
+              {!isSet && <Check size={14} className="text-accent ml-auto" />}
+            </div>
+            <p className="text-xs text-gray-400">Quanto chegou a mais. O número é somado ao que já existe (reposição).</p>
           </button>
         </div>
 
@@ -347,28 +346,50 @@ export default function Inventory() {
             </h2>
             <div className="space-y-2">
               {sectorItems.map((item) => {
-                const hasEntry = (openValues[item.id] ?? '') !== ''
+                const raw = stockValues[item.id] ?? ''
+                const val = parseInt(raw, 10)
+                const current = item.stock ?? 0
+                const initial = item.stock_initial ?? 0
+                const configured = initial > 0
+                const hasVal = raw !== '' && !isNaN(val) && val >= 0 && (isSet || val > 0)
+                const preview = isSet ? val : current + val
                 return (
                   <div
                     key={item.id}
                     className={`rounded-2xl border px-4 py-3 flex items-center gap-4 transition-colors ${
-                      hasEntry ? 'border-accent/40 bg-accent/5' : 'border-gray-200 bg-white'
+                      hasVal ? 'border-accent/40 bg-accent/5' : 'border-gray-200 bg-white'
                     }`}
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-gray-800">{item.name}</p>
-                      {item.stock_initial !== undefined && item.stock_initial > 0 && (
-                        <p className="text-xs text-gray-400">Atual: {item.stock ?? 0} / {item.stock_initial}</p>
-                      )}
+                      <p className="text-xs text-gray-400">
+                        {configured ? (
+                          <>
+                            Atual:{' '}
+                            <span className={`font-bold ${current <= 0 ? 'text-red-500' : current <= LOW_STOCK_THRESHOLD ? 'text-orange-500' : 'text-gray-700'}`}>
+                              {current}
+                            </span>
+                            {' '}/ {initial}
+                          </>
+                        ) : (
+                          <span className="italic">Sem estoque ainda</span>
+                        )}
+                        {hasVal && (
+                          <span className="ml-2 text-accent font-semibold">→ {preview}</span>
+                        )}
+                      </p>
                     </div>
-                    <input
-                      type="number"
-                      min={0}
-                      value={openValues[item.id] ?? ''}
-                      onChange={(e) => setOpenValues((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      placeholder="qtd"
-                      className="w-24 px-3 py-1.5 rounded-xl border-2 border-gray-200 focus:border-accent/60 focus:outline-none text-lg font-black text-center"
-                    />
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!isSet && <span className="text-gray-400 text-sm font-medium">+</span>}
+                      <input
+                        type="number"
+                        min={0}
+                        value={raw}
+                        onChange={(e) => setStockValues((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        placeholder={isSet ? 'qtd' : '0'}
+                        className="w-24 px-3 py-1.5 rounded-xl border-2 border-gray-200 focus:border-accent/60 focus:outline-none text-lg font-black text-center"
+                      />
+                    </div>
                   </div>
                 )
               })}
@@ -384,154 +405,20 @@ export default function Inventory() {
           </div>
         )}
 
-        <div className="mt-8 flex justify-end gap-3 pb-8">
+        <div className="sticky bottom-0 -mx-4 md:-mx-6 mt-8 px-4 md:px-6 py-4 bg-background/90 backdrop-blur border-t border-gray-100 flex justify-end gap-3">
           <button
-            onClick={() => { setOpenMode(false); setOpenValues({}) }}
+            onClick={() => { setStockMode(false); setStockValues({}) }}
             className="px-4 py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
           >
             Cancelar
           </button>
           <button
-            onClick={handleOpenStock}
-            disabled={openWorking}
+            onClick={handleSaveStock}
+            disabled={stockWorking}
             className="px-6 py-2.5 rounded-2xl bg-accent hover:bg-accent-dark text-white text-sm font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
           >
-            {openWorking ? <RefreshCw size={15} className="animate-spin" /> : <DoorOpen size={15} />}
-            Abrir Estoque
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Entry mode ─────────────────────────────────────────────────────────────
-
-  if (entryMode) {
-    return (
-      <div className="p-4 md:p-6 max-w-5xl mx-auto">
-        <div className="mb-6 flex items-center gap-3">
-          <div>
-            <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
-              <PackagePlus className="text-accent" size={26} />
-              Entrada de Estoque
-            </h1>
-            <p className="text-gray-400 text-xs mt-0.5">
-              Informe a quantidade a adicionar em cada produto · deixe 0 para não alterar
-            </p>
-          </div>
-          <div className="flex-1" />
-          <button
-            onClick={() => { setEntryMode(false); setEntryValues({}) }}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-2xl px-3 py-2 transition-colors"
-          >
-            <X size={14} />
-            Cancelar
-          </button>
-        </div>
-
-        {/* Configured items */}
-        {Object.entries(bySector).map(([sector, sectorItems]) => (
-          <div key={sector} className="mb-6">
-            <h2 className={`text-xs font-black uppercase tracking-widest mb-3 ${SECTOR_COLOR[sector] ?? 'text-gray-500'}`}>
-              {sector}
-            </h2>
-            <div className="space-y-2">
-              {sectorItems.map((item) => {
-                const qty = item.stock ?? 0
-                const initial = item.stock_initial ?? 0
-                const delta = parseInt(entryValues[item.id] ?? '0', 10)
-                const preview = qty + (isNaN(delta) || delta <= 0 ? 0 : delta)
-                const hasEntry = !isNaN(delta) && delta > 0
-                return (
-                  <div
-                    key={item.id}
-                    className={`rounded-2xl border px-4 py-3 flex items-center gap-4 transition-colors ${
-                      hasEntry ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-gray-800">{item.name}</p>
-                      <p className="text-xs text-gray-400">
-                        Atual:{' '}
-                        <span className={`font-bold ${qty <= 0 ? 'text-red-500' : qty <= LOW_STOCK_THRESHOLD ? 'text-orange-500' : 'text-gray-700'}`}>
-                          {qty}
-                        </span>
-                        {' '}/ {initial}
-                        {hasEntry && (
-                          <span className="ml-2 text-green-600 font-semibold">
-                            → {preview}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-gray-400 text-sm font-medium">+</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={entryValues[item.id] ?? ''}
-                        onChange={(e) => setEntryValues((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        placeholder="0"
-                        className="w-20 px-3 py-1.5 rounded-xl border-2 border-gray-200 focus:border-accent/60 focus:outline-none text-sm font-bold text-center"
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-
-        {/* Unconfigured items — activate with initial quantity */}
-        {noStockItems.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-xs font-black uppercase tracking-widest text-gray-300 mb-3">
-              Ativar estoque ({noStockItems.length})
-            </h2>
-            <div className="space-y-2">
-              {noStockItems.map((item) => {
-                const val = parseInt(entryValues[item.id] ?? '0', 10)
-                const hasEntry = !isNaN(val) && val > 0
-                return (
-                  <div
-                    key={item.id}
-                    className={`rounded-2xl border border-dashed px-4 py-3 flex items-center gap-4 transition-colors ${
-                      hasEntry ? 'border-accent/40 bg-accent/5' : 'border-gray-200 bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-gray-500">{item.name}</p>
-                      <p className="text-xs text-gray-400">{item.sector} · quantidade inicial</p>
-                    </div>
-                    <input
-                      type="number"
-                      min={0}
-                      value={entryValues[item.id] ?? ''}
-                      onChange={(e) => setEntryValues((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      placeholder="0"
-                      className="w-20 px-3 py-1.5 rounded-xl border-2 border-dashed border-gray-300 focus:border-accent/60 focus:outline-none text-sm font-bold text-center"
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Confirm */}
-        <div className="mt-8 flex justify-end gap-3 pb-8">
-          <button
-            onClick={() => { setEntryMode(false); setEntryValues({}) }}
-            className="px-4 py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleBulkEntry}
-            className="px-6 py-2.5 rounded-2xl bg-accent hover:bg-accent-dark text-white text-sm font-semibold transition-colors flex items-center gap-2"
-          >
-            <Check size={15} />
-            Confirmar Entradas
+            {stockWorking ? <RefreshCw size={15} className="animate-spin" /> : isSet ? <DoorOpen size={15} /> : <Check size={15} />}
+            {isSet ? 'Definir Estoque' : 'Confirmar Entradas'}
           </button>
         </div>
       </div>
@@ -598,22 +485,13 @@ export default function Inventory() {
           </AnimatePresence>
         )}
 
-        {/* Abrir Estoque */}
+        {/* Lançar Estoque (definir contagem ou adicionar entrada) */}
         <button
-          onClick={() => { setOpenMode(true); setOpenValues({}) }}
+          onClick={() => { setStockMode(true); setStockKind('set'); setStockValues({}) }}
           className="flex items-center gap-1.5 text-sm text-white bg-accent hover:bg-accent-dark rounded-2xl px-3 py-2 transition-colors font-medium"
         >
-          <DoorOpen size={15} />
-          Abrir Estoque
-        </button>
-
-        {/* Entrada de Estoque */}
-        <button
-          onClick={() => { setEntryMode(true); setEntryValues({}) }}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-accent-dark border border-gray-200 hover:border-accent/40 rounded-2xl px-3 py-2 transition-colors"
-        >
           <PackagePlus size={15} />
-          Entrada
+          Lançar Estoque
         </button>
 
         <button
