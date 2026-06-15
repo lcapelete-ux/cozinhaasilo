@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Film, Plus, Trash2, Check, X, ToggleLeft, ToggleRight,
-  ChevronUp, ChevronDown, Image, Video, Link, Upload, AlertCircle,
+  ChevronUp, ChevronDown, Image, Video, Link, Upload, AlertCircle, Pencil,
 } from 'lucide-react'
 import {
   subscribeMediaSlides, addMediaSlide, updateMediaSlide,
@@ -89,6 +89,11 @@ export default function MediaSlides() {
   // shared
   const [title, setTitle] = useState('')
   const [duration, setDuration] = useState('10')
+
+  // edit existing slide
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDuration, setEditDuration] = useState('10')
 
   useEffect(() => {
     const unsub = subscribeMediaSlides(setSlides)
@@ -177,6 +182,24 @@ export default function MediaSlides() {
     } catch { addToast('Erro ao reordenar') }
   }
 
+  const handleEditStart = (slide: MediaSlide) => {
+    setAdding(false)
+    setEditingId(slide.id)
+    setEditTitle(slide.title)
+    setEditDuration(String(slide.duration))
+  }
+
+  const handleEditCancel = () => setEditingId(null)
+
+  const handleEditSave = async (id: string) => {
+    const dur = Math.max(2, parseInt(editDuration, 10) || 10)
+    try {
+      await updateMediaSlide(id, { title: editTitle.trim(), duration: dur })
+      addToast('Mídia atualizada!', 'success')
+      setEditingId(null)
+    } catch { addToast('Erro ao salvar') }
+  }
+
   const uploading = uploadPct !== null && uploadPct < 100
   const detectedType = mode === 'file'
     ? (pickedFile ? detectTypeFromFile(pickedFile) : null)
@@ -197,7 +220,7 @@ export default function MediaSlides() {
         </div>
         <div className="flex-1" />
         <button
-          onClick={() => setAdding(true)}
+          onClick={() => { setEditingId(null); setAdding(true) }}
           className="flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-2xl text-sm font-medium transition-colors"
         >
           <Plus size={16} /> Adicionar
@@ -321,17 +344,15 @@ export default function MediaSlides() {
                     className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
                   />
                 </div>
-                {detectedType !== 'video' && (
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Duração (segundos)</label>
-                    <input
-                      type="number" min={2} max={120}
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Tempo na tela (segundos)</label>
+                  <input
+                    type="number" min={2} max={120}
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+                  />
+                </div>
               </div>
 
               {/* Cloudinary config status */}
@@ -390,51 +411,105 @@ export default function MediaSlides() {
               <motion.div
                 key={slide.id}
                 layout
-                className={`bg-white rounded-2xl shadow-sm flex items-center gap-4 p-3 border transition-opacity ${slide.enabled ? 'border-gray-100' : 'border-gray-100 opacity-50'}`}
+                className={`bg-white rounded-2xl shadow-sm border transition-opacity ${slide.enabled ? 'border-gray-100' : 'border-gray-100 opacity-50'}`}
               >
-                {/* Thumbnail */}
-                <div className="w-20 h-14 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                  <SlideThumb slide={slide} />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium text-[10px] ${badge.cls}`}>
-                      {badge.icon} {badge.label}
-                    </span>
-                    {slide.type === 'image' && (
-                      <span className="text-[10px] text-gray-400">{slide.duration}s</span>
-                    )}
+                <div className="flex items-center gap-4 p-3">
+                  {/* Thumbnail */}
+                  <div className="w-20 h-14 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                    <SlideThumb slide={slide} />
                   </div>
-                  <p className="text-sm font-semibold text-gray-800 truncate">
-                    {slide.title || <span className="text-gray-400 font-normal italic">Sem título</span>}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">{slide.url}</p>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium text-[10px] ${badge.cls}`}>
+                        {badge.icon} {badge.label}
+                      </span>
+                      <span className="text-[10px] text-gray-400">{slide.duration}s na tela</span>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 truncate">
+                      {slide.title || <span className="text-gray-400 font-normal italic">Sem título</span>}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">{slide.url}</p>
+                  </div>
+
+                  {/* Reorder */}
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <button onClick={() => handleMove(idx, -1)} disabled={idx === 0}
+                      className="w-6 h-6 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-400 flex items-center justify-center disabled:opacity-20 transition-colors">
+                      <ChevronUp size={12} />
+                    </button>
+                    <button onClick={() => handleMove(idx, 1)} disabled={idx === slides.length - 1}
+                      className="w-6 h-6 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-400 flex items-center justify-center disabled:opacity-20 transition-colors">
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
+
+                  {/* Toggle */}
+                  <button onClick={() => handleToggle(slide)} className={`shrink-0 transition-colors ${slide.enabled ? 'text-accent' : 'text-gray-300'}`}>
+                    {slide.enabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                  </button>
+
+                  {/* Edit */}
+                  <button onClick={() => (editingId === slide.id ? handleEditCancel() : handleEditStart(slide))}
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${editingId === slide.id ? 'bg-accent/10 text-accent' : 'bg-gray-50 hover:bg-gray-100 text-gray-400'}`}>
+                    <Pencil size={14} />
+                  </button>
+
+                  {/* Delete */}
+                  <button onClick={() => handleDelete(slide.id)}
+                    className="w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 text-red-400 flex items-center justify-center shrink-0 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
 
-                {/* Reorder */}
-                <div className="flex flex-col gap-0.5 shrink-0">
-                  <button onClick={() => handleMove(idx, -1)} disabled={idx === 0}
-                    className="w-6 h-6 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-400 flex items-center justify-center disabled:opacity-20 transition-colors">
-                    <ChevronUp size={12} />
-                  </button>
-                  <button onClick={() => handleMove(idx, 1)} disabled={idx === slides.length - 1}
-                    className="w-6 h-6 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-400 flex items-center justify-center disabled:opacity-20 transition-colors">
-                    <ChevronDown size={12} />
-                  </button>
-                </div>
-
-                {/* Toggle */}
-                <button onClick={() => handleToggle(slide)} className={`shrink-0 transition-colors ${slide.enabled ? 'text-accent' : 'text-gray-300'}`}>
-                  {slide.enabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                </button>
-
-                {/* Delete */}
-                <button onClick={() => handleDelete(slide.id)}
-                  className="w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 text-red-400 flex items-center justify-center shrink-0 transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                {/* Edit panel */}
+                <AnimatePresence>
+                  {editingId === slide.id && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3 pb-3 pt-1 border-t border-gray-100 grid grid-cols-2 gap-3 items-end">
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">Título</label>
+                          <input
+                            type="text"
+                            placeholder="Patrocinador, evento…"
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">Tempo na tela (segundos)</label>
+                          <input
+                            type="number" min={2} max={120}
+                            value={editDuration}
+                            onChange={(e) => setEditDuration(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+                          />
+                        </div>
+                        <div className="col-span-2 flex gap-2">
+                          <button
+                            onClick={() => handleEditSave(slide.id)}
+                            className="flex items-center gap-1.5 bg-accent text-white px-4 py-2 rounded-xl text-sm"
+                          >
+                            <Check size={14} /> Salvar
+                          </button>
+                          <button
+                            onClick={handleEditCancel}
+                            className="flex items-center gap-1.5 bg-gray-100 text-gray-600 px-4 py-2 rounded-xl text-sm"
+                          >
+                            <X size={14} /> Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )
           })}
