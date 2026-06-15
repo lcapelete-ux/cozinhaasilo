@@ -868,9 +868,93 @@ function MenuTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succe
     } catch { addToast('Erro ao reordenar') }
   }
 
+  const handlePrintReport = () => {
+    const sectors = [...new Set(items.map((i) => i.sector))]
+    const date = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const win = window.open('', '_blank', 'width=900,height=700')
+    if (!win) return
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Cardápio por Setor</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; color: #111; background: #fff; padding: 28px; }
+            h1 { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+            .subtitle { font-size: 12px; color: #666; margin-bottom: 28px; }
+            .sector { margin-bottom: 28px; page-break-inside: avoid; }
+            .sector-title {
+              font-size: 15px; font-weight: 700; text-transform: uppercase;
+              letter-spacing: .05em; color: #fff; background: #d97706;
+              padding: 6px 14px; border-radius: 8px; margin-bottom: 10px;
+              display: inline-block;
+            }
+            table { width: 100%; border-collapse: collapse; font-size: 13px; }
+            thead tr { background: #f5f5f5; }
+            th { text-align: left; padding: 7px 10px; font-weight: 600; color: #555; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+            td { padding: 7px 10px; border-bottom: 1px solid #eee; }
+            tr:last-child td { border-bottom: none; }
+            .price { font-weight: 700; color: #16a34a; }
+            .code { font-family: monospace; font-size: 12px; color: #888; }
+            .category { background: #fef3c7; color: #92400e; font-size: 11px; padding: 2px 7px; border-radius: 20px; font-weight: 600; }
+            @media print {
+              body { padding: 16px; }
+              .sector { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>🌽 Cardápio por Setor</h1>
+          <div class="subtitle">Gerado em ${date} · ${items.length} item${items.length !== 1 ? 's' : ''} · ${sectors.length} setor${sectors.length !== 1 ? 'es' : ''}</div>
+          ${sectors.map((sector) => {
+            const sectorItems = items.filter((i) => i.sector === sector)
+            return `
+              <div class="sector">
+                <div class="sector-title">${sector}</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Item</th>
+                      <th>Categoria</th>
+                      <th>Preço</th>
+                      <th>Cód. QR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${sectorItems.map((item, i) => `
+                      <tr>
+                        <td style="color:#aaa;font-size:11px">${i + 1}</td>
+                        <td><strong>${item.name}</strong></td>
+                        <td><span class="category">${item.category}</span></td>
+                        <td class="price">R$ ${item.price.toFixed(2)}</td>
+                        <td class="code">${item.code ? item.code : '—'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `
+          }).join('')}
+          <script>window.onload = () => { window.print(); }<\/script>
+        </body>
+      </html>
+    `)
+    win.document.close()
+  }
+
   return (
     <div>
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end gap-2 mb-3">
+        <button
+          onClick={handlePrintReport}
+          disabled={items.length === 0}
+          className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-2xl text-sm font-medium transition-colors disabled:opacity-40"
+        >
+          <Printer size={14} /> Relatório PDF
+        </button>
         <button
           onClick={() => setAdding(true)}
           className="flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-2xl text-sm font-medium transition-colors"
