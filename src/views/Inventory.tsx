@@ -752,7 +752,7 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* History panel */}
+      {/* Relatório diário de estoque */}
       <AnimatePresence>
         {showHistory && (
           <motion.div
@@ -763,61 +763,98 @@ export default function Inventory() {
           >
             <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
               <History size={13} />
-              Histórico de Entradas
+              Relatório de Estoque por Dia
             </h2>
-            <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
-              {entries.length === 0 ? (
-                <div className="p-10 text-center text-gray-300 text-sm">Nenhuma entrada registrada ainda</div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs">Data/Hora</th>
-                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs">Produto</th>
-                      <th className="text-center px-4 py-3 text-gray-400 font-medium text-xs">Antes</th>
-                      <th className="text-center px-4 py-3 text-gray-400 font-medium text-xs">Depois</th>
-                      <th className="text-center px-4 py-3 text-gray-400 font-medium text-xs">Tipo</th>
-                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs">Quem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entries.map((e) => {
-                      const diff = e.qty_after - e.qty_before
-                      return (
-                        <tr key={e.id} className="border-t border-gray-100 hover:bg-gray-50">
-                          <td className="px-4 py-2.5 text-gray-400 text-xs font-mono whitespace-nowrap">
-                            {fmtDateTime(e.inserted_at)}
-                          </td>
-                          <td className="px-4 py-2.5 font-medium text-gray-700">{e.menu_item_name}</td>
-                          <td className="px-4 py-2.5 text-center text-gray-500">{e.qty_before}</td>
-                          <td className="px-4 py-2.5 text-center">
-                            <span className={`font-bold ${e.qty_after < 0 ? 'text-red-600' : diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-500' : 'text-gray-500'}`}>
-                              {e.qty_after}
-                              {diff !== 0 && (
-                                <span className="ml-1 text-xs font-normal opacity-70">
-                                  ({diff > 0 ? '+' : ''}{diff})
-                                </span>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-center">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              e.type === 'entry'  ? 'bg-green-100 text-green-600' :
-                              e.type === 'reset'  ? 'bg-blue-100 text-blue-600' :
-                              e.type === 'set'    ? 'bg-purple-100 text-purple-600' :
-                                                    'bg-gray-100 text-gray-500'
-                            }`}>
-                              {TYPE_LABEL[e.type]}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-gray-500 text-xs">{e.inserted_by}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
+
+            {entries.length === 0 ? (
+              <div className="bg-white rounded-3xl p-10 text-center text-gray-300 text-sm shadow-sm">
+                Nenhuma movimentação registrada ainda
+              </div>
+            ) : (() => {
+              // Agrupar por dia (dd/mm/aaaa)
+              const dayLabel = (d: Date) =>
+                d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+              const dayKey = (d: Date) => d.toLocaleDateString('pt-BR')
+
+              const groups: { key: string; label: string; entries: StockEntry[] }[] = []
+              for (const e of entries) {
+                const k = dayKey(e.inserted_at)
+                const existing = groups.find((g) => g.key === k)
+                if (existing) existing.entries.push(e)
+                else groups.push({ key: k, label: dayLabel(e.inserted_at), entries: [e] })
+              }
+
+              return (
+                <div className="space-y-4">
+                  {groups.map(({ key, label, entries: dayEntries }) => {
+                    const users = [...new Set(dayEntries.map((e) => e.inserted_by))].join(', ')
+                    return (
+                      <div key={key} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                        {/* Day header */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+                          <div>
+                            <p className="font-bold text-sm text-gray-800 capitalize">{label}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {dayEntries.length} movimento(s) · por{' '}
+                              <span className="font-semibold text-gray-600">{users}</span>
+                            </p>
+                          </div>
+                          <span className="text-xs text-gray-300 font-mono">{key}</span>
+                        </div>
+
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-50">
+                              <th className="text-left px-4 py-2 text-gray-400 font-medium text-xs">Hora</th>
+                              <th className="text-left px-4 py-2 text-gray-400 font-medium text-xs">Produto</th>
+                              <th className="text-center px-4 py-2 text-gray-400 font-medium text-xs">Antes</th>
+                              <th className="text-center px-4 py-2 text-gray-400 font-medium text-xs">Depois</th>
+                              <th className="text-center px-4 py-2 text-gray-400 font-medium text-xs">Tipo</th>
+                              <th className="text-left px-4 py-2 text-gray-400 font-medium text-xs">Quem</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dayEntries.map((e) => {
+                              const diff = e.qty_after - e.qty_before
+                              const hour = e.inserted_at.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                              return (
+                                <tr key={e.id} className="border-t border-gray-50 hover:bg-gray-50">
+                                  <td className="px-4 py-2.5 text-gray-400 text-xs font-mono">{hour}</td>
+                                  <td className="px-4 py-2.5 font-medium text-gray-700">{e.menu_item_name}</td>
+                                  <td className="px-4 py-2.5 text-center text-gray-400">{e.qty_before}</td>
+                                  <td className="px-4 py-2.5 text-center">
+                                    <span className={`font-bold ${e.qty_after < 0 ? 'text-red-600' : diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                                      {e.qty_after}
+                                      {diff !== 0 && (
+                                        <span className="ml-1 text-xs font-normal opacity-60">
+                                          ({diff > 0 ? '+' : ''}{diff})
+                                        </span>
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-center">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                      e.type === 'entry' ? 'bg-green-100 text-green-700' :
+                                      e.type === 'open'  ? 'bg-accent/10 text-accent-dark' :
+                                      e.type === 'reset' ? 'bg-blue-100 text-blue-600' :
+                                      e.type === 'set'   ? 'bg-purple-100 text-purple-600' :
+                                                           'bg-gray-100 text-gray-500'
+                                    }`}>
+                                      {TYPE_LABEL[e.type]}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-xs text-gray-500 font-medium">{e.inserted_by}</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </motion.div>
         )}
       </AnimatePresence>

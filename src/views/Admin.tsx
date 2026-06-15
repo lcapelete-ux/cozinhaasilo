@@ -7,6 +7,7 @@ import {
   subscribeUsers, addUser, updateUser, deleteUser,
   subscribeMenuItems, addMenuItem, updateMenuItem, deleteMenuItem,
   clearAllOrders, subscribeAllOrders,
+  clearAllStockEntries, subscribeStockEntries,
   subscribeStorageConfig, setStorageConfig, type SupabaseStorageConfig,
 } from '../services/firebaseService'
 import { useApp } from '../App'
@@ -491,8 +492,17 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
   const [confirming, setConfirming] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const [stockEntryCount, setStockEntryCount] = useState<number | null>(null)
+  const [confirmingStock, setConfirmingStock] = useState(false)
+  const [loadingStock, setLoadingStock] = useState(false)
+
   useEffect(() => {
     const unsub = subscribeAllOrders((orders) => setOrderCount(orders.length))
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const unsub = subscribeStockEntries((entries) => setStockEntryCount(entries.length))
     return unsub
   }, [])
 
@@ -506,6 +516,19 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
       addToast('Erro ao zerar histórico.', 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleClearStock = async () => {
+    setLoadingStock(true)
+    try {
+      const deleted = await clearAllStockEntries()
+      addToast(`${deleted} registro${deleted !== 1 ? 's' : ''} de estoque removido${deleted !== 1 ? 's' : ''}.`, 'success')
+      setConfirmingStock(false)
+    } catch {
+      addToast('Erro ao zerar histórico de estoque.', 'error')
+    } finally {
+      setLoadingStock(false)
     }
   }
 
@@ -578,6 +601,71 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
                     <button
                       onClick={() => setConfirming(false)}
                       disabled={loading}
+                      className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-red-100">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center shrink-0 mt-0.5">
+            <Trash2 size={18} className="text-red-500" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-800 mb-1">Zerar histórico de estoque</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Remove permanentemente todos os lançamentos do relatório de estoque.
+              Use ao final de cada evento para começar do zero na próxima edição.
+              {stockEntryCount !== null && (
+                <span className="ml-1 font-semibold text-gray-700">
+                  Atualmente há <span className="text-red-600">{stockEntryCount}</span> registro{stockEntryCount !== 1 ? 's' : ''}.
+                </span>
+              )}
+            </p>
+
+            <AnimatePresence mode="wait">
+              {!confirmingStock ? (
+                <motion.button
+                  key="btn-stock"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setConfirmingStock(true)}
+                  className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition-colors"
+                >
+                  <Trash2 size={15} />
+                  Zerar histórico de estoque
+                </motion.button>
+              ) : (
+                <motion.div
+                  key="confirm-stock"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="bg-red-50 border border-red-200 rounded-2xl p-4"
+                >
+                  <div className="flex items-center gap-2 text-red-700 font-bold text-sm mb-3">
+                    <AlertTriangle size={16} />
+                    Esta ação não pode ser desfeita. Confirma?
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleClearStock}
+                      disabled={loadingStock}
+                      className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+                    >
+                      {loadingStock ? 'Zerando…' : 'Sim, zerar tudo'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmingStock(false)}
+                      disabled={loadingStock}
                       className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-medium transition-colors"
                     >
                       Cancelar

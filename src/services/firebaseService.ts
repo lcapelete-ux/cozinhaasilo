@@ -541,3 +541,18 @@ export async function clearAllOrders(): Promise<number> {
   }
   return deleted
 }
+
+export async function clearAllStockEntries(): Promise<number> {
+  if (!_db) return 0
+  const snap = await getDocs(collection(_db, 'stock_entries'))
+  if (snap.empty) return 0
+  let deleted = 0
+  const docs = snap.docs
+  for (let i = 0; i < docs.length; i += 500) {
+    const batch = writeBatch(_db)
+    docs.slice(i, i + 500).forEach((d) => batch.delete(d.ref))
+    await batch.commit()
+    deleted += docs.slice(i, i + 500).length
+  }
+  return deleted
+}
