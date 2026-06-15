@@ -398,6 +398,25 @@ export async function setStorageConfig(cfg: SupabaseStorageConfig): Promise<void
   await setDoc(doc(_db, 'config', 'storage'), cfg)
 }
 
+// ── Branding (logo do painel externo) ─────────────────────────────────────────
+
+export interface BrandingConfig {
+  logo_url: string   // URL do logo; vazio = usa o emoji 🔥 padrão
+}
+
+export function subscribeBrandingConfig(callback: (cfg: BrandingConfig | null) => void) {
+  if (!_db) return () => {}
+  return onSnapshot(doc(_db, 'config', 'branding'), (snap) => {
+    if (!snap.exists()) { callback(null); return }
+    callback(snap.data() as BrandingConfig)
+  })
+}
+
+export async function setBrandingConfig(cfg: BrandingConfig): Promise<void> {
+  if (!_db) return
+  await setDoc(doc(_db, 'config', 'branding'), cfg)
+}
+
 // ── File Upload (Supabase Storage) ────────────────────────────────────────────
 
 export function uploadMediaFile(

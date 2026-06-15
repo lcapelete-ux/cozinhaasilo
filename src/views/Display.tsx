@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
-import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession, subscribeBrandingConfig } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
 import type { Order, MediaSlide, MenuItem } from '../types'
 
@@ -242,6 +242,13 @@ export default function Display() {
     return unsub
   }, [])
 
+  const [logoUrl, setLogoUrl] = useState('')
+
+  useEffect(() => {
+    const unsub = subscribeBrandingConfig((cfg) => setLogoUrl(cfg?.logo_url ?? ''))
+    return unsub
+  }, [])
+
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyOrdersRef = useRef<Order[]>([])
@@ -440,10 +447,16 @@ export default function Display() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4" style={{ background: '#1a1a1a' }}>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl"
-            style={{ background: 'linear-gradient(135deg, #FF6B00, #FF2200)' }}>
-            🔥
-          </div>
+          {logoUrl ? (
+            <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center bg-black/20">
+              <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl"
+              style={{ background: 'linear-gradient(135deg, #FF6B00, #FF2200)' }}>
+              🔥
+            </div>
+          )}
           <div>
             <h1 className="font-black text-3xl md:text-4xl uppercase italic tracking-wide"
               style={{ color: '#FFD700', textShadow: '0 0 20px rgba(255,200,0,0.5)' }}>

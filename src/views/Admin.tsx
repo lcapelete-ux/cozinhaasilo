@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ShoppingBag, ChefHat, Scan, LayoutGrid, Package, Clock, Boxes, QrCode, BarChart3, Film, type LucideIcon } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ShoppingBag, ChefHat, Scan, LayoutGrid, Package, Clock, Boxes, QrCode, BarChart3, Film, Image, Upload, type LucideIcon } from 'lucide-react'
 import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY, DISPLAY_ORIENTATION_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -9,6 +9,7 @@ import {
   clearAllOrders, subscribeAllOrders,
   clearAllStockEntries, subscribeStockEntries,
   subscribeStorageConfig, setStorageConfig, type SupabaseStorageConfig,
+  subscribeBrandingConfig, setBrandingConfig, uploadMediaFile,
 } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { User, MenuItem } from '../types'
@@ -487,6 +488,102 @@ function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: '
   )
 }
 
+function LogoSection({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
+  const [logoUrl, setLogoUrl] = useState('')
+  const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null>(null)
+  const [uploadPct, setUploadPct] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => subscribeBrandingConfig((cfg) => setLogoUrl(cfg?.logo_url ?? '')), [])
+  useEffect(() => subscribeStorageConfig((cfg) => setStorageCfg(cfg)), [])
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) { addToast('Selecione uma imagem'); return }
+    if (!storageCfg?.url || !storageCfg?.anon_key) {
+      addToast('Configure o Supabase Storage abaixo antes de subir o logo')
+      return
+    }
+    setUploadPct(0)
+    try {
+      const url = await uploadMediaFile(file, storageCfg, setUploadPct)
+      await setBrandingConfig({ logo_url: url })
+      addToast('Logo atualizado!', 'success')
+      setUploadPct(null)
+    } catch (err) {
+      console.error(err)
+      const detail = err instanceof Error ? err.message : ''
+      addToast(`Erro no upload${detail ? ` — ${detail}` : ''}`)
+      setUploadPct(null)
+    }
+  }
+
+  const handleRemove = async () => {
+    setSaving(true)
+    try {
+      await setBrandingConfig({ logo_url: '' })
+      addToast('Logo removido — voltou para o 🔥 padrão', 'success')
+    } catch { addToast('Erro ao remover logo') }
+    finally { setSaving(false) }
+  }
+
+  const uploading = uploadPct !== null
+
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center gap-3 mb-1">
+        <Image size={18} className="text-accent" />
+        <h3 className="font-bold text-gray-800">Logo do Painel Externo</h3>
+      </div>
+      <p className="text-sm text-gray-400 mb-4">
+        Substitui o 🔥 no canto do painel externo. Se nenhum logo for enviado, o 🔥 continua sendo usado.
+      </p>
+
+      <div className="flex items-center gap-5">
+        {/* Preview */}
+        <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center"
+          style={{ background: logoUrl ? '#1a1a1a' : 'linear-gradient(135deg, #FF6B00, #FF2200)' }}>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+          ) : (
+            <span className="text-4xl">🔥</span>
+          )}
+        </div>
+
+        <div className="flex-1">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1.5 bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+            >
+              <Upload size={14} />
+              {uploading ? `Enviando… ${Math.round(uploadPct ?? 0)}%` : logoUrl ? 'Trocar logo' : 'Subir logo'}
+            </button>
+            {logoUrl && !uploading && (
+              <button
+                onClick={handleRemove}
+                disabled={saving}
+                className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+              >
+                <X size={14} /> Usar 🔥 padrão
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">PNG, JPG, SVG, WEBP — de preferência fundo transparente</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [orderCount, setOrderCount] = useState<number | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -534,6 +631,9 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
 
   return (
     <div className="space-y-4">
+      {/* Logo do painel externo */}
+      <LogoSection addToast={addToast} />
+
       {/* Supabase Storage */}
       <SupabaseStorageSection addToast={addToast} />
 
