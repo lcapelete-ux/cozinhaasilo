@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, type LucideIcon } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ShoppingBag, ChefHat, Scan, LayoutGrid, Package, Clock, Boxes, QrCode, BarChart3, Film, type LucideIcon } from 'lucide-react'
 import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY, DISPLAY_ORIENTATION_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -14,7 +14,53 @@ import type { User, MenuItem } from '../types'
 
 type Tab = 'users' | 'menu' | 'fichas' | 'dados'
 
-const ALL_VIEWS = 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,admin'
+const ALL_VIEWS = 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin'
+
+const VIEW_META: { view: string; label: string; icon: LucideIcon }[] = [
+  { view: 'reception',       label: 'Recepção',  icon: ShoppingBag },
+  { view: 'kitchen',         label: 'Cozinha',   icon: ChefHat },
+  { view: 'kitchen-scanner', label: 'Bip',       icon: Scan },
+  { view: 'kitchen-sectors', label: 'Setores',   icon: LayoutGrid },
+  { view: 'display',         label: 'Painel',    icon: Tv2 },
+  { view: 'dispatch',        label: 'Entrega',   icon: Package },
+  { view: 'history',         label: 'Histórico', icon: Clock },
+  { view: 'inventory',       label: 'Estoque',   icon: Boxes },
+  { view: 'extra-fichas',    label: 'QR Extra',  icon: QrCode },
+  { view: 'admin-dashboard', label: 'Dashboard', icon: BarChart3 },
+  { view: 'media-slides',    label: 'Mídia',     icon: Film },
+  { view: 'admin',           label: 'Config',    icon: Settings },
+]
+
+function ViewsToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const active = new Set(value.split(',').map((v) => v.trim()).filter(Boolean))
+  const toggle = (view: string) => {
+    const next = new Set(active)
+    if (next.has(view)) next.delete(view)
+    else next.add(view)
+    onChange(VIEW_META.filter((m) => next.has(m.view)).map((m) => m.view).join(','))
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {VIEW_META.map(({ view, label, icon: Icon }) => {
+        const on = active.has(view)
+        return (
+          <button
+            key={view}
+            type="button"
+            title={label}
+            onClick={() => toggle(view)}
+            className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-xl border-2 transition-colors ${
+              on ? 'bg-accent border-accent text-white' : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-accent/50 hover:text-accent/70'
+            }`}
+          >
+            <Icon size={18} />
+            <span className="text-[9px] leading-none font-semibold">{label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function Admin() {
   const { addToast } = useApp()
@@ -553,7 +599,7 @@ function UsersTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
   const [users, setUsers] = useState<User[]>([])
   const [adding, setAdding] = useState(false)
   const [showPwd, setShowPwd] = useState<Record<string, boolean>>({})
-  const [form, setForm] = useState({ name: '', password: '', role: 'staff', allowed_views: '' })
+  const [form, setForm] = useState({ name: '', password: '', role: 'staff', allowed_views: ALL_VIEWS })
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ name: '', password: '', role: '', allowed_views: '' })
 
@@ -569,7 +615,7 @@ function UsersTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
     }
     try {
       await addUser({ ...form, allowed_views: form.allowed_views || ALL_VIEWS })
-      setForm({ name: '', password: '', role: 'staff', allowed_views: '' })
+      setForm({ name: '', password: '', role: 'staff', allowed_views: ALL_VIEWS })
       setAdding(false)
       addToast('Usuário criado!', 'success')
     } catch {
@@ -598,124 +644,153 @@ function UsersTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
   }
 
   return (
-    <div>
-      <div className="flex justify-end mb-3">
+    <div className="space-y-3">
+      <div className="flex justify-end">
         <button
-          onClick={() => setAdding(true)}
+          onClick={() => { setAdding(true); setEditId(null) }}
           className="flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-2xl text-sm font-medium transition-colors"
         >
           <Plus size={14} /> Novo usuário
         </button>
       </div>
 
+      {/* Add form */}
       <AnimatePresence>
         {adding && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-white rounded-3xl p-4 shadow-sm mb-4 overflow-hidden"
+            className="overflow-hidden"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <input type="text" placeholder="Nome" value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
-              <input type="text" placeholder="Senha" value={form.password}
-                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
-              <input type="text" placeholder="Função (admin, kitchen, staff...)" value={form.role}
-                onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
-                className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
-              <input type="text" placeholder="Views permitidas (sep. vírgula)" value={form.allowed_views}
-                onChange={(e) => setForm((p) => ({ ...p, allowed_views: e.target.value }))}
-                className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
-            </div>
-            <p className="text-xs text-gray-400 mb-3">
-              Views disponíveis: reception, kitchen, kitchen-scanner, kitchen-sectors, display, dispatch, history, inventory, extra-fichas, admin-dashboard, admin
-            </p>
-            <div className="flex gap-2">
-              <button onClick={handleAdd} className="flex items-center gap-1.5 bg-accent text-white px-4 py-2 rounded-xl text-sm">
-                <Check size={14} /> Salvar
-              </button>
-              <button onClick={() => setAdding(false)} className="flex items-center gap-1.5 bg-gray-100 text-gray-600 px-4 py-2 rounded-xl text-sm">
-                <X size={14} /> Cancelar
-              </button>
+            <div className="bg-white rounded-3xl p-5 shadow-sm">
+              <h3 className="font-semibold text-gray-800 mb-4">Novo usuário</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <input type="text" placeholder="Nome" value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
+                <input type="text" placeholder="Senha" value={form.password}
+                  onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                  className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
+                <input type="text" placeholder="Função (admin, kitchen, staff…)" value={form.role}
+                  onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
+                  className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
+              </div>
+              <p className="text-xs text-gray-500 font-medium mb-2">Telas com acesso</p>
+              <ViewsToggle value={form.allowed_views} onChange={(v) => setForm((p) => ({ ...p, allowed_views: v }))} />
+              <div className="flex gap-2 mt-4">
+                <button onClick={handleAdd} className="flex items-center gap-1.5 bg-accent text-white px-4 py-2 rounded-xl text-sm">
+                  <Check size={14} /> Salvar
+                </button>
+                <button onClick={() => setAdding(false)} className="flex items-center gap-1.5 bg-gray-100 text-gray-600 px-4 py-2 rounded-xl text-sm">
+                  <X size={14} /> Cancelar
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Nome</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Senha</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Função</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Views</th>
-              <th className="text-right px-4 py-3 text-gray-500 font-medium">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="border-t border-gray-100">
-                {editId === user.id ? (
-                  <>
-                    <td className="px-4 py-2">
+      {/* User cards */}
+      {users.map((user) => {
+        const activeViews = new Set(user.allowed_views.split(',').map((v) => v.trim()).filter(Boolean))
+        return (
+          <div key={user.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            {/* Card header */}
+            <div className="flex items-center gap-3 p-4">
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                <Users size={18} className="text-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-800">{user.name}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="bg-accent/10 text-accent-dark text-xs px-2 py-0.5 rounded-lg">{user.role}</span>
+                  <span className="text-gray-400 font-mono text-xs flex items-center gap-1">
+                    {showPwd[user.id] ? user.password : '••••••'}
+                    <button onClick={() => setShowPwd((p) => ({ ...p, [user.id]: !p[user.id] }))} className="text-gray-300 hover:text-gray-500">
+                      {showPwd[user.id] ? <EyeOff size={11} /> : <Eye size={11} />}
+                    </button>
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => {
+                    if (editId === user.id) { setEditId(null); return }
+                    setAdding(false)
+                    setEditId(user.id)
+                    setEditForm({ name: user.name, password: user.password, role: user.role, allowed_views: user.allowed_views })
+                  }}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${editId === user.id ? 'bg-accent/10 text-accent' : 'bg-gray-100 hover:bg-gray-200 text-gray-500'}`}
+                >
+                  <Edit2 size={13} />
+                </button>
+                <button onClick={() => handleDelete(user.id)}
+                  className="w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+
+            {/* Views icons (read-only display) */}
+            {editId !== user.id && (
+              <div className="px-4 pb-4 flex flex-wrap gap-2">
+                {VIEW_META.map(({ view, label, icon: Icon }) => (
+                  <div
+                    key={view}
+                    className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-xl border-2 transition-colors ${
+                      activeViews.has(view)
+                        ? 'bg-accent border-accent text-white'
+                        : 'bg-gray-50 border-gray-100 text-gray-200'
+                    }`}
+                  >
+                    <Icon size={18} />
+                    <span className="text-[9px] leading-none font-semibold">{label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Edit panel */}
+            <AnimatePresence>
+              {editId === user.id && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4 pt-1 border-t border-gray-100 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
-                        className="w-full px-2 py-1 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-accent" />
-                    </td>
-                    <td className="px-4 py-2">
+                        placeholder="Nome"
+                        className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
                       <input value={editForm.password} onChange={(e) => setEditForm((p) => ({ ...p, password: e.target.value }))}
-                        className="w-full px-2 py-1 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-accent" />
-                    </td>
-                    <td className="px-4 py-2">
+                        placeholder="Senha"
+                        className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
                       <input value={editForm.role} onChange={(e) => setEditForm((p) => ({ ...p, role: e.target.value }))}
-                        className="w-full px-2 py-1 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-accent" />
-                    </td>
-                    <td className="px-4 py-2" colSpan={2}>
-                      <div className="flex gap-2">
-                        <input value={editForm.allowed_views} onChange={(e) => setEditForm((p) => ({ ...p, allowed_views: e.target.value }))}
-                          className="flex-1 px-2 py-1 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-accent" />
-                        <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-700"><Check size={14} /></button>
-                        <button onClick={() => setEditId(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
-                      </div>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="px-4 py-3 font-medium text-gray-800">{user.name}</td>
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">
-                      <div className="flex items-center gap-1">
-                        {showPwd[user.id] ? user.password : '••••••'}
-                        <button onClick={() => setShowPwd((p) => ({ ...p, [user.id]: !p[user.id] }))} className="text-gray-300 hover:text-gray-500">
-                          {showPwd[user.id] ? <EyeOff size={12} /> : <Eye size={12} />}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="bg-accent/10 text-accent-dark text-xs px-2 py-0.5 rounded-lg">{user.role}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 max-w-[180px] truncate">{user.allowed_views}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditId(user.id); setEditForm({ name: user.name, password: user.password, role: user.role, allowed_views: user.allowed_views }) }}
-                          className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center">
-                          <Edit2 size={12} />
-                        </button>
-                        <button onClick={() => handleDelete(user.id)}
-                          className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center">
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                        placeholder="Função"
+                        className="px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-accent text-sm" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium mb-2">Telas com acesso</p>
+                      <ViewsToggle value={editForm.allowed_views} onChange={(v) => setEditForm((p) => ({ ...p, allowed_views: v }))} />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveEdit} className="flex items-center gap-1.5 bg-accent text-white px-4 py-2 rounded-xl text-sm">
+                        <Check size={14} /> Salvar
+                      </button>
+                      <button onClick={() => setEditId(null)} className="flex items-center gap-1.5 bg-gray-100 text-gray-600 px-4 py-2 rounded-xl text-sm">
+                        <X size={14} /> Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )
+      })}
     </div>
   )
 }
