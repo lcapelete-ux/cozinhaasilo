@@ -175,7 +175,7 @@ function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
 
 // ── Vilhinho ─────────────────────────────────────────────────────────────────
 function VilhinhoWalker({ imgUrl, animated, type, chroma }: { imgUrl?: string; animated?: boolean; type?: 'image' | 'video'; chroma?: boolean }) {
-  const SIZE = 130
+  const SIZE = 200
   const isVideo = type === 'video'
   // Vídeo e GIF animado: personagem só caminha + leve balanço (a mídia faz a dança).
   // Imagem estática PNG: dança CSS completa (pulo + ginga + saltito).
