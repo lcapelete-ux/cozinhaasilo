@@ -126,14 +126,16 @@ function dedup(orders: Order[]): Order[] {
 // Anima um personagem (imagem enviada no Config, ou o emoji 👴 como fallback)
 // caminhando de uma ponta a outra da tela enquanto "dança": pula, gira e
 // saltita. Toda a animação é feita em CSS sobre uma única figura.
-function VilhinhoWalker({ imgUrl, animated }: { imgUrl?: string; animated?: boolean }) {
+function VilhinhoWalker({ imgUrl, animated, type }: { imgUrl?: string; animated?: boolean; type?: 'image' | 'video' }) {
   const SIZE = 130
-  // Imagem já animada (GIF/WebP): só caminha + leve balanço, deixando os
-  // quadros do próprio arquivo fazerem a dança. Imagem estática: dança CSS completa.
-  const danceCss = animated
+  const isVideo = type === 'video'
+  // Vídeo e GIF animado: personagem só caminha + leve balanço (a mídia faz a dança).
+  // Imagem estática PNG: dança CSS completa (pulo + ginga + saltito).
+  const passiveOnly = isVideo || animated
+  const danceCss = passiveOnly
     ? `@keyframes vilhinho-dance {
          0%, 100% { transform: translateY(0px) rotate(-2deg); }
-         50%       { transform: translateY(-8px) rotate(2deg); }
+         50%       { transform: translateY(-6px) rotate(2deg); }
        }`
     : `@keyframes vilhinho-dance {
          0%, 100% { transform: translateY(0px)   rotate(-8deg) scaleY(1); }
@@ -141,7 +143,8 @@ function VilhinhoWalker({ imgUrl, animated }: { imgUrl?: string; animated?: bool
          50%       { transform: translateY(0px)   rotate(8deg)  scaleY(1); }
          75%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
        }`
-  const danceDur = animated ? '1.2s' : '0.5s'
+  const danceDur = passiveOnly ? '1.4s' : '0.5s'
+
   return (
     <>
       <style>{`
@@ -155,13 +158,7 @@ function VilhinhoWalker({ imgUrl, animated }: { imgUrl?: string; animated?: bool
         className="pointer-events-none"
         style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: SIZE + 40, zIndex: 15 }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            animation: 'vilhinho-walk 18s linear infinite',
-          }}
-        >
+        <div style={{ position: 'absolute', bottom: 0, animation: 'vilhinho-walk 18s linear infinite' }}>
           <div
             style={{
               animation: `vilhinho-dance ${danceDur} ease-in-out infinite`,
@@ -170,7 +167,14 @@ function VilhinhoWalker({ imgUrl, animated }: { imgUrl?: string; animated?: bool
               userSelect: 'none',
             }}
           >
-            {imgUrl ? (
+            {isVideo && imgUrl ? (
+              <video
+                key={imgUrl}
+                src={imgUrl}
+                autoPlay muted loop playsInline
+                style={{ height: SIZE, width: 'auto', display: 'block', objectFit: 'contain', background: 'transparent' }}
+              />
+            ) : imgUrl ? (
               <img
                 src={imgUrl}
                 alt="Vilhinho"
@@ -311,6 +315,7 @@ export default function Display() {
   const [vilhinhoEnabled, setVilhinhoEnabled] = useState(false)
   const [vilhinhoUrl, setVilhinhoUrl] = useState('')
   const [vilhinhoAnimated, setVilhinhoAnimated] = useState(false)
+  const [vilhinhoType, setVilhinhoType] = useState<'image' | 'video'>('image')
 
   useEffect(() => {
     const unsub = subscribeBrandingConfig((cfg) => {
@@ -318,6 +323,7 @@ export default function Display() {
       setVilhinhoEnabled(cfg?.vilhinho_enabled ?? false)
       setVilhinhoUrl(cfg?.vilhinho_url ?? '')
       setVilhinhoAnimated(cfg?.vilhinho_animated ?? false)
+      setVilhinhoType(cfg?.vilhinho_type ?? 'image')
     })
     return unsub
   }, [])
@@ -737,7 +743,7 @@ export default function Display() {
         <AnimatePresence>
           {vilhinhoEnabled && (
             <motion.div key="vilhinho" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none z-20">
-              <VilhinhoWalker imgUrl={vilhinhoUrl} animated={vilhinhoAnimated} />
+              <VilhinhoWalker imgUrl={vilhinhoUrl} animated={vilhinhoAnimated} type={vilhinhoType} />
             </motion.div>
           )}
         </AnimatePresence>

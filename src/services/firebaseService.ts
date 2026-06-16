@@ -404,7 +404,8 @@ export interface BrandingConfig {
   logo_url?: string
   vilhinho_enabled?: boolean
   vilhinho_url?: string
-  vilhinho_animated?: boolean   // true = imagem já é GIF/WebP animado; só caminha (sem dança CSS)
+  vilhinho_animated?: boolean   // true = GIF/WebP já animado; só caminha (sem dança CSS)
+  vilhinho_type?: 'image' | 'video'   // 'video' → usa <video> com loop; suporta WebM com alfa
 }
 
 export function subscribeBrandingConfig(callback: (cfg: BrandingConfig | null) => void) {

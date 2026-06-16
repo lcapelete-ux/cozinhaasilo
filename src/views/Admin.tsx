@@ -492,6 +492,7 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
   const [enabled, setEnabled] = useState(false)
   const [vilhinhoUrl, setVilhinhoUrl] = useState('')
   const [animated, setAnimated] = useState(false)
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
   const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null>(null)
   const [uploadPct, setUploadPct] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -501,6 +502,7 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
     setEnabled(cfg?.vilhinho_enabled ?? false)
     setVilhinhoUrl(cfg?.vilhinho_url ?? '')
     setAnimated(cfg?.vilhinho_animated ?? false)
+    setMediaType(cfg?.vilhinho_type ?? 'image')
   }), [])
   useEffect(() => subscribeStorageConfig((cfg) => setStorageCfg(cfg)), [])
 
@@ -527,19 +529,26 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
   }
 
   const handleFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) { addToast('Selecione uma imagem (de preferência PNG com fundo transparente)'); return }
+    const isVideo = file.type.startsWith('video/')
+    const isImage = file.type.startsWith('image/')
+    if (!isVideo && !isImage) {
+      addToast('Selecione uma imagem (PNG/GIF/WebP) ou vídeo (WebM/MP4)')
+      return
+    }
     if (!storageCfg?.url || !storageCfg?.anon_key) {
-      addToast('Configure o Supabase Storage abaixo antes de subir a imagem')
+      addToast('Configure o Supabase Storage abaixo antes de subir o arquivo')
       return
     }
     setUploadPct(0)
     try {
       const url = await uploadMediaFile(file, storageCfg, setUploadPct)
-      // GIF/WebP normalmente já é animado — liga o modo "só caminhar" automaticamente
-      const isAnimated = /gif|webp/.test(file.type)
-      await setBrandingConfig({ vilhinho_url: url, vilhinho_animated: isAnimated })
-      if (isAnimated) setAnimated(true)
-      addToast('Imagem do vilhinho atualizada!', 'success')
+      // Vídeo e GIF/WebP já são animados → desliga dança CSS automática
+      const isAlreadyAnimated = isVideo || /gif|webp/.test(file.type)
+      const type: 'image' | 'video' = isVideo ? 'video' : 'image'
+      await setBrandingConfig({ vilhinho_url: url, vilhinho_type: type, vilhinho_animated: isAlreadyAnimated })
+      if (isAlreadyAnimated) setAnimated(true)
+      setMediaType(type)
+      addToast(isVideo ? 'Vídeo do vilhinho atualizado! 🎬' : 'Imagem do vilhinho atualizada!', 'success')
       setUploadPct(null)
     } catch (err) {
       console.error(err)
@@ -551,9 +560,9 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
 
   const handleRemoveImage = async () => {
     try {
-      await setBrandingConfig({ vilhinho_url: '' })
-      addToast('Imagem removida — voltou para o 👴 padrão', 'success')
-    } catch { addToast('Erro ao remover imagem') }
+      await setBrandingConfig({ vilhinho_url: '', vilhinho_type: 'image', vilhinho_animated: false })
+      addToast('Arquivo removido — voltou para o 👴 padrão', 'success')
+    } catch { addToast('Erro ao remover') }
   }
 
   const uploading = uploadPct !== null
@@ -562,7 +571,11 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
     <div className="bg-white rounded-3xl p-6 shadow-sm">
       <div className="flex items-center gap-4 mb-4">
         <div className="w-12 h-12 rounded-2xl bg-amber-50 overflow-hidden flex items-center justify-center text-3xl shrink-0 select-none">
-          {vilhinhoUrl ? <img src={vilhinhoUrl} alt="Vilhinho" className="w-full h-full object-contain" /> : '👴'}
+          {vilhinhoUrl && mediaType === 'video'
+            ? <video src={vilhinhoUrl} muted loop autoPlay playsInline className="w-full h-full object-contain" />
+            : vilhinhoUrl
+            ? <img src={vilhinhoUrl} alt="Vilhinho" className="w-full h-full object-contain" />
+            : '👴'}
         </div>
         <div className="flex-1">
           <h3 className="font-bold text-gray-800">Vilhinho dançando no painel</h3>
@@ -581,10 +594,11 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png,image/gif,image/webp,image/jpeg,video/webm,video/mp4"
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
       />
+
       <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -592,7 +606,11 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
           className="flex items-center gap-1.5 bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-xl text-sm disabled:opacity-50"
         >
           <Upload size={14} />
-          {uploading ? `Enviando… ${Math.round(uploadPct ?? 0)}%` : vilhinhoUrl ? 'Trocar imagem' : 'Subir imagem do vilhinho'}
+          {uploading
+            ? `Enviando… ${Math.round(uploadPct ?? 0)}%`
+            : vilhinhoUrl
+            ? `Trocar ${mediaType === 'video' ? 'vídeo' : 'imagem'}`
+            : 'Subir imagem ou vídeo'}
         </button>
         {vilhinhoUrl && !uploading && (
           <button
@@ -602,23 +620,33 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
             <X size={14} /> Usar 👴 padrão
           </button>
         )}
-        <p className="text-xs text-gray-400 w-full sm:w-auto sm:ml-2">PNG (estático) ou GIF/WebP animado — fundo transparente fica melhor.</p>
       </div>
 
-      {/* Modo animado: deixa o GIF dançar sozinho */}
-      <div className="flex items-center gap-4 border-t border-gray-100 pt-4 mt-4">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-700">Imagem já é animada (GIF/WebP)</p>
-          <p className="text-xs text-gray-400 mt-0.5">Ligado: o vilhinho só caminha e o próprio GIF faz a dança. Desligado: aplica a dança automática (ideal para imagem estática).</p>
-        </div>
-        <button
-          onClick={toggleAnimated}
-          title={animated ? 'Imagem já animada' : 'Imagem estática'}
-          className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${animated ? 'bg-accent' : 'bg-gray-200'}`}
-        >
-          <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${animated ? 'translate-x-6' : 'translate-x-0.5'}`} />
-        </button>
+      {/* Formatos aceitos */}
+      <div className="mt-3 bg-gray-50 rounded-2xl px-4 py-3 text-xs text-gray-500 space-y-1">
+        <p className="font-semibold text-gray-600 mb-1.5">Formatos aceitos:</p>
+        <p><span className="font-medium text-gray-700">PNG estático</span> — dança CSS automática (pulo + ginga). Melhor com fundo transparente.</p>
+        <p><span className="font-medium text-gray-700">GIF / WebP animado</span> — os quadros do arquivo fazem a dança; o CSS só caminha.</p>
+        <p><span className="font-medium text-gray-700">WebM com alfa</span> — qualidade máxima com fundo transparente. Exporte no CapCut/Runway com canal alfa WebM.</p>
+        <p><span className="font-medium text-gray-700">MP4</span> — sem transparência; fundo preto aparece. Prefira WebM para o painel.</p>
       </div>
+
+      {/* Modo animado: deixa GIF/vídeo dançar sozinho (desliga dança CSS) */}
+      {vilhinhoUrl && mediaType === 'image' && (
+        <div className="flex items-center gap-4 border-t border-gray-100 pt-4 mt-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-700">Imagem já é animada (GIF/WebP)</p>
+            <p className="text-xs text-gray-400 mt-0.5">Ligado: o vilhinho só caminha e o GIF faz a dança. Desligado: dança CSS completa (para PNG estático).</p>
+          </div>
+          <button
+            onClick={toggleAnimated}
+            title={animated ? 'GIF animado' : 'Imagem estática'}
+            className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${animated ? 'bg-accent' : 'bg-gray-200'}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${animated ? 'translate-x-6' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
