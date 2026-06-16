@@ -196,17 +196,13 @@ function VilhinhoWalker({ imgUrl, animated, type, chroma }: { imgUrl?: string; a
   return (
     <>
       <style>{`
-        @keyframes vilhinho-walk {
-          0%   { left: -${SIZE}px; }
-          100% { left: calc(100% + ${SIZE}px); }
-        }
         ${danceCss}
       `}</style>
       <div
         className="pointer-events-none"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: SIZE + 40, zIndex: 15 }}
+        style={{ position: 'absolute', left: 16, bottom: 8, height: SIZE + 40, zIndex: 15 }}
       >
-        <div style={{ position: 'absolute', bottom: 0, animation: 'vilhinho-walk 18s linear infinite' }}>
+        <div style={{ position: 'absolute', left: 0, bottom: 0 }}>
           <div
             style={{
               animation: `vilhinho-dance ${danceDur} ease-in-out infinite`,
