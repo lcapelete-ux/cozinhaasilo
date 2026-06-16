@@ -401,7 +401,8 @@ export async function setStorageConfig(cfg: SupabaseStorageConfig): Promise<void
 // ── Branding (logo do painel externo) ─────────────────────────────────────────
 
 export interface BrandingConfig {
-  logo_url: string   // URL do logo; vazio = usa o emoji 🔥 padrão
+  logo_url?: string
+  vilhinho_enabled?: boolean
 }
 
 export function subscribeBrandingConfig(callback: (cfg: BrandingConfig | null) => void) {
@@ -412,9 +413,9 @@ export function subscribeBrandingConfig(callback: (cfg: BrandingConfig | null) =
   })
 }
 
-export async function setBrandingConfig(cfg: BrandingConfig): Promise<void> {
+export async function setBrandingConfig(cfg: Partial<BrandingConfig>): Promise<void> {
   if (!_db) return
-  await setDoc(doc(_db, 'config', 'branding'), cfg)
+  await setDoc(doc(_db, 'config', 'branding'), cfg, { merge: true })
 }
 
 // ── File Upload (Supabase Storage) ────────────────────────────────────────────

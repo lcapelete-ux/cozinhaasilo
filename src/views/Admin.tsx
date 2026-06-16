@@ -488,6 +488,49 @@ function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: '
   )
 }
 
+function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
+  const [enabled, setEnabled] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => subscribeBrandingConfig((cfg) => setEnabled(cfg?.vilhinho_enabled ?? false)), [])
+
+  const toggle = async () => {
+    setSaving(true)
+    try {
+      const next = !enabled
+      await setBrandingConfig({ vilhinho_enabled: next })
+      setEnabled(next)
+      addToast(next ? 'Vilhinho ativado! 🎉' : 'Vilhinho desativado', 'success')
+    } catch {
+      addToast('Erro ao salvar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-3xl shrink-0 select-none">
+          👴
+        </div>
+        <div className="flex-1">
+          <h3 className="font-bold text-gray-800">Vilhinho dançando no painel</h3>
+          <p className="text-sm text-gray-400 mt-0.5">Animação do vilhinho caminhando e dançando na parte de baixo do painel externo.</p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          title={enabled ? 'Desativar vilhinho' : 'Ativar vilhinho'}
+          className={`relative w-12 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${enabled ? 'bg-accent' : 'bg-gray-200'}`}
+        >
+          <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function LogoSection({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [logoUrl, setLogoUrl] = useState('')
   const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null>(null)
@@ -633,6 +676,9 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
     <div className="space-y-4">
       {/* Logo do painel externo */}
       <LogoSection addToast={addToast} />
+
+      {/* Vilhinho */}
+      <VilhinhoToggle addToast={addToast} />
 
       {/* Supabase Storage */}
       <SupabaseStorageSection addToast={addToast} />

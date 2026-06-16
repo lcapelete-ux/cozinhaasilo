@@ -122,6 +122,46 @@ function dedup(orders: Order[]): Order[] {
   })
 }
 
+// ── Vilhinho ─────────────────────────────────────────────────────────────────
+function VilhinhoWalker() {
+  return (
+    <>
+      <style>{`
+        @keyframes vilhinho-walk {
+          0%   { left: -90px; }
+          100% { left: calc(100% + 90px); }
+        }
+        @keyframes vilhinho-dance {
+          0%, 100% { transform: translateY(0px) rotate(-9deg); }
+          25%       { transform: translateY(-20px) rotate(-2deg); }
+          50%       { transform: translateY(0px) rotate(9deg); }
+          75%       { transform: translateY(-20px) rotate(2deg); }
+        }
+      `}</style>
+      <div
+        className="pointer-events-none"
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 10, height: 90, zIndex: 15 }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            animation: 'vilhinho-walk 20s linear infinite',
+            fontSize: 72,
+            lineHeight: 1,
+            filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.75))',
+            userSelect: 'none',
+          }}
+        >
+          <span style={{ display: 'inline-block', animation: 'vilhinho-dance 0.55s ease-in-out infinite' }}>
+            👴
+          </span>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Slideshow ────────────────────────────────────────────────────────────────
 function extractYoutubeId(url: string): string {
   const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
@@ -243,9 +283,13 @@ export default function Display() {
   }, [])
 
   const [logoUrl, setLogoUrl] = useState('')
+  const [vilhinhoEnabled, setVilhinhoEnabled] = useState(false)
 
   useEffect(() => {
-    const unsub = subscribeBrandingConfig((cfg) => setLogoUrl(cfg?.logo_url ?? ''))
+    const unsub = subscribeBrandingConfig((cfg) => {
+      setLogoUrl(cfg?.logo_url ?? '')
+      setVilhinhoEnabled(cfg?.vilhinho_enabled ?? false)
+    })
     return unsub
   }, [])
 
@@ -656,6 +700,15 @@ export default function Display() {
                 idx={mediaIdx % enabledSlides.length}
                 total={enabledSlides.length}
               />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Vilhinho dançando */}
+        <AnimatePresence>
+          {vilhinhoEnabled && (
+            <motion.div key="vilhinho" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none z-20">
+              <VilhinhoWalker />
             </motion.div>
           )}
         </AnimatePresence>
