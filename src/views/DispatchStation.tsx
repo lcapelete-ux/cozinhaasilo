@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick, Plane } from 'lucide-react'
-import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders } from '../services/firebaseService'
+import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders, subscribeMenuItems, createOrder, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import { isTakeoutTicket } from '../utils/ticket'
-import type { Order, OrderStatus } from '../types'
+import type { Order, OrderStatus, MenuItem } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
 
@@ -280,9 +280,38 @@ export default function DispatchStation() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualRef = useRef<HTMLInputElement>(null)
 
+  // Background order entry (hidden — same as Display panel)
+  const menuItemsRef = useRef<MenuItem[]>([])
+  const bgFichaRef = useRef<string | null>(null)
+  const bgItemsRef = useRef<Order['items']>([])
+  const bgCountdownRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const n = nightMode
 
   useEffect(() => { ordersRef.current = orders }, [orders])
+
+  useEffect(() => {
+    return subscribeMenuItems((items) => { menuItemsRef.current = items })
+  }, [])
+
+  const confirmBgSession = useCallback(async () => {
+    const ficha = bgFichaRef.current
+    const items = bgItemsRef.current
+    bgFichaRef.current = null
+    bgItemsRef.current = []
+    await clearActiveSession()
+    if (!ficha || items.length === 0) return
+    try {
+      await createOrder(ficha, items)
+    } catch (e) {
+      console.error('Dispatch bg-entry failed:', e)
+    }
+  }, [])
+
+  const restartBgCountdown = useCallback(() => {
+    if (bgCountdownRef.current) clearTimeout(bgCountdownRef.current)
+    bgCountdownRef.current = setTimeout(confirmBgSession, 45000)
+  }, [confirmBgSession])
 
   useEffect(() => {
     const unsub = subscribeOrders(['pending', 'preparing', 'ready'], (incoming) => {
@@ -315,7 +344,10 @@ export default function DispatchStation() {
   }, [])
 
   useEffect(() => {
-    return () => { if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current) }
+    return () => {
+      if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current)
+      if (bgCountdownRef.current) clearTimeout(bgCountdownRef.current)
+    }
   }, [])
 
   const toggleNight = () => {
@@ -341,6 +373,25 @@ export default function DispatchStation() {
   const processTicket = useCallback(async (raw: string, isQr: boolean) => {
     if (isQr) flashMode('qr')
     else flashMode('keyboard')
+
+    // Check product code first (4+ digits matching a menu item) — hidden, no feedback
+    const digits = raw.trim().replace(/\D/g, '')
+    const first4 = digits.substring(0, 4)
+    if (digits.length >= 4) {
+      const matched = menuItemsRef.current.find((m) => m.code && first4 === m.code)
+      if (matched) {
+        if (bgFichaRef.current) {
+          const existing = bgItemsRef.current.find((i) => i.name === matched.name)
+          if (existing) existing.quantity += 1
+          else bgItemsRef.current.push({ name: matched.name, quantity: 1, sector: matched.sector, price: matched.price, completed: false })
+          setActiveSession({ ficha: bgFichaRef.current, items: bgItemsRef.current.map((i) => ({ name: i.name, quantity: i.quantity, sector: i.sector })) })
+          restartBgCountdown()
+        }
+        return
+      }
+    }
+
+    // Ficha logic
     try {
       const ticket = await resolveFicha(raw)
       setLastScanned(ticket)
@@ -370,7 +421,16 @@ export default function DispatchStation() {
       }
 
       const order = await getActiveOrderByTicket(ticket)
-      if (!order) { addToast(`Ficha #${ticket} não encontrada ou já entregue`); return }
+      if (!order) {
+        // No active order → start a background session for this ficha
+        if (bgCountdownRef.current) clearTimeout(bgCountdownRef.current)
+        await confirmBgSession()
+        bgFichaRef.current = ticket
+        bgItemsRef.current = []
+        setActiveSession({ ficha: ticket, items: [] })
+        restartBgCountdown()
+        return
+      }
       let nextStatus: OrderStatus | null = null
       if (order.status === 'pending' || order.status === 'preparing') nextStatus = 'ready'
       else if (order.status === 'ready') nextStatus = 'delivered'
@@ -386,7 +446,7 @@ export default function DispatchStation() {
     } catch {
       addToast('Erro ao processar ficha')
     }
-  }, [flashMode, addToast])
+  }, [flashMode, addToast, confirmBgSession, restartBgCountdown])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
