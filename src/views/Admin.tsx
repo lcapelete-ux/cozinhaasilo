@@ -490,9 +490,17 @@ function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: '
 
 function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [enabled, setEnabled] = useState(false)
+  const [vilhinhoUrl, setVilhinhoUrl] = useState('')
+  const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null>(null)
+  const [uploadPct, setUploadPct] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => subscribeBrandingConfig((cfg) => setEnabled(cfg?.vilhinho_enabled ?? false)), [])
+  useEffect(() => subscribeBrandingConfig((cfg) => {
+    setEnabled(cfg?.vilhinho_enabled ?? false)
+    setVilhinhoUrl(cfg?.vilhinho_url ?? '')
+  }), [])
+  useEffect(() => subscribeStorageConfig((cfg) => setStorageCfg(cfg)), [])
 
   const toggle = async () => {
     setSaving(true)
@@ -508,11 +516,40 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
     }
   }
 
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) { addToast('Selecione uma imagem (de preferência PNG com fundo transparente)'); return }
+    if (!storageCfg?.url || !storageCfg?.anon_key) {
+      addToast('Configure o Supabase Storage abaixo antes de subir a imagem')
+      return
+    }
+    setUploadPct(0)
+    try {
+      const url = await uploadMediaFile(file, storageCfg, setUploadPct)
+      await setBrandingConfig({ vilhinho_url: url })
+      addToast('Imagem do vilhinho atualizada!', 'success')
+      setUploadPct(null)
+    } catch (err) {
+      console.error(err)
+      const detail = err instanceof Error ? err.message : ''
+      addToast(`Erro no upload${detail ? ` — ${detail}` : ''}`)
+      setUploadPct(null)
+    }
+  }
+
+  const handleRemoveImage = async () => {
+    try {
+      await setBrandingConfig({ vilhinho_url: '' })
+      addToast('Imagem removida — voltou para o 👴 padrão', 'success')
+    } catch { addToast('Erro ao remover imagem') }
+  }
+
+  const uploading = uploadPct !== null
+
   return (
     <div className="bg-white rounded-3xl p-6 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-3xl shrink-0 select-none">
-          👴
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 overflow-hidden flex items-center justify-center text-3xl shrink-0 select-none">
+          {vilhinhoUrl ? <img src={vilhinhoUrl} alt="Vilhinho" className="w-full h-full object-contain" /> : '👴'}
         </div>
         <div className="flex-1">
           <h3 className="font-bold text-gray-800">Vilhinho dançando no painel</h3>
@@ -526,6 +563,33 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
         >
           <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
         </button>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+      />
+      <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+        >
+          <Upload size={14} />
+          {uploading ? `Enviando… ${Math.round(uploadPct ?? 0)}%` : vilhinhoUrl ? 'Trocar imagem' : 'Subir imagem do vilhinho'}
+        </button>
+        {vilhinhoUrl && !uploading && (
+          <button
+            onClick={handleRemoveImage}
+            className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm"
+          >
+            <X size={14} /> Usar 👴 padrão
+          </button>
+        )}
+        <p className="text-xs text-gray-400 w-full sm:w-auto sm:ml-2">PNG com fundo transparente fica melhor na animação.</p>
       </div>
     </div>
   )

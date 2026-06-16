@@ -123,39 +123,55 @@ function dedup(orders: Order[]): Order[] {
 }
 
 // ── Vilhinho ─────────────────────────────────────────────────────────────────
-function VilhinhoWalker() {
+// Anima um personagem (imagem enviada no Config, ou o emoji 👴 como fallback)
+// caminhando de uma ponta a outra da tela enquanto "dança": pula, gira e
+// saltita. Toda a animação é feita em CSS sobre uma única figura.
+function VilhinhoWalker({ imgUrl }: { imgUrl?: string }) {
+  const SIZE = 130
   return (
     <>
       <style>{`
         @keyframes vilhinho-walk {
-          0%   { left: -90px; }
-          100% { left: calc(100% + 90px); }
+          0%   { left: -${SIZE}px; }
+          100% { left: calc(100% + ${SIZE}px); }
         }
         @keyframes vilhinho-dance {
-          0%, 100% { transform: translateY(0px) rotate(-9deg); }
-          25%       { transform: translateY(-20px) rotate(-2deg); }
-          50%       { transform: translateY(0px) rotate(9deg); }
-          75%       { transform: translateY(-20px) rotate(2deg); }
+          0%, 100% { transform: translateY(0px)   rotate(-8deg) scaleY(1); }
+          25%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
+          50%       { transform: translateY(0px)   rotate(8deg)  scaleY(1); }
+          75%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
         }
       `}</style>
       <div
         className="pointer-events-none"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 10, height: 90, zIndex: 15 }}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: SIZE + 40, zIndex: 15 }}
       >
         <div
           style={{
             position: 'absolute',
             bottom: 0,
-            animation: 'vilhinho-walk 20s linear infinite',
-            fontSize: 72,
-            lineHeight: 1,
-            filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.75))',
-            userSelect: 'none',
+            animation: 'vilhinho-walk 18s linear infinite',
           }}
         >
-          <span style={{ display: 'inline-block', animation: 'vilhinho-dance 0.55s ease-in-out infinite' }}>
-            👴
-          </span>
+          <div
+            style={{
+              animation: 'vilhinho-dance 0.5s ease-in-out infinite',
+              transformOrigin: 'bottom center',
+              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.6))',
+              userSelect: 'none',
+            }}
+          >
+            {imgUrl ? (
+              <img
+                src={imgUrl}
+                alt="Vilhinho"
+                draggable={false}
+                style={{ height: SIZE, width: 'auto', display: 'block', objectFit: 'contain' }}
+              />
+            ) : (
+              <span style={{ fontSize: 96, lineHeight: 1, display: 'block' }}>👴</span>
+            )}
+          </div>
         </div>
       </div>
     </>
@@ -284,11 +300,13 @@ export default function Display() {
 
   const [logoUrl, setLogoUrl] = useState('')
   const [vilhinhoEnabled, setVilhinhoEnabled] = useState(false)
+  const [vilhinhoUrl, setVilhinhoUrl] = useState('')
 
   useEffect(() => {
     const unsub = subscribeBrandingConfig((cfg) => {
       setLogoUrl(cfg?.logo_url ?? '')
       setVilhinhoEnabled(cfg?.vilhinho_enabled ?? false)
+      setVilhinhoUrl(cfg?.vilhinho_url ?? '')
     })
     return unsub
   }, [])
@@ -708,7 +726,7 @@ export default function Display() {
         <AnimatePresence>
           {vilhinhoEnabled && (
             <motion.div key="vilhinho" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none z-20">
-              <VilhinhoWalker />
+              <VilhinhoWalker imgUrl={vilhinhoUrl} />
             </motion.div>
           )}
         </AnimatePresence>

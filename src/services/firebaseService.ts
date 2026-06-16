@@ -403,6 +403,7 @@ export async function setStorageConfig(cfg: SupabaseStorageConfig): Promise<void
 export interface BrandingConfig {
   logo_url?: string
   vilhinho_enabled?: boolean
+  vilhinho_url?: string
 }
 
 export function subscribeBrandingConfig(callback: (cfg: BrandingConfig | null) => void) {
