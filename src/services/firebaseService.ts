@@ -404,8 +404,9 @@ export interface BrandingConfig {
   logo_url?: string
   vilhinho_enabled?: boolean
   vilhinho_url?: string
-  vilhinho_animated?: boolean   // true = GIF/WebP já animado; só caminha (sem dança CSS)
-  vilhinho_type?: 'image' | 'video'   // 'video' → usa <video> com loop; suporta WebM com alfa
+  vilhinho_animated?: boolean   // GIF/WebP já animado: só caminha (sem dança CSS)
+  vilhinho_type?: 'image' | 'video'
+  vilhinho_chroma?: boolean     // true = remover fundo verde em tempo real via canvas
 }
 
 export function subscribeBrandingConfig(callback: (cfg: BrandingConfig | null) => void) {

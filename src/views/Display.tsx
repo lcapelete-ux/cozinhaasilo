@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type RefObject } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession, subscribeBrandingConfig } from '../services/firebaseService'
@@ -122,11 +122,59 @@ function dedup(orders: Order[]): Order[] {
   })
 }
 
+// ── Chroma-key canvas ─────────────────────────────────────────────────────────
+// Toca um vídeo (fundo verde) num <video> oculto e re-renderiza cada quadro
+// num <canvas>, zerando o alpha dos pixels verdes em tempo real.
+function useChromaKey(
+  videoRef: RefObject<HTMLVideoElement>,
+  canvasRef: RefObject<HTMLCanvasElement>,
+  src: string,
+) {
+  useEffect(() => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+    let rafId = 0
+
+    const tick = () => {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth
+        if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight
+        ctx.drawImage(video, 0, 0)
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const d = frame.data
+        for (let i = 0; i < d.length; i += 4) {
+          const g = d[i + 1]
+          const excess = g - Math.max(d[i], d[i + 2]) // quanto verde "sobra" sobre R e B
+          if (excess > 35) d[i + 3] = Math.max(0, 255 - excess * 5)
+        }
+        ctx.putImageData(frame, 0, 0)
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+
+    video.play().catch(() => {})
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [videoRef, canvasRef, src])
+}
+
+function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useChromaKey(videoRef, canvasRef, src)
+  return (
+    <>
+      <video ref={videoRef} src={src} muted loop playsInline style={{ display: 'none' }} />
+      <canvas ref={canvasRef} style={{ height, width: 'auto', display: 'block' }} />
+    </>
+  )
+}
+
 // ── Vilhinho ─────────────────────────────────────────────────────────────────
-// Anima um personagem (imagem enviada no Config, ou o emoji 👴 como fallback)
-// caminhando de uma ponta a outra da tela enquanto "dança": pula, gira e
-// saltita. Toda a animação é feita em CSS sobre uma única figura.
-function VilhinhoWalker({ imgUrl, animated, type }: { imgUrl?: string; animated?: boolean; type?: 'image' | 'video' }) {
+function VilhinhoWalker({ imgUrl, animated, type, chroma }: { imgUrl?: string; animated?: boolean; type?: 'image' | 'video'; chroma?: boolean }) {
   const SIZE = 130
   const isVideo = type === 'video'
   // Vídeo e GIF animado: personagem só caminha + leve balanço (a mídia faz a dança).
@@ -167,7 +215,9 @@ function VilhinhoWalker({ imgUrl, animated, type }: { imgUrl?: string; animated?
               userSelect: 'none',
             }}
           >
-            {isVideo && imgUrl ? (
+            {isVideo && imgUrl && chroma ? (
+              <ChromaKeyVideo src={imgUrl} height={SIZE} />
+            ) : isVideo && imgUrl ? (
               <video
                 key={imgUrl}
                 src={imgUrl}
@@ -316,6 +366,7 @@ export default function Display() {
   const [vilhinhoUrl, setVilhinhoUrl] = useState('')
   const [vilhinhoAnimated, setVilhinhoAnimated] = useState(false)
   const [vilhinhoType, setVilhinhoType] = useState<'image' | 'video'>('image')
+  const [vilhinhoChroma, setVilhinhoChroma] = useState(false)
 
   useEffect(() => {
     const unsub = subscribeBrandingConfig((cfg) => {
@@ -324,6 +375,7 @@ export default function Display() {
       setVilhinhoUrl(cfg?.vilhinho_url ?? '')
       setVilhinhoAnimated(cfg?.vilhinho_animated ?? false)
       setVilhinhoType(cfg?.vilhinho_type ?? 'image')
+      setVilhinhoChroma(cfg?.vilhinho_chroma ?? false)
     })
     return unsub
   }, [])
@@ -743,7 +795,7 @@ export default function Display() {
         <AnimatePresence>
           {vilhinhoEnabled && (
             <motion.div key="vilhinho" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none z-20">
-              <VilhinhoWalker imgUrl={vilhinhoUrl} animated={vilhinhoAnimated} type={vilhinhoType} />
+              <VilhinhoWalker imgUrl={vilhinhoUrl} animated={vilhinhoAnimated} type={vilhinhoType} chroma={vilhinhoChroma} />
             </motion.div>
           )}
         </AnimatePresence>

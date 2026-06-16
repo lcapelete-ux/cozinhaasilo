@@ -492,6 +492,7 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
   const [enabled, setEnabled] = useState(false)
   const [vilhinhoUrl, setVilhinhoUrl] = useState('')
   const [animated, setAnimated] = useState(false)
+  const [chroma, setChroma] = useState(false)
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
   const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null>(null)
   const [uploadPct, setUploadPct] = useState<number | null>(null)
@@ -502,6 +503,7 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
     setEnabled(cfg?.vilhinho_enabled ?? false)
     setVilhinhoUrl(cfg?.vilhinho_url ?? '')
     setAnimated(cfg?.vilhinho_animated ?? false)
+    setChroma(cfg?.vilhinho_chroma ?? false)
     setMediaType(cfg?.vilhinho_type ?? 'image')
   }), [])
   useEffect(() => subscribeStorageConfig((cfg) => setStorageCfg(cfg)), [])
@@ -511,6 +513,14 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
       const next = !animated
       await setBrandingConfig({ vilhinho_animated: next })
       setAnimated(next)
+    } catch { addToast('Erro ao salvar') }
+  }
+
+  const toggleChroma = async () => {
+    try {
+      const next = !chroma
+      await setBrandingConfig({ vilhinho_chroma: next })
+      setChroma(next)
     } catch { addToast('Erro ao salvar') }
   }
 
@@ -631,7 +641,23 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
         <p><span className="font-medium text-gray-700">MP4</span> — sem transparência; fundo preto aparece. Prefira WebM para o painel.</p>
       </div>
 
-      {/* Modo animado: deixa GIF/vídeo dançar sozinho (desliga dança CSS) */}
+      {/* Fundo verde (chroma key) — só para vídeo */}
+      {vilhinhoUrl && mediaType === 'video' && (
+        <div className="flex items-center gap-4 border-t border-gray-100 pt-4 mt-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-700">🟩 Vídeo tem fundo verde (chroma key)</p>
+            <p className="text-xs text-gray-400 mt-0.5">O painel remove o fundo verde em tempo real — não precisa editar o vídeo. Exporte direto do Canva com fundo verde.</p>
+          </div>
+          <button
+            onClick={toggleChroma}
+            className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${chroma ? 'bg-green-500' : 'bg-gray-200'}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${chroma ? 'translate-x-6' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+      )}
+
+      {/* Modo animado: desliga dança CSS para GIF já animado */}
       {vilhinhoUrl && mediaType === 'image' && (
         <div className="flex items-center gap-4 border-t border-gray-100 pt-4 mt-4">
           <div className="flex-1">
