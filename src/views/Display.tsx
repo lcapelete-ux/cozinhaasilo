@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type RefObject } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession, subscribeBrandingConfig } from '../services/firebaseService'
@@ -123,13 +123,11 @@ function dedup(orders: Order[]): Order[] {
 }
 
 // ── Chroma-key canvas ─────────────────────────────────────────────────────────
-// Toca um vídeo (fundo verde) num <video> oculto e re-renderiza cada quadro
-// num <canvas>, zerando o alpha dos pixels verdes em tempo real.
-function useChromaKey(
-  videoRef: RefObject<HTMLVideoElement>,
-  canvasRef: RefObject<HTMLCanvasElement>,
-  src: string,
-) {
+function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const corsFailedRef = useRef(false)
+
   useEffect(() => {
     const video = videoRef.current
     const canvas = canvasRef.current
@@ -143,31 +141,34 @@ function useChromaKey(
         if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth
         if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight
         ctx.drawImage(video, 0, 0)
-        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const d = frame.data
-        for (let i = 0; i < d.length; i += 4) {
-          const g = d[i + 1]
-          const excess = g - Math.max(d[i], d[i + 2]) // quanto verde "sobra" sobre R e B
-          if (excess > 35) d[i + 3] = Math.max(0, 255 - excess * 5)
+        if (!corsFailedRef.current) {
+          try {
+            const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
+            const d = frame.data
+            for (let i = 0; i < d.length; i += 4) {
+              const g = d[i + 1]
+              const excess = g - Math.max(d[i], d[i + 2])
+              if (excess > 35) d[i + 3] = Math.max(0, 255 - excess * 5)
+            }
+            ctx.putImageData(frame, 0, 0)
+          } catch {
+            // CORS bloqueou getImageData — mostra o vídeo sem remoção de cor
+            corsFailedRef.current = true
+          }
         }
-        ctx.putImageData(frame, 0, 0)
       }
       rafId = requestAnimationFrame(tick)
     }
 
     video.play().catch(() => {})
     rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
-  }, [videoRef, canvasRef, src])
-}
+    return () => { cancelAnimationFrame(rafId) }
+  }, [src])
 
-function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  useChromaKey(videoRef, canvasRef, src)
   return (
     <>
-      <video ref={videoRef} src={src} muted loop playsInline style={{ display: 'none' }} />
+      {/* crossOrigin="anonymous" permite getImageData em canvas com vídeo do Supabase */}
+      <video ref={videoRef} src={src} crossOrigin="anonymous" muted loop playsInline style={{ display: 'none' }} />
       <canvas ref={canvasRef} style={{ height, width: 'auto', display: 'block' }} />
     </>
   )
