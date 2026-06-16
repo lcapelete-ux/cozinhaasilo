@@ -491,6 +491,7 @@ function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: '
 function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [enabled, setEnabled] = useState(false)
   const [vilhinhoUrl, setVilhinhoUrl] = useState('')
+  const [animated, setAnimated] = useState(false)
   const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null>(null)
   const [uploadPct, setUploadPct] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -499,8 +500,17 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
   useEffect(() => subscribeBrandingConfig((cfg) => {
     setEnabled(cfg?.vilhinho_enabled ?? false)
     setVilhinhoUrl(cfg?.vilhinho_url ?? '')
+    setAnimated(cfg?.vilhinho_animated ?? false)
   }), [])
   useEffect(() => subscribeStorageConfig((cfg) => setStorageCfg(cfg)), [])
+
+  const toggleAnimated = async () => {
+    try {
+      const next = !animated
+      await setBrandingConfig({ vilhinho_animated: next })
+      setAnimated(next)
+    } catch { addToast('Erro ao salvar') }
+  }
 
   const toggle = async () => {
     setSaving(true)
@@ -525,7 +535,10 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
     setUploadPct(0)
     try {
       const url = await uploadMediaFile(file, storageCfg, setUploadPct)
-      await setBrandingConfig({ vilhinho_url: url })
+      // GIF/WebP normalmente já é animado — liga o modo "só caminhar" automaticamente
+      const isAnimated = /gif|webp/.test(file.type)
+      await setBrandingConfig({ vilhinho_url: url, vilhinho_animated: isAnimated })
+      if (isAnimated) setAnimated(true)
       addToast('Imagem do vilhinho atualizada!', 'success')
       setUploadPct(null)
     } catch (err) {
@@ -589,7 +602,22 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
             <X size={14} /> Usar 👴 padrão
           </button>
         )}
-        <p className="text-xs text-gray-400 w-full sm:w-auto sm:ml-2">PNG com fundo transparente fica melhor na animação.</p>
+        <p className="text-xs text-gray-400 w-full sm:w-auto sm:ml-2">PNG (estático) ou GIF/WebP animado — fundo transparente fica melhor.</p>
+      </div>
+
+      {/* Modo animado: deixa o GIF dançar sozinho */}
+      <div className="flex items-center gap-4 border-t border-gray-100 pt-4 mt-4">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-700">Imagem já é animada (GIF/WebP)</p>
+          <p className="text-xs text-gray-400 mt-0.5">Ligado: o vilhinho só caminha e o próprio GIF faz a dança. Desligado: aplica a dança automática (ideal para imagem estática).</p>
+        </div>
+        <button
+          onClick={toggleAnimated}
+          title={animated ? 'Imagem já animada' : 'Imagem estática'}
+          className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${animated ? 'bg-accent' : 'bg-gray-200'}`}
+        >
+          <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${animated ? 'translate-x-6' : 'translate-x-0.5'}`} />
+        </button>
       </div>
     </div>
   )

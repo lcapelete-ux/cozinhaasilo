@@ -126,8 +126,22 @@ function dedup(orders: Order[]): Order[] {
 // Anima um personagem (imagem enviada no Config, ou o emoji 👴 como fallback)
 // caminhando de uma ponta a outra da tela enquanto "dança": pula, gira e
 // saltita. Toda a animação é feita em CSS sobre uma única figura.
-function VilhinhoWalker({ imgUrl }: { imgUrl?: string }) {
+function VilhinhoWalker({ imgUrl, animated }: { imgUrl?: string; animated?: boolean }) {
   const SIZE = 130
+  // Imagem já animada (GIF/WebP): só caminha + leve balanço, deixando os
+  // quadros do próprio arquivo fazerem a dança. Imagem estática: dança CSS completa.
+  const danceCss = animated
+    ? `@keyframes vilhinho-dance {
+         0%, 100% { transform: translateY(0px) rotate(-2deg); }
+         50%       { transform: translateY(-8px) rotate(2deg); }
+       }`
+    : `@keyframes vilhinho-dance {
+         0%, 100% { transform: translateY(0px)   rotate(-8deg) scaleY(1); }
+         25%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
+         50%       { transform: translateY(0px)   rotate(8deg)  scaleY(1); }
+         75%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
+       }`
+  const danceDur = animated ? '1.2s' : '0.5s'
   return (
     <>
       <style>{`
@@ -135,12 +149,7 @@ function VilhinhoWalker({ imgUrl }: { imgUrl?: string }) {
           0%   { left: -${SIZE}px; }
           100% { left: calc(100% + ${SIZE}px); }
         }
-        @keyframes vilhinho-dance {
-          0%, 100% { transform: translateY(0px)   rotate(-8deg) scaleY(1); }
-          25%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
-          50%       { transform: translateY(0px)   rotate(8deg)  scaleY(1); }
-          75%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
-        }
+        ${danceCss}
       `}</style>
       <div
         className="pointer-events-none"
@@ -155,7 +164,7 @@ function VilhinhoWalker({ imgUrl }: { imgUrl?: string }) {
         >
           <div
             style={{
-              animation: 'vilhinho-dance 0.5s ease-in-out infinite',
+              animation: `vilhinho-dance ${danceDur} ease-in-out infinite`,
               transformOrigin: 'bottom center',
               filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.6))',
               userSelect: 'none',
@@ -301,12 +310,14 @@ export default function Display() {
   const [logoUrl, setLogoUrl] = useState('')
   const [vilhinhoEnabled, setVilhinhoEnabled] = useState(false)
   const [vilhinhoUrl, setVilhinhoUrl] = useState('')
+  const [vilhinhoAnimated, setVilhinhoAnimated] = useState(false)
 
   useEffect(() => {
     const unsub = subscribeBrandingConfig((cfg) => {
       setLogoUrl(cfg?.logo_url ?? '')
       setVilhinhoEnabled(cfg?.vilhinho_enabled ?? false)
       setVilhinhoUrl(cfg?.vilhinho_url ?? '')
+      setVilhinhoAnimated(cfg?.vilhinho_animated ?? false)
     })
     return unsub
   }, [])
@@ -726,7 +737,7 @@ export default function Display() {
         <AnimatePresence>
           {vilhinhoEnabled && (
             <motion.div key="vilhinho" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none z-20">
-              <VilhinhoWalker imgUrl={vilhinhoUrl} />
+              <VilhinhoWalker imgUrl={vilhinhoUrl} animated={vilhinhoAnimated} />
             </motion.div>
           )}
         </AnimatePresence>
