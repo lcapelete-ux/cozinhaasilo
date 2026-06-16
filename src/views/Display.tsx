@@ -203,6 +203,8 @@ function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
 // ── Vilhinho ─────────────────────────────────────────────────────────────────
 function VilhinhoWalker({ imgUrl, animated, type, chroma }: { imgUrl?: string; animated?: boolean; type?: 'image' | 'video'; chroma?: boolean }) {
   const SIZE = 200
+  const [debug, setDebug] = useState(true)
+  useEffect(() => { const t = setTimeout(() => setDebug(false), 8000); return () => clearTimeout(t) }, [])
   const isVideo = type === 'video'
   // Vídeo e GIF animado: personagem só caminha + leve balanço (a mídia faz a dança).
   // Imagem estática PNG: dança CSS completa (pulo + ginga + saltito).
@@ -229,6 +231,12 @@ function VilhinhoWalker({ imgUrl, animated, type, chroma }: { imgUrl?: string; a
         className="pointer-events-none"
         style={{ position: 'absolute', left: 16, bottom: 8, height: SIZE + 40, zIndex: 15 }}
       >
+        {/* Ponto de debug: desaparece em 8s — confirma que o componente renderizou */}
+        {debug && (
+          <div style={{ position: 'absolute', top: -12, left: 0, background: '#FF6B00', color: '#fff', fontSize: 9, padding: '2px 5px', borderRadius: 4, fontWeight: 700, whiteSpace: 'nowrap' }}>
+            vilhinho · {type ?? '?'} · {imgUrl ? '✓url' : '✗url'}
+          </div>
+        )}
         <div style={{ position: 'absolute', left: 0, bottom: 0 }}>
           <div
             style={{
@@ -245,14 +253,14 @@ function VilhinhoWalker({ imgUrl, animated, type, chroma }: { imgUrl?: string; a
                 key={imgUrl}
                 src={imgUrl}
                 autoPlay muted loop playsInline
-                style={{ height: SIZE, width: 'auto', display: 'block', objectFit: 'contain', background: 'transparent' }}
+                style={{ height: SIZE, maxWidth: SIZE * 2, display: 'block' }}
               />
             ) : imgUrl ? (
               <img
                 src={imgUrl}
                 alt="Vilhinho"
                 draggable={false}
-                style={{ height: SIZE, width: 'auto', display: 'block', objectFit: 'contain' }}
+                style={{ height: SIZE, width: 'auto', display: 'block' }}
               />
             ) : (
               <span style={{ fontSize: 96, lineHeight: 1, display: 'block' }}>👴</span>
