@@ -9,7 +9,7 @@ import {
   clearAllOrders, subscribeAllOrders,
   clearAllStockEntries, subscribeStockEntries,
   subscribeStorageConfig, setStorageConfig, type SupabaseStorageConfig,
-  subscribeBrandingConfig, setBrandingConfig, uploadMediaFile,
+  subscribeBrandingConfig, setBrandingConfig, uploadMediaFile, type VilhinhoItem,
 } from '../services/firebaseService'
 import { useApp } from '../App'
 import type { User, MenuItem } from '../types'
@@ -490,10 +490,9 @@ function SupabaseStorageSection({ addToast }: { addToast: (msg: string, type?: '
 
 function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' | 'success' | 'info') => void }) {
   const [enabled, setEnabled] = useState(false)
-  const [vilhinhoUrl, setVilhinhoUrl] = useState('')
+  const [items, setItems] = useState<VilhinhoItem[]>([])
   const [animated, setAnimated] = useState(false)
   const [chroma, setChroma] = useState(false)
-  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
   const [storageCfg, setStorageCfg] = useState<SupabaseStorageConfig | null>(null)
   const [uploadPct, setUploadPct] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -501,10 +500,12 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
 
   useEffect(() => subscribeBrandingConfig((cfg) => {
     setEnabled(cfg?.vilhinho_enabled ?? false)
-    setVilhinhoUrl(cfg?.vilhinho_url ?? '')
     setAnimated(cfg?.vilhinho_animated ?? false)
     setChroma(cfg?.vilhinho_chroma ?? false)
-    setMediaType(cfg?.vilhinho_type ?? 'image')
+    const legacy: VilhinhoItem[] = cfg?.vilhinho_url
+      ? [{ url: cfg.vilhinho_url, type: cfg.vilhinho_type ?? 'image' }]
+      : []
+    setItems(cfg?.vilhinho_items ?? legacy)
   }), [])
   useEffect(() => subscribeStorageConfig((cfg) => setStorageCfg(cfg)), [])
 
@@ -530,7 +531,7 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
       const next = !enabled
       await setBrandingConfig({ vilhinho_enabled: next })
       setEnabled(next)
-      addToast(next ? 'Vilhinho ativado! 🎉' : 'Vilhinho desativado', 'success')
+      addToast(next ? 'Vilhinho ativado!' : 'Vilhinho desativado', 'success')
     } catch {
       addToast('Erro ao salvar')
     } finally {
@@ -552,13 +553,14 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
     setUploadPct(0)
     try {
       const url = await uploadMediaFile(file, storageCfg, setUploadPct)
-      // Vídeo e GIF/WebP já são animados → desliga dança CSS automática
-      const isAlreadyAnimated = isVideo || /gif|webp/.test(file.type)
       const type: 'image' | 'video' = isVideo ? 'video' : 'image'
-      await setBrandingConfig({ vilhinho_url: url, vilhinho_type: type, vilhinho_animated: isAlreadyAnimated })
+      const newItem: VilhinhoItem = { url, type }
+      const nextItems = [...items, newItem]
+      const isAlreadyAnimated = isVideo || /gif|webp/.test(file.type)
+      await setBrandingConfig({ vilhinho_items: nextItems, vilhinho_animated: isAlreadyAnimated || animated })
       if (isAlreadyAnimated) setAnimated(true)
-      setMediaType(type)
-      addToast(isVideo ? 'Vídeo do vilhinho atualizado! 🎬' : 'Imagem do vilhinho atualizada!', 'success')
+      setItems(nextItems)
+      addToast(isVideo ? 'Vídeo adicionado! 🎬' : 'Imagem adicionada!', 'success')
       setUploadPct(null)
     } catch (err) {
       console.error(err)
@@ -568,28 +570,37 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
     }
   }
 
-  const handleRemoveImage = async () => {
+  const handleRemoveItem = async (idx: number) => {
+    const nextItems = items.filter((_, i) => i !== idx)
     try {
-      await setBrandingConfig({ vilhinho_url: '', vilhinho_type: 'image', vilhinho_animated: false })
-      addToast('Arquivo removido — voltou para o 👴 padrão', 'success')
+      await setBrandingConfig({ vilhinho_items: nextItems })
+      setItems(nextItems)
+      addToast('Animação removida', 'success')
     } catch { addToast('Erro ao remover') }
   }
 
   const uploading = uploadPct !== null
+  const hasVideos = items.some((it) => it.type === 'video')
+  const hasImages = items.some((it) => it.type === 'image')
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-sm">
+      {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <div className="w-12 h-12 rounded-2xl bg-amber-50 overflow-hidden flex items-center justify-center text-3xl shrink-0 select-none">
-          {vilhinhoUrl && mediaType === 'video'
-            ? <video src={vilhinhoUrl} muted loop autoPlay playsInline className="w-full h-full object-contain" />
-            : vilhinhoUrl
-            ? <img src={vilhinhoUrl} alt="Vilhinho" className="w-full h-full object-contain" />
+          {items.length > 0
+            ? items[0].type === 'video'
+              ? <video src={items[0].url} muted loop autoPlay playsInline className="w-full h-full object-contain" />
+              : <img src={items[0].url} alt="Vilhinho" className="w-full h-full object-contain" />
             : '👴'}
         </div>
         <div className="flex-1">
           <h3 className="font-bold text-gray-800">Vilhinho dançando no painel</h3>
-          <p className="text-sm text-gray-400 mt-0.5">Animação do vilhinho caminhando e dançando na parte de baixo do painel externo.</p>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {items.length > 0
+              ? `${items.length} animaç${items.length === 1 ? 'ão' : 'ões'} · 10s cada`
+              : 'Exibe uma animação centralizada no painel externo.'}
+          </p>
         </div>
         <button
           onClick={toggle}
@@ -601,12 +612,34 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
         </button>
       </div>
 
+      {/* Thumbnails grid */}
+      {items.length > 0 && (
+        <div className="flex flex-wrap gap-3 mb-4">
+          {items.map((item, idx) => (
+            <div key={idx} className="relative w-20 h-20 rounded-2xl overflow-hidden bg-gray-100 group">
+              {item.type === 'video'
+                ? <video src={item.url} muted loop autoPlay playsInline className="w-full h-full object-contain" />
+                : <img src={item.url} alt={`Animação ${idx + 1}`} className="w-full h-full object-contain" />}
+              <button
+                onClick={() => handleRemoveItem(idx)}
+                className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X size={10} />
+              </button>
+              <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[9px] text-center py-0.5">
+                {item.type === 'video' ? 'vídeo' : 'img'} {idx + 1}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
         accept="image/png,image/gif,image/webp,image/jpeg,video/webm,video/mp4"
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); if (fileInputRef.current) fileInputRef.current.value = '' }}
       />
 
       <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
@@ -615,38 +648,26 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
           disabled={uploading}
           className="flex items-center gap-1.5 bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-xl text-sm disabled:opacity-50"
         >
-          <Upload size={14} />
-          {uploading
-            ? `Enviando… ${Math.round(uploadPct ?? 0)}%`
-            : vilhinhoUrl
-            ? `Trocar ${mediaType === 'video' ? 'vídeo' : 'imagem'}`
-            : 'Subir imagem ou vídeo'}
+          <Plus size={14} />
+          {uploading ? `Enviando… ${Math.round(uploadPct ?? 0)}%` : '+ Adicionar animação'}
         </button>
-        {vilhinhoUrl && !uploading && (
-          <button
-            onClick={handleRemoveImage}
-            className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm"
-          >
-            <X size={14} /> Usar 👴 padrão
-          </button>
-        )}
       </div>
 
       {/* Formatos aceitos */}
       <div className="mt-3 bg-gray-50 rounded-2xl px-4 py-3 text-xs text-gray-500 space-y-1">
         <p className="font-semibold text-gray-600 mb-1.5">Formatos aceitos:</p>
         <p><span className="font-medium text-gray-700">PNG estático</span> — dança CSS automática (pulo + ginga). Melhor com fundo transparente.</p>
-        <p><span className="font-medium text-gray-700">GIF / WebP animado</span> — os quadros do arquivo fazem a dança; o CSS só caminha.</p>
-        <p><span className="font-medium text-gray-700">WebM com alfa</span> — qualidade máxima com fundo transparente. Exporte no CapCut/Runway com canal alfa WebM.</p>
-        <p><span className="font-medium text-gray-700">MP4</span> — sem transparência; fundo preto aparece. Prefira WebM para o painel.</p>
+        <p><span className="font-medium text-gray-700">GIF / WebP animado</span> — os quadros do arquivo fazem a dança.</p>
+        <p><span className="font-medium text-gray-700">WebM com alfa</span> — qualidade máxima com fundo transparente.</p>
+        <p><span className="font-medium text-gray-700">MP4</span> — sem transparência; prefira WebM para o painel.</p>
       </div>
 
-      {/* Fundo verde (chroma key) — só para vídeo */}
-      {vilhinhoUrl && mediaType === 'video' && (
+      {/* Fundo verde (chroma key) — só quando há vídeo */}
+      {hasVideos && (
         <div className="flex items-center gap-4 border-t border-gray-100 pt-4 mt-4">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-700">🟩 Vídeo tem fundo verde (chroma key)</p>
-            <p className="text-xs text-gray-400 mt-0.5">O painel remove o fundo verde em tempo real — não precisa editar o vídeo. Exporte direto do Canva com fundo verde.</p>
+            <p className="text-sm font-medium text-gray-700">🟩 Vídeo(s) têm fundo verde (chroma key)</p>
+            <p className="text-xs text-gray-400 mt-0.5">O painel remove o fundo verde em tempo real. Exporte direto do Canva com fundo verde.</p>
           </div>
           <button
             onClick={toggleChroma}
@@ -658,11 +679,11 @@ function VilhinhoToggle({ addToast }: { addToast: (msg: string, type?: 'error' |
       )}
 
       {/* Modo animado: desliga dança CSS para GIF já animado */}
-      {vilhinhoUrl && mediaType === 'image' && (
+      {hasImages && (
         <div className="flex items-center gap-4 border-t border-gray-100 pt-4 mt-4">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-700">Imagem já é animada (GIF/WebP)</p>
-            <p className="text-xs text-gray-400 mt-0.5">Ligado: o vilhinho só caminha e o GIF faz a dança. Desligado: dança CSS completa (para PNG estático).</p>
+            <p className="text-sm font-medium text-gray-700">Imagem(ns) já são animadas (GIF/WebP)</p>
+            <p className="text-xs text-gray-400 mt-0.5">Ligado: o GIF faz a dança. Desligado: dança CSS automática (para PNG estático).</p>
           </div>
           <button
             onClick={toggleAnimated}

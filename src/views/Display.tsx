@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession, subscribeBrandingConfig } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
-import type { Order, MediaSlide, MenuItem } from '../types'
+import type { Order, MediaSlide, MenuItem, } from '../types'
+import type { VilhinhoItem } from '../services/firebaseService'
 
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
 export const DISPLAY_SCANNER_HIDDEN_KEY = 'display-scanner-hidden'
@@ -201,71 +202,63 @@ function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
 }
 
 // ── Vilhinho ─────────────────────────────────────────────────────────────────
-function VilhinhoWalker({ imgUrl, animated, type, chroma }: { imgUrl?: string; animated?: boolean; type?: 'image' | 'video'; chroma?: boolean }) {
-  const SIZE = 200
-  const [debug, setDebug] = useState(true)
-  useEffect(() => { const t = setTimeout(() => setDebug(false), 8000); return () => clearTimeout(t) }, [])
-  const isVideo = type === 'video'
-  // Vídeo e GIF animado: personagem só caminha + leve balanço (a mídia faz a dança).
-  // Imagem estática PNG: dança CSS completa (pulo + ginga + saltito).
-  const passiveOnly = isVideo || animated
-  const danceCss = passiveOnly
-    ? `@keyframes vilhinho-dance {
-         0%, 100% { transform: translateY(0px) rotate(-2deg); }
-         50%       { transform: translateY(-6px) rotate(2deg); }
-       }`
-    : `@keyframes vilhinho-dance {
-         0%, 100% { transform: translateY(0px)   rotate(-8deg) scaleY(1); }
-         25%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
-         50%       { transform: translateY(0px)   rotate(8deg)  scaleY(1); }
-         75%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
-       }`
-  const danceDur = passiveOnly ? '1.4s' : '0.5s'
+// Exibe o personagem centralizado na parte inferior do painel.
+// Vídeos/GIFs: exibidos direto sem dança CSS (a mídia já tem o movimento).
+// PNG estático: dança CSS (pulo + ginga).
+function VilhinhoWalker({ item, chroma, animated }: { item: VilhinhoItem; chroma?: boolean; animated?: boolean }) {
+  const SIZE = 300
+  const isVideo = item.type === 'video'
+  const cssDance = !isVideo && !animated
 
   return (
     <>
-      <style>{`
-        ${danceCss}
-      `}</style>
+      {cssDance && (
+        <style>{`
+          @keyframes vilhinho-png-dance {
+            0%, 100% { transform: translateY(0px)   rotate(-8deg) scaleY(1); }
+            25%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
+            50%       { transform: translateY(0px)   rotate(8deg)  scaleY(1); }
+            75%       { transform: translateY(-28px) rotate(0deg)  scaleY(1.05); }
+          }
+        `}</style>
+      )}
       <div
         className="pointer-events-none"
-        style={{ position: 'absolute', left: 16, bottom: 8, height: SIZE + 40, zIndex: 15 }}
+        style={{
+          position: 'absolute',
+          bottom: 8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 15,
+          userSelect: 'none',
+        }}
       >
-        {/* Ponto de debug: desaparece em 8s — confirma que o componente renderizou */}
-        {debug && (
-          <div style={{ position: 'absolute', top: -12, left: 0, background: '#FF6B00', color: '#fff', fontSize: 9, padding: '2px 5px', borderRadius: 4, fontWeight: 700, whiteSpace: 'nowrap' }}>
-            vilhinho · {type ?? '?'} · {imgUrl ? '✓url' : '✗url'}
-          </div>
-        )}
-        <div style={{ position: 'absolute', left: 0, bottom: 0 }}>
-          <div
-            style={{
-              animation: `vilhinho-dance ${danceDur} ease-in-out infinite`,
+        <div
+          style={{
+            filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.65))',
+            ...(cssDance ? {
+              animation: 'vilhinho-png-dance 0.55s ease-in-out infinite',
               transformOrigin: 'bottom center',
-              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.6))',
-              userSelect: 'none',
-            }}
-          >
-            {isVideo && imgUrl && chroma ? (
-              <ChromaKeyVideo src={imgUrl} height={SIZE} />
-            ) : isVideo && imgUrl ? (
-              <video
-                key={imgUrl}
-                src={imgUrl}
-                autoPlay muted loop playsInline
-                style={{ height: SIZE, maxWidth: SIZE * 2, display: 'block' }}
-              />
-            ) : imgUrl ? (
-              <img
-                src={imgUrl}
-                alt="Vilhinho"
-                draggable={false}
-                style={{ height: SIZE, width: 'auto', display: 'block' }}
-              />
-            ) : (
-              <span style={{ fontSize: 96, lineHeight: 1, display: 'block' }}>👴</span>
-            )}
-          </div>
+            } : {}),
+          }}
+        >
+          {isVideo && chroma ? (
+            <ChromaKeyVideo src={item.url} height={SIZE} />
+          ) : isVideo ? (
+            <video
+              key={item.url}
+              src={item.url}
+              autoPlay muted loop playsInline
+              style={{ height: SIZE, display: 'block' }}
+            />
+          ) : (
+            <img
+              src={item.url}
+              alt="Vilhinho"
+              draggable={false}
+              style={{ height: SIZE, width: 'auto', display: 'block' }}
+            />
+          )}
         </div>
       </div>
     </>
@@ -394,22 +387,32 @@ export default function Display() {
 
   const [logoUrl, setLogoUrl] = useState('')
   const [vilhinhoEnabled, setVilhinhoEnabled] = useState(false)
-  const [vilhinhoUrl, setVilhinhoUrl] = useState('')
+  const [vilhinhoItems, setVilhinhoItems] = useState<VilhinhoItem[]>([])
+  const [vilhinhoIdx, setVilhinhoIdx] = useState(0)
   const [vilhinhoAnimated, setVilhinhoAnimated] = useState(false)
-  const [vilhinhoType, setVilhinhoType] = useState<'image' | 'video'>('image')
   const [vilhinhoChroma, setVilhinhoChroma] = useState(false)
 
   useEffect(() => {
     const unsub = subscribeBrandingConfig((cfg) => {
       setLogoUrl(cfg?.logo_url ?? '')
       setVilhinhoEnabled(cfg?.vilhinho_enabled ?? false)
-      setVilhinhoUrl(cfg?.vilhinho_url ?? '')
       setVilhinhoAnimated(cfg?.vilhinho_animated ?? false)
-      setVilhinhoType(cfg?.vilhinho_type ?? 'image')
       setVilhinhoChroma(cfg?.vilhinho_chroma ?? false)
+      // Suporte ao campo legado vilhinho_url
+      const legacy: VilhinhoItem[] = cfg?.vilhinho_url
+        ? [{ url: cfg.vilhinho_url, type: cfg.vilhinho_type ?? 'image' }]
+        : []
+      setVilhinhoItems(cfg?.vilhinho_items ?? legacy)
     })
     return unsub
   }, [])
+
+  // Rodízio: troca a animação do vilhinho a cada 10s
+  useEffect(() => {
+    if (!vilhinhoEnabled || vilhinhoItems.length <= 1) return
+    const t = setInterval(() => setVilhinhoIdx((i) => (i + 1) % vilhinhoItems.length), 10_000)
+    return () => clearInterval(t)
+  }, [vilhinhoEnabled, vilhinhoItems.length])
 
   const prevReadyRef = useRef<Set<string>>(new Set())
   const announcementTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -822,14 +825,16 @@ export default function Display() {
           )}
         </AnimatePresence>
 
-        {/* Vilhinho dançando */}
-        <AnimatePresence>
-          {vilhinhoEnabled && (
-            <motion.div key="vilhinho" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none z-20">
-              <VilhinhoWalker imgUrl={vilhinhoUrl} animated={vilhinhoAnimated} type={vilhinhoType} chroma={vilhinhoChroma} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Vilhinho — só aparece no painel de pedidos, some durante a mídia */}
+        {vilhinhoEnabled && displayMode === 'orders' && vilhinhoItems.length > 0 && (
+          <div className="absolute inset-0 pointer-events-none z-20">
+            <VilhinhoWalker
+              item={vilhinhoItems[vilhinhoIdx % vilhinhoItems.length]}
+              chroma={vilhinhoChroma}
+              animated={vilhinhoAnimated}
+            />
+          </div>
+        )}
       </div>
 
       {/* Debug banner: shows when scan received but ticket not matched */}

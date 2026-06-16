@@ -400,13 +400,20 @@ export async function setStorageConfig(cfg: SupabaseStorageConfig): Promise<void
 
 // ── Branding (logo do painel externo) ─────────────────────────────────────────
 
+export interface VilhinhoItem {
+  url: string
+  type: 'image' | 'video'
+}
+
 export interface BrandingConfig {
   logo_url?: string
   vilhinho_enabled?: boolean
+  vilhinho_items?: VilhinhoItem[]   // lista de animações (cada uma 10s)
+  vilhinho_chroma?: boolean          // remover fundo verde em tempo real
+  vilhinho_animated?: boolean        // GIF/WebP já animado (sem dança CSS)
+  // Campos legados (compat)
   vilhinho_url?: string
-  vilhinho_animated?: boolean   // GIF/WebP já animado: só caminha (sem dança CSS)
   vilhinho_type?: 'image' | 'video'
-  vilhinho_chroma?: boolean     // true = remover fundo verde em tempo real via canvas
 }
 
 export function subscribeBrandingConfig(callback: (cfg: BrandingConfig | null) => void) {
