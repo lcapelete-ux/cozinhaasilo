@@ -123,12 +123,33 @@ function dedup(orders: Order[]): Order[] {
 }
 
 // ── Chroma-key canvas ─────────────────────────────────────────────────────────
+// Baixa o vídeo como blob (URL same-origin) para o canvas não ficar "tainted"
+// por CORS, e remove o fundo verde quadro a quadro. Se algo falhar, cai para
+// um <video> normal (mostrando o fundo verde, mas pelo menos visível).
 function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const corsFailedRef = useRef(false)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
+    let created: string | null = null
+    setBlobUrl(null)
+    setFailed(false)
+    fetch(src)
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.blob() })
+      .then((blob) => {
+        if (cancelled) return
+        created = URL.createObjectURL(blob)
+        setBlobUrl(created)
+      })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => { cancelled = true; if (created) URL.revokeObjectURL(created) }
+  }, [src])
+
+  useEffect(() => {
+    if (!blobUrl) return
     const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
@@ -141,21 +162,16 @@ function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
         if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth
         if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight
         ctx.drawImage(video, 0, 0)
-        if (!corsFailedRef.current) {
-          try {
-            const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
-            const d = frame.data
-            for (let i = 0; i < d.length; i += 4) {
-              const g = d[i + 1]
-              const excess = g - Math.max(d[i], d[i + 2])
-              if (excess > 35) d[i + 3] = Math.max(0, 255 - excess * 5)
-            }
-            ctx.putImageData(frame, 0, 0)
-          } catch {
-            // CORS bloqueou getImageData — mostra o vídeo sem remoção de cor
-            corsFailedRef.current = true
+        try {
+          const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
+          const d = frame.data
+          for (let i = 0; i < d.length; i += 4) {
+            const g = d[i + 1]
+            const excess = g - Math.max(d[i], d[i + 2])
+            if (excess > 35) d[i + 3] = Math.max(0, 255 - excess * 5)
           }
-        }
+          ctx.putImageData(frame, 0, 0)
+        } catch { /* mantém o quadro desenhado sem chroma */ }
       }
       rafId = requestAnimationFrame(tick)
     }
@@ -163,12 +179,22 @@ function ChromaKeyVideo({ src, height }: { src: string; height: number }) {
     video.play().catch(() => {})
     rafId = requestAnimationFrame(tick)
     return () => { cancelAnimationFrame(rafId) }
-  }, [src])
+  }, [blobUrl])
+
+  // Fallback: não conseguiu baixar o blob → mostra o vídeo direto (com fundo verde)
+  if (failed) {
+    return (
+      <video
+        src={src}
+        autoPlay muted loop playsInline
+        style={{ height, width: 'auto', display: 'block' }}
+      />
+    )
+  }
 
   return (
     <>
-      {/* crossOrigin="anonymous" permite getImageData em canvas com vídeo do Supabase */}
-      <video ref={videoRef} src={src} crossOrigin="anonymous" muted loop playsInline style={{ display: 'none' }} />
+      <video ref={videoRef} src={blobUrl ?? undefined} muted loop playsInline style={{ display: 'none' }} />
       <canvas ref={canvasRef} style={{ height, width: 'auto', display: 'block' }} />
     </>
   )
