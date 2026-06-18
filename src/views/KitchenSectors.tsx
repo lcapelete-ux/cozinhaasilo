@@ -100,6 +100,7 @@ export default function KitchenSectors() {
   const [lastScanned, setLastScanned] = useState('')
   const [liveSession, setLiveSession] = useState<ActiveSessionData | null>(null)
   const [lowStock, setLowStock] = useState<MenuItem[]>([])
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [zoom, setZoom] = useState<number>(() => {
     const saved = localStorage.getItem(ZOOM_KEY)
     const val = saved ? parseFloat(saved) : 1
@@ -152,6 +153,7 @@ export default function KitchenSectors() {
 
   useEffect(() => {
     const unsub = subscribeMenuItems((items) => {
+      setMenuItems(items)
       setLowStock(items.filter((i) => i.stock_initial && i.stock !== undefined && i.stock <= LOW_STOCK_THRESHOLD))
     })
     return unsub
@@ -312,6 +314,12 @@ export default function KitchenSectors() {
       }
     }
     return Array.from(itemMap.values()).sort((a, b) => b.totalQty - a.totalQty)
+  }
+
+  const getRegisteredItems = (sectorName: string): MenuItem[] => {
+    return menuItems
+      .filter((i) => (SECTOR_ALIASES[i.sector] ?? i.sector) === sectorName)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name))
   }
 
   const totalActive = orders.length
@@ -544,10 +552,30 @@ export default function KitchenSectors() {
 
               <div className="p-3 min-h-[320px]">
                 {items.length === 0 ? (
-                  <div className={`flex flex-col items-center justify-center h-60 ${n ? 'text-gray-700' : 'text-gray-300'}`}>
-                    <Package size={48} className="mb-2" strokeWidth={1.5} />
-                    <span className="text-xs font-semibold tracking-widest uppercase">Limpo</span>
-                  </div>
+                  (() => {
+                    const registered = getRegisteredItems(name)
+                    return registered.length === 0 ? (
+                      <div className={`flex flex-col items-center justify-center h-60 ${n ? 'text-gray-700' : 'text-gray-300'}`}>
+                        <Package size={48} className="mb-2" strokeWidth={1.5} />
+                        <span className="text-xs font-semibold tracking-widest uppercase">Limpo</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${n ? 'text-gray-600' : 'text-gray-300'}`}>
+                          Sem pedidos — produtos do setor
+                        </p>
+                        {registered.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`flex items-center justify-between rounded-xl px-3 py-2 ${n ? 'border border-gray-800 bg-gray-900/20' : 'border border-gray-50 bg-gray-50/60'}`}
+                          >
+                            <span className={`font-medium ${n ? 'text-gray-400 text-base' : 'text-gray-400 text-sm'}`}>{item.name}</span>
+                            <Package size={14} className={n ? 'text-gray-700' : 'text-gray-200'} />
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()
                 ) : (
                   <div className="space-y-2">
                     <AnimatePresence>
