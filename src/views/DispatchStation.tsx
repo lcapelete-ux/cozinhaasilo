@@ -489,7 +489,7 @@ export default function DispatchStation() {
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${n ? 'bg-gray-950' : 'bg-background'}`}>
-      <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6">
 
         {/* Header */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
@@ -686,7 +686,7 @@ export default function DispatchStation() {
           </motion.div>
         ) : (
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
             style={{ zoom: zoomOverride ?? getAutoZoom(queueOrders.length) }}
           >
             <AnimatePresence mode="popLayout">
@@ -718,7 +718,7 @@ export default function DispatchStation() {
               n ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
             }`}
           >
-            <div className="max-w-7xl mx-auto flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
               <span className={`text-xs font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
                 Prontas ({readyOrdersList.length})
               </span>
