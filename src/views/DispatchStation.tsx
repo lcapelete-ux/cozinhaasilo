@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick, Plane } from 'lucide-react'
+import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick, Plane, AlertTriangle } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders, subscribeMenuItems, createOrder, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -469,6 +469,7 @@ export default function DispatchStation() {
   const readyOrdersList = orders.filter((o) => o.status === 'ready')
   const readyCount = readyOrdersList.length
   const totalCount = orders.length
+  const oldCount = orders.filter((o) => (now - o.created_at.getTime()) > 10 * 60 * 1000).length
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${n ? 'bg-gray-950' : 'bg-background'}`}>
@@ -480,6 +481,21 @@ export default function DispatchStation() {
             <h1 className={`font-serif italic text-2xl md:text-3xl flex items-center gap-2 ${n ? 'text-white' : 'text-accent-dark'}`}>
               <Package className="text-accent" size={26} />
               Separação de Pedidos
+              <AnimatePresence>
+                {oldCount > 0 && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: [1, 1.08, 1] }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    transition={{ scale: { duration: 1.2, repeat: Infinity } }}
+                    className="flex items-center gap-1 bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full"
+                    title="Fichas com mais de 10 minutos na fila"
+                  >
+                    <AlertTriangle size={12} />
+                    {oldCount} atrasada{oldCount !== 1 ? 's' : ''}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </h1>
             <p className={`text-xs font-semibold uppercase tracking-widest mt-0.5 ${n ? 'text-gray-500' : 'text-gray-400'}`}>
               {totalCount} pedido{totalCount !== 1 ? 's' : ''} na fila
