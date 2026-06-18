@@ -87,7 +87,6 @@ interface CardProps {
   idx: number
   nightMode: boolean
   now: number
-  onDeliver: (order: Order) => void
 }
 
 const CARD_THEME: Record<OrderStatus, {
@@ -117,9 +116,8 @@ const CARD_THEME: Record<OrderStatus, {
   },
 }
 
-function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
+function OrderCard({ order, idx, nightMode: n, now }: CardProps) {
   const theme = CARD_THEME[order.status]
-  const isReady = order.status === 'ready'
   const isTakeout = isTakeoutTicket(order.ticket_number)
   // "Para viagem" cards stay light/white even in night mode, to stand out
   const nn = n && !isTakeout
@@ -151,22 +149,6 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
           <Plane size={12} />
           Para Viagem
         </div>
-      )}
-
-      {/* Diagonal slash for ready-but-not-delivered */}
-      {isReady && (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none z-10"
-          preserveAspectRatio="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <line
-            x1="100%" y1="0"
-            x2="0"   y2="100%"
-            stroke={nn ? 'rgba(74,222,128,0.18)' : 'rgba(34,197,94,0.30)'}
-            strokeWidth="3"
-          />
-        </svg>
       )}
 
       {/* Card header */}
@@ -234,23 +216,13 @@ function OrderCard({ order, idx, nightMode: n, now, onDeliver }: CardProps) {
 
       {/* Footer */}
       <div className="px-4 pb-4">
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={() => isReady && onDeliver(order)}
-          disabled={!isReady}
-          className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-bold text-sm transition-colors ${
-            isReady
-              ? nn
-                ? 'bg-green-600 hover:bg-green-500 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-              : nn
-                ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed'
-                : 'bg-gray-100/80 text-gray-400 cursor-not-allowed'
+        <div
+          className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-bold text-sm ${
+            nn ? 'bg-gray-700/50 text-gray-600' : 'bg-gray-100/80 text-gray-400'
           }`}
         >
-          <Check size={15} />
-          {isReady ? 'Entregar' : 'Aguardando cozinha…'}
-        </motion.button>
+          Aguardando cozinha…
+        </div>
       </div>
     </motion.div>
   )
@@ -493,7 +465,9 @@ export default function DispatchStation() {
     if (manualInput.trim()) { processTicket(manualInput.trim(), false); setManualInput('') }
   }
 
-  const readyCount = orders.filter((o) => o.status === 'ready').length
+  const queueOrders = orders.filter((o) => o.status !== 'ready')
+  const readyOrdersList = orders.filter((o) => o.status === 'ready')
+  const readyCount = readyOrdersList.length
   const totalCount = orders.length
 
   return (
@@ -656,7 +630,7 @@ export default function DispatchStation() {
         )}
 
         {/* Orders grid */}
-        {orders.length === 0 ? (
+        {queueOrders.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -673,23 +647,68 @@ export default function DispatchStation() {
         ) : (
           <div
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-            style={{ zoom: getAutoZoom(orders.length) }}
+            style={{ zoom: getAutoZoom(queueOrders.length) }}
           >
             <AnimatePresence mode="popLayout">
-              {orders.map((order, idx) => (
+              {queueOrders.map((order, idx) => (
                 <OrderCard
                   key={order.id}
                   order={order}
                   idx={idx}
                   nightMode={n}
                   now={now}
-                  onDeliver={handleDeliver}
                 />
               ))}
             </AnimatePresence>
           </div>
         )}
+
+        {/* Spacer so the ready footer doesn't overlap the last row */}
+        {readyOrdersList.length > 0 && <div className="h-20" />}
       </div>
+
+      {/* Ready footer — fichas prontas para entregar */}
+      <AnimatePresence>
+        {readyOrdersList.length > 0 && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            className={`fixed bottom-0 left-0 right-0 z-30 px-4 py-3 border-t shadow-[0_-4px_16px_rgba(0,0,0,0.1)] ${
+              n ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+            }`}
+          >
+            <div className="max-w-7xl mx-auto flex items-center gap-3 flex-wrap">
+              <span className={`text-xs font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
+                Prontas ({readyOrdersList.length})
+              </span>
+              <AnimatePresence mode="popLayout">
+                {readyOrdersList.map((order) => (
+                  <motion.button
+                    key={order.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleDeliver(order)}
+                    title="Marcar como entregue"
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full font-black text-base transition-colors ${
+                      isTakeoutTicket(order.ticket_number)
+                        ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                  >
+                    <Check size={13} />
+                    #{order.ticket_number}
+                    {isTakeoutTicket(order.ticket_number) && <Plane size={12} />}
+                  </motion.button>
+                ))}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
