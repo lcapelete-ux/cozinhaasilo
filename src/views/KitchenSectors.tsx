@@ -664,9 +664,24 @@ export default function KitchenSectors() {
   )
 }
 
+// Cores fixas por número de ficha para identificar rapidamente o mesmo
+// pedido entre as colunas de setores diferentes.
+const FICHA_DOT_COLORS = [
+  'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-amber-500',
+  'bg-pink-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-lime-500',
+  'bg-orange-500', 'bg-teal-500',
+]
+
+function ficheDotColor(ticket: string): string {
+  const num = parseInt(ticket, 10)
+  const idx = !isNaN(num) ? num : ticket.split('').reduce((s, c) => s + c.charCodeAt(0), 0)
+  return FICHA_DOT_COLORS[idx % FICHA_DOT_COLORS.length]
+}
+
 function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean }) {
   const isReady = status === 'ready'
   const isTakeout = isTakeoutTicket(ticket)
+  const dotColor = ficheDotColor(ticket)
   const lightColors: Record<OrderStatus, string> = {
     pending:   'bg-yellow-100 text-yellow-700 border-yellow-200',
     preparing: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -686,6 +701,7 @@ function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: 
   const size = nightMode ? 'text-sm' : 'text-xs'
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold border ${size} ${isTakeout ? takeoutColors : colors[status]}`}>
+      <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
       {isTakeout && <Plane size={nightMode ? 13 : 11} className="shrink-0" />}
       <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{displayTicket(ticket)}</span>
       <span className="opacity-70">×{qty}</span>
