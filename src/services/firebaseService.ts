@@ -524,6 +524,24 @@ export async function deleteMediaSlide(id: string): Promise<void> {
   await deleteDoc(doc(_db, 'media_slides', id))
 }
 
+// ── Push Subscriptions (Web Push, sent by a GitHub Actions cron — no Firebase Functions) ──
+
+export async function savePushSubscription(sub: PushSubscriptionJSON): Promise<void> {
+  if (!_db || !sub.endpoint) return
+  // Endpoint URL is unique per device/browser — use it as the doc id to avoid duplicates
+  const id = btoa(sub.endpoint).replace(/[^a-zA-Z0-9]/g, '').slice(0, 200)
+  await setDoc(doc(_db, 'push_subscriptions', id), {
+    ...sub,
+    updated_at: serverTimestamp(),
+  })
+}
+
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  if (!_db) return
+  const id = btoa(endpoint).replace(/[^a-zA-Z0-9]/g, '').slice(0, 200)
+  await deleteDoc(doc(_db, 'push_subscriptions', id))
+}
+
 // ── Stock Entries ────────────────────────────────────────────────────────────
 
 export async function addStockEntry(entry: Omit<StockEntry, 'id' | 'inserted_at'>): Promise<void> {

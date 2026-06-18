@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertTriangle, ChefHat, ArrowRight, PackageX } from 'lucide-react'
+import { AlertTriangle, ChefHat, ArrowRight, PackageX, Bell, BellOff } from 'lucide-react'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 import {
   subscribeOrders,
   subscribeAllOrders,
@@ -198,6 +199,8 @@ export default function LiveControl() {
     },
   ]
 
+  const push = usePushNotifications()
+
   return (
     <div className="space-y-4">
 
@@ -220,6 +223,19 @@ export default function LiveControl() {
             <AlertTriangle size={11} />
             {alerts.length} alerta{alerts.length !== 1 ? 's' : ''}
           </motion.span>
+        )}
+        {push.supported && (
+          <button
+            onClick={() => (push.subscribed ? push.unsubscribe() : push.subscribe())}
+            disabled={push.loading}
+            className={`ml-auto text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors ${
+              push.subscribed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            title={push.subscribed ? 'Desativar alertas no celular' : 'Receber alertas de estoque baixo no celular'}
+          >
+            {push.subscribed ? <Bell size={13} /> : <BellOff size={13} />}
+            {push.subscribed ? 'Alertas ativos' : 'Ativar alertas no celular'}
+          </button>
         )}
       </div>
 
