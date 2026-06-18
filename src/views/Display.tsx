@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession, subscribeBrandingConfig } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
+import { displayTicket } from '../utils/ticket'
 import type { Order, MediaSlide, MenuItem, } from '../types'
 import type { VilhinhoItem } from '../services/firebaseService'
 
@@ -680,7 +681,7 @@ export default function Display() {
                 animate={{ scale: [1, 1.04, 1] }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
               >
-                {readyNotif.ticket}
+                {displayTicket(readyNotif.ticket)}
               </motion.p>
 
               <div
@@ -735,7 +736,7 @@ export default function Display() {
                       <FireAnimated size={Math.round(36 * cardSize)} />
                       <div className="text-center">
                         <p className="text-white/40 text-sm uppercase tracking-widest">Ficha</p>
-                        <p className="font-black text-white leading-none mt-1" style={{ fontSize: `${2.5 * cardSize}rem` }}>#{order.ticket_number}</p>
+                        <p className="font-black text-white leading-none mt-1" style={{ fontSize: `${2.5 * cardSize}rem` }}>#{displayTicket(order.ticket_number)}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -792,7 +793,7 @@ export default function Display() {
                           animate={{ scale: [1, 1.08, 1], textShadow: ['0 0 0px #FFD700', '0 0 32px #FFD700', '0 0 0px #FFD700'] }}
                           transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
                         >
-                          #{order.ticket_number}
+                          #{displayTicket(order.ticket_number)}
                         </motion.p>
                       </div>
                       <span className="text-base font-black px-4 py-1 rounded-full uppercase"

@@ -4,7 +4,7 @@ import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle,
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
-import { isTakeoutTicket } from '../utils/ticket'
+import { isTakeoutTicket, displayTicket } from '../utils/ticket'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const LOW_STOCK_THRESHOLD = 15
@@ -209,10 +209,10 @@ export default function KitchenSectors() {
         scanCountRef.current = 0
         scanTicketRef.current = null
         const order = await getOrderByTicket(ticket)
-        if (!order) { addToast(`Ficha #${ticket} não encontrada`); return }
+        if (!order) { addToast(`Ficha #${displayTicket(ticket)} não encontrada`); return }
         await deleteOrder(order.id)
         playCancelSound()
-        addToast(`Pedido da ficha #${ticket} cancelado! Ficha liberada.`, 'success')
+        addToast(`Pedido da ficha #${displayTicket(ticket)} cancelado! Ficha liberada.`, 'success')
         setCancelledFicha(ticket)
         if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current)
         cancelTimerRef.current = setTimeout(() => setCancelledFicha(null), 6000)
@@ -220,7 +220,7 @@ export default function KitchenSectors() {
       }
 
       const order = await getActiveOrderByTicket(ticket)
-      if (!order) { addToast(`Ficha #${ticket} não encontrada ou já entregue`); return }
+      if (!order) { addToast(`Ficha #${displayTicket(ticket)} não encontrada ou já entregue`); return }
       let nextStatus: OrderStatus | null = null
       if (order.status === 'pending' || order.status === 'preparing') nextStatus = 'ready'
       else if (order.status === 'ready') nextStatus = 'delivered'
@@ -228,9 +228,9 @@ export default function KitchenSectors() {
       await setOrderStatus(order.id, nextStatus)
       if (nextStatus === 'ready') {
         playReadySound()
-        addToast(`Ficha #${ticket} pronta! 🔔 Aparece no painel.`, 'success')
+        addToast(`Ficha #${displayTicket(ticket)} pronta! 🔔 Aparece no painel.`, 'success')
       } else {
-        addToast(`Ficha #${ticket} entregue! ✅ Liberada para uso.`, 'success')
+        addToast(`Ficha #${displayTicket(ticket)} entregue! ✅ Liberada para uso.`, 'success')
       }
     } catch {
       addToast('Erro ao processar ficha')
@@ -451,7 +451,7 @@ export default function KitchenSectors() {
             </motion.span>
             <div>
               <p className="font-black text-green-800 text-base">
-                Ficha <span className="text-2xl">#{releasedFicha}</span> liberada!
+                Ficha <span className="text-2xl">#{displayTicket(releasedFicha)}</span> liberada!
               </p>
               <p className="text-xs text-green-600 font-medium">Entregue ao cliente — pode usar de novo.</p>
             </div>
@@ -488,7 +488,7 @@ export default function KitchenSectors() {
             </motion.span>
             <div>
               <p className="font-black text-red-800 text-base">
-                Pedido da ficha <span className="text-2xl">#{cancelledFicha}</span> cancelado!
+                Pedido da ficha <span className="text-2xl">#{displayTicket(cancelledFicha)}</span> cancelado!
               </p>
               <p className="text-xs text-red-600 font-medium">Removido da tela — a ficha já pode ser usada de novo.</p>
             </div>
@@ -508,7 +508,7 @@ export default function KitchenSectors() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 bg-accent/10 border border-accent/20 rounded-2xl px-4 py-2 text-sm text-accent-dark flex items-center gap-2"
         >
-          Última ficha: <strong>#{lastScanned}</strong>
+          Última ficha: <strong>#{displayTicket(lastScanned)}</strong>
           {isTakeoutTicket(lastScanned) && (
             <span className="flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wide">
               <Plane size={11} />
@@ -590,7 +590,7 @@ export default function KitchenSectors() {
             <div className="bg-accent px-4 py-2.5 flex items-center justify-between">
               <div>
                 <p className="text-white/60 text-[10px] uppercase tracking-widest leading-none mb-0.5">Recepção — ao vivo</p>
-                <p className="text-white font-black text-xl leading-none">#{liveSession.ficha}</p>
+                <p className="text-white font-black text-xl leading-none">#{displayTicket(liveSession.ficha)}</p>
               </div>
               <motion.div
                 animate={{ opacity: [1, 0.3, 1] }}
@@ -655,7 +655,7 @@ function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: 
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold border ${size} ${isTakeout ? takeoutColors : colors[status]}`}>
       {isTakeout && <Plane size={nightMode ? 13 : 11} className="shrink-0" />}
-      <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{ticket}</span>
+      <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{displayTicket(ticket)}</span>
       <span className="opacity-70">×{qty}</span>
     </span>
   )

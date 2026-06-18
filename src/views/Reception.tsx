@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send } from 'lucide-react'
 import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus } from '../services/firebaseService'
 import { useApp } from '../App'
+import { displayTicket } from '../utils/ticket'
 import type { MenuItem } from '../types'
 
 interface SessionItem {
@@ -328,33 +329,33 @@ export default function Reception() {
       // Ready order → confirm delivery immediately (single-computer: Reception intercepts all scans)
       if (existing?.status === 'ready') {
         await setOrderStatus(existing.id, 'delivered')
-        setLastScan({ type: 'ficha', label: `Ficha #${ticket} entregue!` })
+        setLastScan({ type: 'ficha', label: `Ficha #${displayTicket(ticket)} entregue!` })
         return
       }
 
       if (!current) {
         if (existing) {
-          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (em preparo)` })
+          setLastScan({ type: 'error', label: `Ficha #${displayTicket(ticket)} já está na cozinha (em preparo)` })
           return
         }
         const newSession: Session = { ficha: ticket, items: [] }
         setSession(newSession)
         sessionRef.current = newSession
-        setLastScan({ type: 'ficha', label: `Ficha #${ticket} aberta` })
+        setLastScan({ type: 'ficha', label: `Ficha #${displayTicket(ticket)} aberta` })
         startCountdown()
       } else if (current.ficha !== ticket) {
         if (existing) {
-          setLastScan({ type: 'error', label: `Ficha #${ticket} já está na cozinha (em preparo)` })
+          setLastScan({ type: 'error', label: `Ficha #${displayTicket(ticket)} já está na cozinha (em preparo)` })
           return
         }
         await submitSession(current)
         const newSession: Session = { ficha: ticket, items: [] }
         setSession(newSession)
         sessionRef.current = newSession
-        setLastScan({ type: 'ficha', label: `Ficha #${ticket} aberta` })
+        setLastScan({ type: 'ficha', label: `Ficha #${displayTicket(ticket)} aberta` })
         startCountdown()
       } else {
-        setLastScan({ type: 'ficha', label: `Ficha #${ticket} (continuando)` })
+        setLastScan({ type: 'ficha', label: `Ficha #${displayTicket(ticket)} (continuando)` })
         startCountdown()
       }
     } catch {
@@ -493,7 +494,7 @@ export default function Reception() {
               <div className="bg-accent px-6 py-4 flex items-center justify-between">
                 <div>
                   <p className="text-white/60 text-xs uppercase tracking-widest">Ficha ativa</p>
-                  <p className="text-white font-black text-3xl">#{session.ficha}</p>
+                  <p className="text-white font-black text-3xl">#{displayTicket(session.ficha)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-white/60 text-xs">{totalItems} item(ns)</p>
@@ -600,7 +601,7 @@ export default function Reception() {
                         <CheckCircle size={18} className="text-green-500" />
                       </div>
                       <div>
-                        <p className="font-bold text-accent-dark text-sm">Ficha #{order.ficha}</p>
+                        <p className="font-bold text-accent-dark text-sm">Ficha #{displayTicket(order.ficha)}</p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {order.items.map(i => `${i.name} ×${i.quantity}`).join(' · ')}
                         </p>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Clock, Calendar } from 'lucide-react'
 import { subscribeAllOrders } from '../services/firebaseService'
+import { displayTicket } from '../utils/ticket'
 import type { Order } from '../types'
 
 export default function History() {
@@ -86,7 +87,7 @@ export default function History() {
             >
               <div className="shrink-0 text-center">
                 <p className="text-xs text-gray-400">Ficha</p>
-                <p className="text-xl font-black text-accent-dark">#{order.ticket_number}</p>
+                <p className="text-xl font-black text-accent-dark">#{displayTicket(order.ticket_number)}</p>
               </div>
               <div className="flex-1">
                 <div className="flex flex-wrap gap-1 mb-2">

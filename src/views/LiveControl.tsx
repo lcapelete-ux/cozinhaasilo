@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertTriangle, ChefHat, ArrowRight, PackageX, Bell, BellOff } from 'lucide-react'
 import { usePushNotifications } from '../hooks/usePushNotifications'
+import { displayTicket } from '../utils/ticket'
 import {
   subscribeOrders,
   subscribeAllOrders,
@@ -177,7 +178,7 @@ export default function LiveControl() {
   const alerts: { severity: 'danger' | 'warn'; text: string }[] = [
     ...slowOrders.map((o) => ({
       severity: (ageMin(o.created_at) >= 15 ? 'danger' : 'warn') as 'danger' | 'warn',
-      text: `Ficha #${o.ticket_number} em ${STATUS_LABEL[o.status].toLowerCase()} há ${ageMin(o.created_at)}min`,
+      text: `Ficha #${displayTicket(o.ticket_number)} em ${STATUS_LABEL[o.status].toLowerCase()} há ${ageMin(o.created_at)}min`,
     })),
     ...lowStock.map((i) => ({
       severity: (i.stock === 0 ? 'danger' : 'warn') as 'danger' | 'warn',
@@ -317,7 +318,7 @@ export default function LiveControl() {
                       className={`px-5 py-3 flex items-center gap-3 ${rowBg}`}
                     >
                       <span className="font-black text-lg text-gray-800 w-12 shrink-0 tabular-nums">
-                        #{order.ticket_number}
+                        #{displayTicket(order.ticket_number)}
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-gray-600 truncate leading-relaxed">
@@ -351,7 +352,7 @@ export default function LiveControl() {
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <p className="text-white/60 text-[10px] uppercase tracking-widest">Recepção — digitando</p>
-                    <p className="text-white font-black text-2xl leading-none">#{liveSession.ficha}</p>
+                    <p className="text-white font-black text-2xl leading-none">#{displayTicket(liveSession.ficha)}</p>
                   </div>
                   <motion.div
                     animate={{ opacity: [1, 0.2, 1] }}
@@ -434,7 +435,7 @@ export default function LiveControl() {
                             Novo
                           </span>
                           <span className="text-xs text-gray-700 flex-1 truncate">
-                            <strong>#{event.ticket}</strong>
+                            <strong>#{displayTicket(event.ticket)}</strong>
                             {event.items && (
                               <span className="text-gray-400 font-normal"> · {event.items}</span>
                             )}
@@ -442,7 +443,7 @@ export default function LiveControl() {
                         </>
                       ) : (
                         <>
-                          <span className="text-xs font-bold text-gray-500 shrink-0">#{event.ticket}</span>
+                          <span className="text-xs font-bold text-gray-500 shrink-0">#{displayTicket(event.ticket)}</span>
                           <span className="text-[10px] text-gray-400 flex items-center gap-0.5 shrink-0">
                             {event.prevStatus && STATUS_LABEL[event.prevStatus]}
                             <ArrowRight size={9} className="mx-0.5" />

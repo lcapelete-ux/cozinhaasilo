@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Scan, CheckCircle, AlertCircle } from 'lucide-react'
 import { getOrderByTicket, setOrderStatus, resolveFicha } from '../services/firebaseService'
 import { useApp } from '../App'
+import { displayTicket } from '../utils/ticket'
 
 type ScanResult = { type: 'success'; ticket: string } | { type: 'error'; message: string } | null
 
@@ -22,15 +23,15 @@ export default function KitchenScanner() {
       const ticket = await resolveFicha(raw)
       const order = await getOrderByTicket(ticket)
       if (!order) {
-        setResult({ type: 'error', message: `Ficha #${ticket} não encontrada` })
+        setResult({ type: 'error', message: `Ficha #${displayTicket(ticket)} não encontrada` })
         return
       }
       if (order.status === 'delivered') {
-        setResult({ type: 'error', message: `Ficha #${ticket} já foi entregue` })
+        setResult({ type: 'error', message: `Ficha #${displayTicket(ticket)} já foi entregue` })
         return
       }
       if (order.status === 'ready') {
-        setResult({ type: 'error', message: `Ficha #${ticket} já está pronta` })
+        setResult({ type: 'error', message: `Ficha #${displayTicket(ticket)} já está pronta` })
         return
       }
       await setOrderStatus(order.id, 'ready')
@@ -167,7 +168,7 @@ export default function KitchenScanner() {
               }`}
             >
               {result.type === 'success'
-                ? `✓ Ficha #${result.ticket} marcada como pronta!`
+                ? `✓ Ficha #${displayTicket(result.ticket)} marcada como pronta!`
                 : result.message}
             </motion.div>
           )}

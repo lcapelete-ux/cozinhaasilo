@@ -4,7 +4,7 @@ import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, 
 import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders, subscribeMenuItems, createOrder, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
-import { isTakeoutTicket } from '../utils/ticket'
+import { isTakeoutTicket, displayTicket } from '../utils/ticket'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
@@ -163,7 +163,7 @@ function OrderCard({ order, idx, nightMode: n, now }: CardProps) {
             </p>
             <div className="flex items-center gap-2">
               <p className={`font-black text-3xl leading-none ${t.fichaNum}`}>
-                {order.ticket_number}
+                {displayTicket(order.ticket_number)}
               </p>
               {isTakeout && <Plane size={26} className="text-purple-500 shrink-0" />}
             </div>
@@ -336,7 +336,7 @@ export default function DispatchStation() {
   const handleDeliver = useCallback(async (order: Order) => {
     try {
       await setOrderStatus(order.id, 'delivered')
-      addToast(`Ficha #${order.ticket_number} entregue! ✅`, 'success')
+      addToast(`Ficha #${displayTicket(order.ticket_number)} entregue! ✅`, 'success')
     } catch {
       addToast('Erro ao entregar')
     }
@@ -382,10 +382,10 @@ export default function DispatchStation() {
         scanCountRef.current = 0
         scanTicketRef.current = null
         const order = await getOrderByTicket(ticket)
-        if (!order) { addToast(`Ficha #${ticket} não encontrada`); return }
+        if (!order) { addToast(`Ficha #${displayTicket(ticket)} não encontrada`); return }
         await deleteOrder(order.id)
         playCancelSound()
-        addToast(`Pedido da ficha #${ticket} cancelado! Ficha liberada.`, 'success')
+        addToast(`Pedido da ficha #${displayTicket(ticket)} cancelado! Ficha liberada.`, 'success')
         setCancelledFicha(ticket)
         if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current)
         cancelTimerRef.current = setTimeout(() => setCancelledFicha(null), 6000)
@@ -410,10 +410,10 @@ export default function DispatchStation() {
       await setOrderStatus(order.id, nextStatus)
       if (nextStatus === 'ready') {
         playReadySound()
-        addToast(`Ficha #${ticket} pronta! 🔔 Aparece no painel.`, 'success')
+        addToast(`Ficha #${displayTicket(ticket)} pronta! 🔔 Aparece no painel.`, 'success')
       } else {
         playDeliveredSound()
-        addToast(`Ficha #${ticket} entregue! ✅ Liberada para uso.`, 'success')
+        addToast(`Ficha #${displayTicket(ticket)} entregue! ✅ Liberada para uso.`, 'success')
       }
     } catch {
       addToast('Erro ao processar ficha')
@@ -578,7 +578,7 @@ export default function DispatchStation() {
               </motion.span>
               <div>
                 <p className="font-black text-green-800 text-base">
-                  Ficha <span className="text-2xl">#{releasedFicha}</span> liberada!
+                  Ficha <span className="text-2xl">#{displayTicket(releasedFicha)}</span> liberada!
                 </p>
                 <p className="text-xs text-green-600 font-medium">Entregue ao cliente — pode usar de novo.</p>
               </div>
@@ -616,7 +616,7 @@ export default function DispatchStation() {
               </motion.span>
               <div>
                 <p className="font-black text-red-800 text-base">
-                  Pedido da ficha <span className="text-2xl">#{cancelledFicha}</span> cancelado!
+                  Pedido da ficha <span className="text-2xl">#{displayTicket(cancelledFicha)}</span> cancelado!
                 </p>
                 <p className="text-xs text-red-600 font-medium">Removido da tela — a ficha já pode ser usada de novo.</p>
               </div>
@@ -638,7 +638,7 @@ export default function DispatchStation() {
               n ? 'bg-accent/20 border-accent/30 text-accent' : 'bg-accent/10 border-accent/20 text-accent-dark'
             }`}
           >
-            Última ficha: <strong>#{lastScanned}</strong>
+            Última ficha: <strong>#{displayTicket(lastScanned)}</strong>
             {isTakeoutTicket(lastScanned) && (
               <span className="flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wide">
                 <Plane size={11} />
@@ -719,7 +719,7 @@ export default function DispatchStation() {
                     }`}
                   >
                     <Check size={13} />
-                    #{order.ticket_number}
+                    #{displayTicket(order.ticket_number)}
                     {isTakeoutTicket(order.ticket_number) && <Plane size={12} />}
                   </motion.button>
                 ))}

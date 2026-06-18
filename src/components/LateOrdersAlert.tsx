@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertTriangle } from 'lucide-react'
 import { subscribeOrders } from '../services/firebaseService'
+import { displayTicket } from '../utils/ticket'
 import type { Order, ViewName } from '../types'
 
 const LATE_MS = 10 * 60 * 1000 // 10 minutes
@@ -86,7 +87,7 @@ export default function LateOrdersAlert({ currentView }: Props) {
               <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>
                 <AlertTriangle size={12} className="shrink-0" />
               </motion.div>
-              #{order.ticket_number}
+              #{displayTicket(order.ticket_number)}
               <span className="text-red-100 font-semibold">· {formatDelay(delay)}</span>
             </motion.div>
           )

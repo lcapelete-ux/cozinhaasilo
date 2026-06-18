@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, Clock, CheckCircle2, Loader2, BellRing, PackageCheck, type LucideIcon } from 'lucide-react'
 import { subscribeAllOrders } from '../services/firebaseService'
+import { displayTicket } from '../utils/ticket'
 import type { Order, OrderStatus } from '../types'
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: string; border: string; Icon: LucideIcon }> = {
@@ -96,7 +97,7 @@ export default function Kitchen() {
                     {/* Left: ficha + items */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="font-black text-xl text-accent-dark">#{order.ticket_number}</span>
+                        <span className="font-black text-xl text-accent-dark">#{displayTicket(order.ticket_number)}</span>
                         <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg border ${cfg.bg} ${cfg.border} ${cfg.color}`}>
                           <cfg.Icon size={11} />
                           {cfg.label}
