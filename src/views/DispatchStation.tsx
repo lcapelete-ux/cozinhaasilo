@@ -5,9 +5,11 @@ import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, 
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import { isTakeoutTicket, displayTicket, parseManualTicket } from '../utils/ticket'
+import ZoomControls, { ZOOM_STEPS } from '../components/ZoomControls'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
+const ZOOM_KEY = 'dispatch-zoom'
 
 function playReadySound() {
   try {
@@ -234,6 +236,11 @@ export default function DispatchStation() {
   const [inputMode, setInputMode] = useState<'qr' | 'keyboard' | null>(null)
   const [manualInput, setManualInput] = useState('')
   const [nightMode, setNightMode] = useState(() => localStorage.getItem(NIGHT_KEY) === 'true')
+  const [zoomOverride, setZoomOverride] = useState<number | null>(() => {
+    const saved = localStorage.getItem(ZOOM_KEY)
+    const val = saved ? parseFloat(saved) : NaN
+    return ZOOM_STEPS.includes(val) ? val : null
+  })
   const [now, setNow] = useState(Date.now())
 
   const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
@@ -326,6 +333,11 @@ export default function DispatchStation() {
     const next = !nightMode
     setNightMode(next)
     localStorage.setItem(NIGHT_KEY, String(next))
+  }
+
+  const handleZoom = (z: number) => {
+    setZoomOverride(z)
+    localStorage.setItem(ZOOM_KEY, String(z))
   }
 
   const flashMode = useCallback((mode: 'qr' | 'keyboard') => {
@@ -544,6 +556,11 @@ export default function DispatchStation() {
               >
                 {n ? <Sun size={16} /> : <Moon size={16} />}
               </button>
+
+              <ZoomControls
+                zoom={zoomOverride ?? getAutoZoom(queueOrders.length)}
+                onChange={handleZoom}
+              />
             </div>
 
             <AnimatePresence>
@@ -670,7 +687,7 @@ export default function DispatchStation() {
         ) : (
           <div
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-            style={{ zoom: getAutoZoom(queueOrders.length) }}
+            style={{ zoom: zoomOverride ?? getAutoZoom(queueOrders.length) }}
           >
             <AnimatePresence mode="popLayout">
               {queueOrders.map((order, idx) => (
