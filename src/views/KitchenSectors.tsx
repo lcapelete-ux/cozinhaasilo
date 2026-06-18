@@ -4,7 +4,7 @@ import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle,
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
-import { isTakeoutTicket, displayTicket } from '../utils/ticket'
+import { isTakeoutTicket, displayTicket, parseManualTicket } from '../utils/ticket'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const LOW_STOCK_THRESHOLD = 15
@@ -191,6 +191,10 @@ export default function KitchenSectors() {
   const processTicket = useCallback(async (raw: string, isQr: boolean) => {
     if (isQr) flashMode('qr')
     else flashMode('keyboard')
+
+    // Manual numeric keypad shows/expects the on-screen number (100-120);
+    // QR/barcode scans already carry the real ficha (200-220) — untouched.
+    if (!isQr) raw = parseManualTicket(raw)
     try {
       const ticket = await resolveFicha(raw)
       setLastScanned(ticket)

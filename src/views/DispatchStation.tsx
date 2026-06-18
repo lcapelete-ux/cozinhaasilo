@@ -4,7 +4,7 @@ import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, 
 import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders, subscribeMenuItems, createOrder, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
-import { isTakeoutTicket, displayTicket } from '../utils/ticket'
+import { isTakeoutTicket, displayTicket, parseManualTicket } from '../utils/ticket'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
@@ -345,6 +345,10 @@ export default function DispatchStation() {
   const processTicket = useCallback(async (raw: string, isQr: boolean) => {
     if (isQr) flashMode('qr')
     else flashMode('keyboard')
+
+    // Manual numeric keypad shows/expects the on-screen number (100-120);
+    // QR/barcode scans already carry the real ficha (200-220) — untouched.
+    if (!isQr) raw = parseManualTicket(raw)
 
     // Check product code first (4+ digits matching a menu item) — hidden, no feedback
     const digits = raw.trim().replace(/\D/g, '')
