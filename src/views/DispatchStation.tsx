@@ -481,21 +481,6 @@ export default function DispatchStation() {
             <h1 className={`font-serif italic text-2xl md:text-3xl flex items-center gap-2 ${n ? 'text-white' : 'text-accent-dark'}`}>
               <Package className="text-accent" size={26} />
               Separação de Pedidos
-              <AnimatePresence>
-                {oldCount > 0 && (
-                  <motion.span
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: [1, 1.08, 1] }}
-                    exit={{ opacity: 0, scale: 0.7 }}
-                    transition={{ scale: { duration: 1.2, repeat: Infinity } }}
-                    className="flex items-center gap-1 bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full"
-                    title="Fichas com mais de 10 minutos na fila"
-                  >
-                    <AlertTriangle size={12} />
-                    {oldCount} atrasada{oldCount !== 1 ? 's' : ''}
-                  </motion.span>
-                )}
-              </AnimatePresence>
             </h1>
             <p className={`text-xs font-semibold uppercase tracking-widest mt-0.5 ${n ? 'text-gray-500' : 'text-gray-400'}`}>
               {totalCount} pedido{totalCount !== 1 ? 's' : ''} na fila
@@ -505,55 +490,73 @@ export default function DispatchStation() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 ml-auto flex-wrap">
+          <div className="flex flex-col items-end gap-1.5 ml-auto">
+            <div className="flex items-center gap-3 flex-wrap">
+              <AnimatePresence>
+                {inputMode && (
+                  <motion.div
+                    key={inputMode}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                      inputMode === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
+                    {inputMode === 'qr' ? <QrCode size={13} /> : <Keyboard size={13} />}
+                    {inputMode === 'qr' ? 'QR Code' : 'Teclado'}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
+                <div className="relative">
+                  <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent/60" />
+                  <input
+                    ref={manualRef}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Nº ficha"
+                    value={manualInput}
+                    onChange={(e) => setManualInput(e.target.value)}
+                    className={`pl-8 pr-3 py-2 rounded-xl border-2 focus:outline-none text-sm font-bold w-28 ${
+                      n
+                        ? 'bg-gray-800 border-gray-600 text-white focus:border-accent'
+                        : 'bg-white border-accent/40 focus:border-accent'
+                    }`}
+                  />
+                </div>
+                <button type="submit" className="bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+                  ✓ OK
+                </button>
+              </form>
+
+              <button
+                onClick={toggleNight}
+                title={n ? 'Modo diurno' : 'Modo noturno'}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                  n ? 'bg-gray-700 text-yellow-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {n ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+            </div>
+
             <AnimatePresence>
-              {inputMode && (
-                <motion.div
-                  key={inputMode}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                    inputMode === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                  }`}
+              {oldCount > 0 && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: [1, 1.08, 1] }}
+                  exit={{ opacity: 0, scale: 0.7 }}
+                  transition={{ scale: { duration: 1.2, repeat: Infinity } }}
+                  className="flex items-center gap-1 bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full"
+                  title="Fichas com mais de 10 minutos na fila"
                 >
-                  {inputMode === 'qr' ? <QrCode size={13} /> : <Keyboard size={13} />}
-                  {inputMode === 'qr' ? 'QR Code' : 'Teclado'}
-                </motion.div>
+                  <AlertTriangle size={12} />
+                  {oldCount} atrasada{oldCount !== 1 ? 's' : ''}
+                </motion.span>
               )}
             </AnimatePresence>
-
-            <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
-              <div className="relative">
-                <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent/60" />
-                <input
-                  ref={manualRef}
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Nº ficha"
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  className={`pl-8 pr-3 py-2 rounded-xl border-2 focus:outline-none text-sm font-bold w-28 ${
-                    n
-                      ? 'bg-gray-800 border-gray-600 text-white focus:border-accent'
-                      : 'bg-white border-accent/40 focus:border-accent'
-                  }`}
-                />
-              </div>
-              <button type="submit" className="bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-                ✓ OK
-              </button>
-            </form>
-
-            <button
-              onClick={toggleNight}
-              title={n ? 'Modo diurno' : 'Modo noturno'}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                n ? 'bg-gray-700 text-yellow-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              {n ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
           </div>
         </div>
 
