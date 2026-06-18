@@ -56,7 +56,7 @@ export interface StockEntry {
   id: string
   menu_item_id: string
   menu_item_name: string
-  type: 'adjust' | 'set' | 'reset' | 'entry' | 'open'
+  type: 'adjust' | 'set' | 'reset' | 'entry' | 'open' | 'sale'
   qty_before: number
   qty_after: number
   inserted_by: string

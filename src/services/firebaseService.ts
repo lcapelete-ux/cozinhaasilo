@@ -179,6 +179,39 @@ export async function setOrderStatus(orderId: string, status: OrderStatus): Prom
     status,
     updated_at: serverTimestamp(),
   })
+  if (status === 'delivered') {
+    await deductStockForDeliveredOrder(orderId)
+  }
+}
+
+// Decrements menu_items.stock for tracked items (stock_initial > 0) when an
+// order is delivered, mirroring the manual adjustment writes in Inventory.tsx
+async function deductStockForDeliveredOrder(orderId: string): Promise<void> {
+  if (!_db) return
+  try {
+    const orderSnap = await getDoc(doc(_db, 'orders', orderId))
+    if (!orderSnap.exists()) return
+    const order = mapOrder(orderSnap.id, orderSnap.data() as Record<string, unknown>)
+    const menuSnap = await getDocs(collection(_db, 'menu_items'))
+    const menuItems = menuSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MenuItem, 'id'>) }))
+    for (const orderItem of order.items) {
+      const menuItem = menuItems.find((m) => m.name === orderItem.name)
+      if (!menuItem || !((menuItem.stock_initial ?? 0) > 0)) continue
+      const before = menuItem.stock ?? 0
+      const after = before - orderItem.quantity
+      await updateDoc(doc(_db, 'menu_items', menuItem.id), { stock: after })
+      await addStockEntry({
+        menu_item_id: menuItem.id,
+        menu_item_name: menuItem.name,
+        type: 'sale',
+        qty_before: before,
+        qty_after: after,
+        inserted_by: 'Sistema (entrega)',
+      })
+    }
+  } catch (e) {
+    console.error('deductStockForDeliveredOrder failed:', e)
+  }
 }
 
 export async function deleteOrder(orderId: string): Promise<void> {

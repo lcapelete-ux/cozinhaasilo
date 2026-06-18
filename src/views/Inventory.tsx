@@ -40,6 +40,7 @@ const TYPE_LABEL: Record<StockEntry['type'], string> = {
   reset:  'Reposto',
   entry:  'Entrada',
   open:   'Abertura',
+  sale:   'Venda',
 }
 
 // Itens antigos da carga inicial de exemplo (seedMenuItems), substituídos pelo
@@ -838,6 +839,7 @@ export default function Inventory() {
                                       e.type === 'open'  ? 'bg-accent/10 text-accent-dark' :
                                       e.type === 'reset' ? 'bg-blue-100 text-blue-600' :
                                       e.type === 'set'   ? 'bg-purple-100 text-purple-600' :
+                                      e.type === 'sale'  ? 'bg-red-100 text-red-600' :
                                                            'bg-gray-100 text-gray-500'
                                     }`}>
                                       {TYPE_LABEL[e.type]}
