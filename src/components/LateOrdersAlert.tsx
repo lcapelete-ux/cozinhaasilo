@@ -7,8 +7,9 @@ import type { Order, ViewName } from '../types'
 
 const LATE_MS = 10 * 60 * 1000 // 10 minutes
 
-// Only show alert on internal production panels
-const INTERNAL_VIEWS: ViewName[] = ['kitchen', 'kitchen-scanner', 'kitchen-sectors', 'dispatch']
+// Only show alert on internal production panels — kitchen-sectors has its
+// own delayed-fichas marquee instead, so it's excluded here.
+const INTERNAL_VIEWS: ViewName[] = ['kitchen', 'kitchen-scanner', 'dispatch']
 
 function formatDelay(ms: number): string {
   const mins = Math.floor(ms / 60_000)
