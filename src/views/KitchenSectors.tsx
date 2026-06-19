@@ -80,6 +80,7 @@ interface SectorItem {
 export default function KitchenSectors() {
   const { addToast } = useApp()
   const [orders, setOrders] = useState<Order[]>([])
+  const [now, setNow] = useState(Date.now())
   const [manualInput, setManualInput] = useState('')
   const [inputMode, setInputMode] = useState<'qr' | 'keyboard' | null>(null)
   const [lastScanned, setLastScanned] = useState('')
@@ -116,6 +117,11 @@ export default function KitchenSectors() {
   const lastKeyTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     const unsub = subscribeOrders(['pending', 'preparing', 'ready'], (incoming) => {
@@ -317,6 +323,9 @@ export default function KitchenSectors() {
   }
 
   const totalActive = orders.length
+  const delayedOrders = orders
+    .filter((o) => (o.status === 'pending' || o.status === 'preparing') && (now - o.created_at.getTime()) > 10 * 60 * 1000)
+    .sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
   const [clockTime, setClockTime] = useState(() =>
     new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   )
@@ -544,7 +553,9 @@ export default function KitchenSectors() {
         )}
       </AnimatePresence>
 
-      {lastScanned && (
+      {delayedOrders.length > 0 ? (
+        <DelayedMarquee orders={delayedOrders} />
+      ) : lastScanned && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -691,6 +702,36 @@ export default function KitchenSectors() {
         )}
       </AnimatePresence>
     </div>
+    </div>
+  )
+}
+
+// Letreiro passando as fichas atrasadas (>10min sem ficar pronta) — substitui
+// o aviso de "última ficha" enquanto houver alguma atrasada, pois é a
+// informação mais urgente para a cozinha ver.
+function DelayedMarquee({ orders }: { orders: Order[] }) {
+  const tickets = orders.map((o) => displayTicket(o.ticket_number))
+  const text = tickets.map((t) => `#${t}`).join('     •     ')
+
+  return (
+    <div className="mb-4 rounded-2xl px-4 py-2 bg-red-600 text-white overflow-hidden flex items-center gap-2">
+      <style>{`
+        @keyframes ks-delayed-marquee {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+      `}</style>
+      <AlertTriangle size={16} className="shrink-0" />
+      <span className="text-xs font-black uppercase tracking-widest shrink-0">Atrasadas:</span>
+      <div className="flex-1 overflow-hidden">
+        <div
+          className="flex whitespace-nowrap font-black text-sm"
+          style={{ animation: `ks-delayed-marquee ${Math.max(8, tickets.length * 3)}s linear infinite` }}
+        >
+          <span className="pr-8">{text}</span>
+          <span className="pr-8">{text}</span>
+        </div>
+      </div>
     </div>
   )
 }
