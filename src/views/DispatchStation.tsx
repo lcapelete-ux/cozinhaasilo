@@ -73,15 +73,17 @@ function formatAge(created: Date, now: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
-// Ajusta o tamanho dos cards conforme a quantidade de pedidos na fila, para
-// caber ~16 cards em um monitor de 21" sem precisar rolar a tela.
+// Ajusta o tamanho dos cards conforme a quantidade de pedidos na fila. A
+// grade padrão é de 6 colunas, então 6 fichas é a referência de tamanho
+// "cheio"; a partir daí o zoom encolhe por linha (de 6 em 6) para caber
+// tudo em um monitor de 21" sem precisar rolar a tela.
 function getAutoZoom(count: number): number {
   if (count <= 2) return 1.4
   if (count <= 4) return 1.2
-  if (count <= 8) return 1
+  if (count <= 6) return 1.05
   if (count <= 12) return 0.85
-  if (count <= 16) return 0.7
-  if (count <= 20) return 0.6
+  if (count <= 18) return 0.7
+  if (count <= 24) return 0.6
   return 0.5
 }
 
@@ -272,7 +274,7 @@ export default function DispatchStation() {
   const [colsOverride, setColsOverride] = useState<number | null>(() => {
     const saved = localStorage.getItem(COLS_KEY)
     const val = saved ? parseInt(saved, 10) : NaN
-    return COLS_STEPS_RANGE.includes(val) ? val : 8
+    return COLS_STEPS_RANGE.includes(val) ? val : 6
   })
   const [now, setNow] = useState(Date.now())
 
