@@ -4,7 +4,7 @@ import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, 
 import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders, subscribeMenuItems, createOrder, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
-import { isTakeoutTicket, displayTicket, parseManualTicket } from '../utils/ticket'
+import { isTakeoutTicket, displayTicket, parseManualTicket, isCupomCode } from '../utils/ticket'
 import ZoomControls, { ZOOM_STEPS } from '../components/ZoomControls'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
@@ -418,6 +418,13 @@ export default function DispatchStation() {
         }
         return
       }
+    }
+
+    // Cupom de produto não cadastrado (formato "0844-124791") não pode cair no
+    // fallback de ficha — os dígitos do cupom não são um número de ficha.
+    if (isCupomCode(raw)) {
+      addToast('Código de produto não cadastrado — vá em Configurações → Cardápio')
+      return
     }
 
     // Ficha logic

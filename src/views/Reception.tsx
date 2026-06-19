@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send } from 'lucide-react'
 import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus } from '../services/firebaseService'
 import { useApp } from '../App'
-import { displayTicket } from '../utils/ticket'
+import { displayTicket, isCupomCode } from '../utils/ticket'
 import type { MenuItem } from '../types'
 
 interface SessionItem {
@@ -314,6 +314,13 @@ export default function Reception() {
         setLastScan({ type: 'error', label: `Código ${first4} não cadastrado — vá em Configurações → Cardápio` })
         return
       }
+    }
+
+    // Cupom de produto não cadastrado (formato "0844-124791") não pode cair no
+    // fallback de ficha — os dígitos do cupom não são um número de ficha.
+    if (isCupomCode(rawTrimmed)) {
+      setLastScan({ type: 'error', label: 'Código de produto não cadastrado — vá em Configurações → Cardápio' })
+      return
     }
 
     // É uma ficha (1–200)
