@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane } from 'lucide-react'
+import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -11,6 +11,7 @@ import type { Order, OrderStatus, MenuItem } from '../types'
 const LOW_STOCK_THRESHOLD = 15
 const ZOOM_KEY = 'sectors-zoom'
 const NIGHT_KEY = 'sectors-night'
+const SYMBOLS_KEY = 'sectors-symbols'
 
 function playNewOrderSound() {
   try {
@@ -90,6 +91,7 @@ export default function KitchenSectors() {
     return ZOOM_STEPS.includes(val) ? val : 1
   })
   const [nightMode, setNightMode] = useState(() => localStorage.getItem(NIGHT_KEY) === 'true')
+  const [symbolMode, setSymbolMode] = useState(() => localStorage.getItem(SYMBOLS_KEY) === 'true')
 
   const handleZoom = (z: number) => {
     setZoom(z)
@@ -323,6 +325,12 @@ export default function KitchenSectors() {
     localStorage.setItem(NIGHT_KEY, String(next))
   }
 
+  const toggleSymbols = () => {
+    const next = !symbolMode
+    setSymbolMode(next)
+    localStorage.setItem(SYMBOLS_KEY, String(next))
+  }
+
   const n = nightMode // shorthand for conditional classes
 
   return (
@@ -387,6 +395,18 @@ export default function KitchenSectors() {
             }`}
           >
             {n ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
+          <button
+            onClick={toggleSymbols}
+            title={symbolMode ? 'Desativar símbolos por ficha' : 'Ativar símbolos por ficha'}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              symbolMode
+                ? n ? 'bg-accent/30 text-accent' : 'bg-accent/15 text-accent-dark'
+                : n ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <Sparkles size={16} />
           </button>
 
           <ZoomControls zoom={zoom} onChange={handleZoom} />
@@ -579,7 +599,7 @@ export default function KitchenSectors() {
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {item.fichas.map(({ ticket, status, qty }) => (
-                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} nightMode={n} />
+                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} nightMode={n} symbolMode={symbolMode} />
                             ))}
                           </div>
                         </motion.div>
@@ -648,24 +668,29 @@ export default function KitchenSectors() {
   )
 }
 
-// Cores fixas por número de ficha para identificar rapidamente o mesmo
-// pedido entre as colunas de setores diferentes.
+// Cores e símbolos fixos por número de ficha (mesmo índice) para identificar
+// rapidamente o mesmo pedido entre as colunas de setores diferentes.
 const FICHA_DOT_COLORS = [
   'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-amber-500',
   'bg-pink-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-lime-500',
   'bg-orange-500', 'bg-teal-500',
 ]
 
-function ficheDotColor(ticket: string): string {
+// Formas simples e bem distintas entre si, fáceis de guardar e achar na tela.
+const FICHA_SYMBOLS = ['★', '●', '▲', '♦', '♥', '✿', '☀', '⚡', '✦', '◆']
+
+function ficheIndex(ticket: string): number {
   const num = parseInt(ticket, 10)
   const idx = !isNaN(num) ? num : ticket.split('').reduce((s, c) => s + c.charCodeAt(0), 0)
-  return FICHA_DOT_COLORS[idx % FICHA_DOT_COLORS.length]
+  return idx % FICHA_DOT_COLORS.length
 }
 
-function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean }) {
+function FichaTag({ ticket, status, qty, nightMode, symbolMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean; symbolMode?: boolean }) {
   const isReady = status === 'ready'
   const isTakeout = isTakeoutTicket(ticket)
-  const dotColor = ficheDotColor(ticket)
+  const idx = ficheIndex(ticket)
+  const dotColor = FICHA_DOT_COLORS[idx]
+  const symbol = FICHA_SYMBOLS[idx]
   const lightColors: Record<OrderStatus, string> = {
     pending:   'bg-yellow-100 text-yellow-700 border-yellow-200',
     preparing: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -686,6 +711,7 @@ function FichaTag({ ticket, status, qty, nightMode }: { ticket: string; status: 
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold border ${size} ${isTakeout ? takeoutColors : colors[status]}`}>
       <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+      {symbolMode && <span className="shrink-0 leading-none">{symbol}</span>}
       {isTakeout && <Plane size={nightMode ? 13 : 11} className="shrink-0" />}
       <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{displayTicket(ticket)}</span>
       <span className="opacity-70">×{qty}</span>
