@@ -83,7 +83,6 @@ export default function KitchenSectors() {
   const [now, setNow] = useState(Date.now())
   const [manualInput, setManualInput] = useState('')
   const [inputMode, setInputMode] = useState<'qr' | 'keyboard' | null>(null)
-  const [lastScanned, setLastScanned] = useState('')
   const [liveSession, setLiveSession] = useState<ActiveSessionData | null>(null)
   const [lowStock, setLowStock] = useState<MenuItem[]>([])
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
@@ -199,7 +198,6 @@ export default function KitchenSectors() {
     if (!isQr) raw = parseManualTicket(raw)
     try {
       const ticket = await resolveFicha(raw)
-      setLastScanned(ticket)
 
       // 3 bipadas seguidas na mesma ficha (em até 5s) = pedido entrou errado, cancelar
       const now = Date.now()
@@ -553,23 +551,7 @@ export default function KitchenSectors() {
         )}
       </AnimatePresence>
 
-      {delayedOrders.length > 0 ? (
-        <DelayedMarquee orders={delayedOrders} />
-      ) : lastScanned && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 bg-accent/10 border border-accent/20 rounded-2xl px-4 py-2 text-sm text-accent-dark flex items-center gap-2"
-        >
-          Última ficha: <strong>#{displayTicket(lastScanned)}</strong>
-          {isTakeoutTicket(lastScanned) && (
-            <span className="flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wide">
-              <Plane size={11} />
-              Para Viagem
-            </span>
-          )}
-        </motion.div>
-      )}
+      {delayedOrders.length > 0 && <DelayedMarquee orders={delayedOrders} />}
 
       {/* Sector columns */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
