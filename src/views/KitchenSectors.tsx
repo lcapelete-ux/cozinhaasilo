@@ -764,7 +764,9 @@ function assignFichaIndices(tickets: string[]): Map<string, number> {
   const map = new Map<string, number>()
   for (const ticket of unique) {
     let idx = ficheNaturalIndex(ticket)
-    while (used.has(idx)) idx = (idx + 1) % n
+    for (let attempts = 0; attempts < n && used.has(idx); attempts++) {
+      idx = (idx + 1) % n
+    }
     used.add(idx)
     map.set(ticket, idx)
   }
