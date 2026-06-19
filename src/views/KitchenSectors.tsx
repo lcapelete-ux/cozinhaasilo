@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles, Palette } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
@@ -320,6 +320,11 @@ export default function KitchenSectors() {
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name))
   }
 
+  const fichaIndexMap = useMemo(
+    () => assignFichaIndices(orders.map((o) => o.ticket_number)),
+    [orders]
+  )
+
   const totalActive = orders.length
   const delayedOrders = orders
     .filter((o) => (o.status === 'pending' || o.status === 'preparing') && (now - o.created_at.getTime()) > 10 * 60 * 1000)
@@ -619,7 +624,16 @@ export default function KitchenSectors() {
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {item.fichas.map(({ ticket, status, qty }) => (
-                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} nightMode={n} symbolMode={symbolMode} colorMode={colorMode} />
+                              <FichaTag
+                                key={ticket}
+                                ticket={ticket}
+                                status={status}
+                                qty={qty}
+                                nightMode={n}
+                                symbolMode={symbolMode}
+                                colorMode={colorMode}
+                                idx={fichaIndexMap.get(ticket) ?? ficheNaturalIndex(ticket)}
+                              />
                             ))}
                           </div>
                         </motion.div>
@@ -728,16 +742,38 @@ const FICHA_DOT_COLORS = [
 // Formas simples e bem distintas entre si, fáceis de guardar e achar na tela.
 const FICHA_SYMBOLS = ['★', '●', '▲', '♦', '♥', '✿', '☀', '⚡', '✦', '◆']
 
-function ficheIndex(ticket: string): number {
+function ficheNaturalIndex(ticket: string): number {
   const num = parseInt(ticket, 10)
   const idx = !isNaN(num) ? num : ticket.split('').reduce((s, c) => s + c.charCodeAt(0), 0)
   return idx % FICHA_DOT_COLORS.length
 }
 
-function FichaTag({ ticket, status, qty, nightMode, symbolMode, colorMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean; symbolMode?: boolean; colorMode?: boolean }) {
+// Cada ficha tenta usar sua cor/símbolo "natural" (pelo número), mas se isso
+// colidir com outra ficha já ativa, ela cede para o próximo símbolo livre.
+// Assim, enquanto duas fichas estiverem ativas ao mesmo tempo, nunca repetem
+// — o que confundiria quem está acompanhando pela tela.
+function assignFichaIndices(tickets: string[]): Map<string, number> {
+  const n = FICHA_DOT_COLORS.length
+  const unique = Array.from(new Set(tickets)).sort((a, b) => {
+    const na = parseInt(a, 10)
+    const nb = parseInt(b, 10)
+    if (!isNaN(na) && !isNaN(nb)) return na - nb
+    return a.localeCompare(b)
+  })
+  const used = new Set<number>()
+  const map = new Map<string, number>()
+  for (const ticket of unique) {
+    let idx = ficheNaturalIndex(ticket)
+    while (used.has(idx)) idx = (idx + 1) % n
+    used.add(idx)
+    map.set(ticket, idx)
+  }
+  return map
+}
+
+function FichaTag({ ticket, status, qty, nightMode, symbolMode, colorMode, idx }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean; symbolMode?: boolean; colorMode?: boolean; idx: number }) {
   const isReady = status === 'ready'
   const isTakeout = isTakeoutTicket(ticket)
-  const idx = ficheIndex(ticket)
   const dotColor = FICHA_DOT_COLORS[idx]
   const symbol = FICHA_SYMBOLS[idx]
   const lightColors: Record<OrderStatus, string> = {
