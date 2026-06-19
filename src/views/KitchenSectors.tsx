@@ -699,19 +699,18 @@ function DelayedMarquee({ orders }: { orders: Order[] }) {
     <div className="mb-4 rounded-2xl px-4 py-2 bg-red-600 text-white overflow-hidden flex items-center gap-2">
       <style>{`
         @keyframes ks-delayed-marquee {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-50%); }
+          from { transform: translateX(100%); }
+          to   { transform: translateX(-100%); }
         }
       `}</style>
       <AlertTriangle size={16} className="shrink-0" />
       <span className="text-xs font-black uppercase tracking-widest shrink-0">Atrasadas:</span>
       <div className="flex-1 overflow-hidden">
         <div
-          className="flex whitespace-nowrap font-black text-sm"
+          className="whitespace-nowrap font-black text-sm inline-block"
           style={{ animation: `ks-delayed-marquee ${Math.max(8, tickets.length * 3)}s linear infinite` }}
         >
-          <span className="pr-8">{text}</span>
-          <span className="pr-8">{text}</span>
+          {text}
         </div>
       </div>
     </div>
