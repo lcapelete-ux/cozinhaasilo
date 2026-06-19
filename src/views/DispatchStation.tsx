@@ -748,7 +748,7 @@ export default function DispatchStation() {
         )}
 
         {/* Spacer so the ready footer doesn't overlap the last row */}
-        {readyOrdersList.length > 0 && <div className="h-32" />}
+        {readyOrdersList.length > 0 && <div className="h-44" />}
       </div>
 
       {/* Ready footer — fichas prontas para entregar */}
@@ -758,12 +758,12 @@ export default function DispatchStation() {
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
-            className={`fixed bottom-0 left-0 right-0 z-30 px-4 py-4 border-t shadow-[0_-4px_16px_rgba(0,0,0,0.1)] ${
+            className={`fixed bottom-0 left-0 right-0 z-30 px-4 py-5 border-t shadow-[0_-4px_16px_rgba(0,0,0,0.1)] ${
               n ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
             }`}
           >
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className={`text-base font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
+            <div className="flex items-center gap-5 flex-wrap">
+              <span className={`text-lg font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
                 Prontas ({readyOrdersList.length})
               </span>
               <AnimatePresence mode="popLayout">
@@ -777,15 +777,15 @@ export default function DispatchStation() {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleDeliver(order)}
                     title="Marcar como entregue"
-                    className={`flex items-center gap-2.5 px-6 py-4 rounded-full font-black text-3xl transition-colors ${
+                    className={`flex items-center gap-3 px-8 py-5 rounded-full font-black text-5xl transition-colors ${
                       isTakeoutTicket(order.ticket_number)
                         ? 'bg-purple-500 hover:bg-purple-600 text-white'
                         : 'bg-green-500 hover:bg-green-600 text-white'
                     }`}
                   >
-                    <Check size={24} />
+                    <Check size={34} />
                     #{displayTicket(order.ticket_number)}
-                    {isTakeoutTicket(order.ticket_number) && <Plane size={22} />}
+                    {isTakeoutTicket(order.ticket_number) && <Plane size={30} />}
                   </motion.button>
                 ))}
               </AnimatePresence>
