@@ -4,7 +4,6 @@ import {
   collection,
   doc,
   getDocs,
-  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -153,6 +152,7 @@ export async function createOrder(ticket_number: string, items: Order['items']):
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
   })
+  await deductStockForItems(items)
   return ref.id
 }
 
@@ -179,22 +179,16 @@ export async function setOrderStatus(orderId: string, status: OrderStatus): Prom
     status,
     updated_at: serverTimestamp(),
   })
-  if (status === 'delivered') {
-    await deductStockForDeliveredOrder(orderId)
-  }
 }
 
-// Decrements menu_items.stock for tracked items (stock_initial > 0) when an
-// order is delivered, mirroring the manual adjustment writes in Inventory.tsx
-async function deductStockForDeliveredOrder(orderId: string): Promise<void> {
+// Decrements menu_items.stock for tracked items (stock_initial > 0) as soon as
+// an order is placed, mirroring the manual adjustment writes in Inventory.tsx
+async function deductStockForItems(items: Order['items']): Promise<void> {
   if (!_db) return
   try {
-    const orderSnap = await getDoc(doc(_db, 'orders', orderId))
-    if (!orderSnap.exists()) return
-    const order = mapOrder(orderSnap.id, orderSnap.data() as Record<string, unknown>)
     const menuSnap = await getDocs(collection(_db, 'menu_items'))
     const menuItems = menuSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MenuItem, 'id'>) }))
-    for (const orderItem of order.items) {
+    for (const orderItem of items) {
       const menuItem = menuItems.find((m) => m.name === orderItem.name)
       if (!menuItem || !((menuItem.stock_initial ?? 0) > 0)) continue
       const before = menuItem.stock ?? 0
@@ -206,11 +200,11 @@ async function deductStockForDeliveredOrder(orderId: string): Promise<void> {
         type: 'sale',
         qty_before: before,
         qty_after: after,
-        inserted_by: 'Sistema (entrega)',
+        inserted_by: 'Sistema (pedido)',
       })
     }
   } catch (e) {
-    console.error('deductStockForDeliveredOrder failed:', e)
+    console.error('deductStockForItems failed:', e)
   }
 }
 
