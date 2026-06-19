@@ -1,28 +1,34 @@
-// Fichas de viagem (to-go) usam duas faixas de numeração física: 133–198 e
-// 200–220. Em ambas, a tela mostra o número deslocado em -100 (133 -> 33,
-// 198 -> 98, 200 -> 100, 219 -> 119) por convenção da cozinha.
-const TAKEOUT_RANGES = [
+// Fichas físicas usam duas faixas com o mesmo deslocamento de exibição
+// (-100): 133–198 e 200–220 (133 -> 33, 198 -> 98, 200 -> 100, 219 -> 119)
+// por convenção da cozinha. Apenas a faixa 200–220 (exibida como 100–120) é
+// efetivamente "para viagem" — a faixa 133–198 só compartilha o deslocamento
+// de número, sem o selo de viagem.
+const DISPLAY_RANGES = [
   { min: 133, max: 198 },
+  { min: 200, max: 220 },
+]
+
+const TAKEOUT_RANGES = [
   { min: 200, max: 220 },
 ]
 
 const TAKEOUT_DISPLAY_OFFSET = 100
 
-function isInTakeoutRange(num: number): boolean {
-  return TAKEOUT_RANGES.some((r) => num >= r.min && num <= r.max)
+function isInRange(num: number, ranges: typeof DISPLAY_RANGES): boolean {
+  return ranges.some((r) => num >= r.min && num <= r.max)
 }
 
 export function isTakeoutTicket(ticket: string): boolean {
   const num = parseInt(ticket, 10)
-  return !isNaN(num) && isInTakeoutRange(num)
+  return !isNaN(num) && isInRange(num, TAKEOUT_RANGES)
 }
 
 // The physical ficha/QR code keeps its real number so printing and scanning
 // stay consistent, but on screen it's shown shifted down by 100 per kitchen
-// convention for takeout orders.
+// convention.
 export function displayTicket(ticket: string): string {
   const num = parseInt(ticket, 10)
-  if (!isNaN(num) && isInTakeoutRange(num)) {
+  if (!isNaN(num) && isInRange(num, DISPLAY_RANGES)) {
     return String(num - TAKEOUT_DISPLAY_OFFSET)
   }
   return ticket
@@ -34,7 +40,7 @@ export function displayTicket(ticket: string): string {
 // the real number and must NOT go through this.
 export function parseManualTicket(input: string): string {
   const num = parseInt(input, 10)
-  if (!isNaN(num) && TAKEOUT_RANGES.some((r) => num + TAKEOUT_DISPLAY_OFFSET >= r.min && num + TAKEOUT_DISPLAY_OFFSET <= r.max)) {
+  if (!isNaN(num) && DISPLAY_RANGES.some((r) => num + TAKEOUT_DISPLAY_OFFSET >= r.min && num + TAKEOUT_DISPLAY_OFFSET <= r.max)) {
     return String(num + TAKEOUT_DISPLAY_OFFSET)
   }
   return input
