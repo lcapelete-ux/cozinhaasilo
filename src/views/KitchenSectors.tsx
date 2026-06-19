@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles } from 'lucide-react'
+import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles, Palette } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -12,6 +12,7 @@ const LOW_STOCK_THRESHOLD = 15
 const ZOOM_KEY = 'sectors-zoom'
 const NIGHT_KEY = 'sectors-night'
 const SYMBOLS_KEY = 'sectors-symbols'
+const COLORS_KEY = 'sectors-colors'
 
 function playNewOrderSound() {
   try {
@@ -92,6 +93,7 @@ export default function KitchenSectors() {
   })
   const [nightMode, setNightMode] = useState(() => localStorage.getItem(NIGHT_KEY) === 'true')
   const [symbolMode, setSymbolMode] = useState(() => localStorage.getItem(SYMBOLS_KEY) === 'true')
+  const [colorMode, setColorMode] = useState(() => localStorage.getItem(COLORS_KEY) !== 'false')
 
   const handleZoom = (z: number) => {
     setZoom(z)
@@ -331,6 +333,12 @@ export default function KitchenSectors() {
     localStorage.setItem(SYMBOLS_KEY, String(next))
   }
 
+  const toggleColors = () => {
+    const next = !colorMode
+    setColorMode(next)
+    localStorage.setItem(COLORS_KEY, String(next))
+  }
+
   const n = nightMode // shorthand for conditional classes
 
   return (
@@ -395,6 +403,18 @@ export default function KitchenSectors() {
             }`}
           >
             {n ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
+          <button
+            onClick={toggleColors}
+            title={colorMode ? 'Desativar cores por ficha' : 'Ativar cores por ficha'}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              colorMode
+                ? n ? 'bg-accent/30 text-accent' : 'bg-accent/15 text-accent-dark'
+                : n ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <Palette size={16} />
           </button>
 
           <button
@@ -599,7 +619,7 @@ export default function KitchenSectors() {
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {item.fichas.map(({ ticket, status, qty }) => (
-                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} nightMode={n} symbolMode={symbolMode} />
+                              <FichaTag key={ticket} ticket={ticket} status={status} qty={qty} nightMode={n} symbolMode={symbolMode} colorMode={colorMode} />
                             ))}
                           </div>
                         </motion.div>
@@ -685,7 +705,7 @@ function ficheIndex(ticket: string): number {
   return idx % FICHA_DOT_COLORS.length
 }
 
-function FichaTag({ ticket, status, qty, nightMode, symbolMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean; symbolMode?: boolean }) {
+function FichaTag({ ticket, status, qty, nightMode, symbolMode, colorMode }: { ticket: string; status: OrderStatus; qty: number; nightMode?: boolean; symbolMode?: boolean; colorMode?: boolean }) {
   const isReady = status === 'ready'
   const isTakeout = isTakeoutTicket(ticket)
   const idx = ficheIndex(ticket)
@@ -710,7 +730,7 @@ function FichaTag({ ticket, status, qty, nightMode, symbolMode }: { ticket: stri
   const size = nightMode ? 'text-sm' : 'text-xs'
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold border ${size} ${isTakeout ? takeoutColors : colors[status]}`}>
-      <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+      {colorMode && <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />}
       {symbolMode && <span className="shrink-0 leading-none">{symbol}</span>}
       {isTakeout && <Plane size={nightMode ? 13 : 11} className="shrink-0" />}
       <span className={isReady ? 'line-through decoration-2 decoration-gray-400/60' : ''}>#{displayTicket(ticket)}</span>
