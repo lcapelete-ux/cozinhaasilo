@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick, Plane, AlertTriangle } from 'lucide-react'
+import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Clock, Flame, Beef, Drumstick, Plane, AlertTriangle, LayoutGrid, Minus, Plus } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders, subscribeMenuItems, createOrder, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -10,6 +10,7 @@ import type { Order, OrderStatus, MenuItem } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
 const ZOOM_KEY = 'dispatch-zoom'
+const COLS_KEY = 'dispatch-cols'
 
 function playReadySound() {
   try {
@@ -82,6 +83,33 @@ function getAutoZoom(count: number): number {
   if (count <= 16) return 0.7
   if (count <= 20) return 0.6
   return 0.5
+}
+
+const COLS_STEPS_RANGE = [1, 2, 3, 4, 5, 6, 7, 8]
+
+function ColumnsControl({ cols, onChange }: { cols: number | null; onChange: (c: number | null) => void }) {
+  const dec = () => {
+    if (cols === null) return
+    onChange(cols <= COLS_STEPS_RANGE[0] ? null : cols - 1)
+  }
+  const inc = () => {
+    if (cols === null) { onChange(COLS_STEPS_RANGE[0]); return }
+    if (cols < COLS_STEPS_RANGE[COLS_STEPS_RANGE.length - 1]) onChange(cols + 1)
+  }
+  return (
+    <div className="flex items-center gap-1 bg-gray-100 rounded-xl px-1 py-1" title="Fichas por linha">
+      <button onClick={dec} disabled={cols === null} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white hover:text-gray-800 disabled:opacity-30 transition-colors">
+        <Minus size={14} />
+      </button>
+      <span className="flex items-center gap-1 text-xs font-bold text-gray-500 w-14 justify-center tabular-nums">
+        <LayoutGrid size={12} />
+        {cols ?? 'Auto'}
+      </span>
+      <button onClick={inc} disabled={cols === COLS_STEPS_RANGE[COLS_STEPS_RANGE.length - 1]} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-white hover:text-gray-800 disabled:opacity-30 transition-colors">
+        <Plus size={14} />
+      </button>
+    </div>
+  )
 }
 
 interface CardProps {
@@ -241,6 +269,11 @@ export default function DispatchStation() {
     const val = saved ? parseFloat(saved) : NaN
     return ZOOM_STEPS.includes(val) ? val : null
   })
+  const [colsOverride, setColsOverride] = useState<number | null>(() => {
+    const saved = localStorage.getItem(COLS_KEY)
+    const val = saved ? parseInt(saved, 10) : NaN
+    return COLS_STEPS_RANGE.includes(val) ? val : null
+  })
   const [now, setNow] = useState(Date.now())
 
   const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
@@ -338,6 +371,12 @@ export default function DispatchStation() {
   const handleZoom = (z: number) => {
     setZoomOverride(z)
     localStorage.setItem(ZOOM_KEY, String(z))
+  }
+
+  const handleCols = (cols: number | null) => {
+    setColsOverride(cols)
+    if (cols === null) localStorage.removeItem(COLS_KEY)
+    else localStorage.setItem(COLS_KEY, String(cols))
   }
 
   const flashMode = useCallback((mode: 'qr' | 'keyboard') => {
@@ -561,6 +600,8 @@ export default function DispatchStation() {
                 zoom={zoomOverride ?? getAutoZoom(queueOrders.length)}
                 onChange={handleZoom}
               />
+
+              <ColumnsControl cols={colsOverride} onChange={handleCols} />
             </div>
 
             <AnimatePresence>
@@ -686,8 +727,11 @@ export default function DispatchStation() {
           </motion.div>
         ) : (
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-            style={{ zoom: zoomOverride ?? getAutoZoom(queueOrders.length) }}
+            className={colsOverride === null ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'grid gap-4'}
+            style={{
+              zoom: zoomOverride ?? getAutoZoom(queueOrders.length),
+              ...(colsOverride !== null ? { gridTemplateColumns: `repeat(${colsOverride}, minmax(0, 1fr))` } : {}),
+            }}
           >
             <AnimatePresence mode="popLayout">
               {queueOrders.map((order, idx) => (
