@@ -531,6 +531,7 @@ export default function Display() {
       unique.forEach((o) => {
         if (!prevReadyRef.current.has(o.ticket_number)) {
           const phrase = JUNINA_PHRASES[Math.floor(Math.random() * JUNINA_PHRASES.length)]
+          playChime()
           setReadyNotif({ ticket: o.ticket_number, phrase })
           if (announcementTimer.current) clearTimeout(announcementTimer.current)
           announcementTimer.current = setTimeout(() => setReadyNotif(null), 6000)
