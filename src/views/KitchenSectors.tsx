@@ -4,7 +4,7 @@ import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle,
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
-import { isTakeoutTicket, displayTicket, parseManualTicket } from '../utils/ticket'
+import { isTakeoutTicket, displayTicket, parseManualTicket, isCupomCode } from '../utils/ticket'
 import ZoomControls, { ZOOM_STEPS } from '../components/ZoomControls'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
@@ -180,6 +180,13 @@ export default function KitchenSectors() {
   const processTicket = useCallback(async (raw: string, isQr: boolean) => {
     if (isQr) flashMode('qr')
     else flashMode('keyboard')
+
+    // Bipe errado de cupom (formato "0844-124791") não pode ser confundido
+    // com ficha — ficha é número puro.
+    if (isCupomCode(raw)) {
+      addToast('Isso é um cupom, não uma ficha! Bipe a ficha.')
+      return
+    }
 
     // Manual numeric keypad shows/expects the on-screen number (100-120);
     // QR/barcode scans already carry the real ficha (200-220) — untouched.

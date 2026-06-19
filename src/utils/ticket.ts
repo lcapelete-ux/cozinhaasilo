@@ -18,6 +18,13 @@ function isInRange(num: number, ranges: typeof DISPLAY_RANGES): boolean {
   return ranges.some((r) => num >= r.min && num <= r.max)
 }
 
+// Cupons físicos de produto têm o formato "0844-124791" (código do produto,
+// traço, número da venda) — fichas são sempre número puro, sem traço. Bipar
+// um cupom por engano na tela de ficha não pode avançar pedido nenhum.
+export function isCupomCode(raw: string): boolean {
+  return /^\d+-\d+$/.test(raw.trim())
+}
+
 export function isTakeoutTicket(ticket: string): boolean {
   const num = parseInt(ticket, 10)
   return !isNaN(num) && isInRange(num, TAKEOUT_RANGES)
