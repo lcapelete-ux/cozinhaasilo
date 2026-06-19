@@ -543,19 +543,20 @@ export default function KitchenSectors() {
                         <span className="text-xs font-semibold tracking-widest uppercase">Limpo</span>
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div>
                         <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${n ? 'text-gray-600' : 'text-gray-300'}`}>
                           Sem pedidos — produtos do setor
                         </p>
-                        {registered.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`flex items-center justify-between rounded-xl px-3 py-2 ${n ? 'border border-gray-800 bg-gray-900/20' : 'border border-gray-50 bg-gray-50/60'}`}
-                          >
-                            <span className={`font-medium ${n ? 'text-gray-400 text-base' : 'text-gray-400 text-sm'}`}>{item.name}</span>
-                            <Package size={14} className={n ? 'text-gray-700' : 'text-gray-200'} />
-                          </div>
-                        ))}
+                        <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
+                          {registered.map((item) => (
+                            <div
+                              key={item.id}
+                              className={`flex items-center justify-center text-center rounded-lg px-2 py-1.5 ${n ? 'border border-gray-800 bg-gray-900/20' : 'border border-gray-50 bg-gray-50/60'}`}
+                            >
+                              <span className={`font-medium leading-tight ${n ? 'text-gray-400 text-xs' : 'text-gray-400 text-xs'}`}>{item.name}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )
                   })()
