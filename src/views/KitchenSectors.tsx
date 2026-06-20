@@ -256,7 +256,11 @@ export default function KitchenSectors() {
         return
       }
       if (e.key.length !== 1) return
-      const now = Date.now()
+      // Use the event's own timestamp, not Date.now(): under heavy render
+      // load (many active orders) the handler can run late, but e.timeStamp
+      // still reflects when the key was actually pressed, so fast scanner
+      // input isn't misjudged as slow typing (or vice-versa) by JS jank.
+      const now = e.timeStamp
       const delta = now - lastKeyTimeRef.current
       if (lastKeyTimeRef.current !== 0 && delta < 80) {
         e.preventDefault(); e.stopPropagation()

@@ -196,6 +196,7 @@ export default function Reception() {
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const bufferRef = useRef('')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastKeyTimeRef = useRef(0)
 
   useEffect(() => {
     sessionRef.current = session
@@ -385,6 +386,13 @@ export default function Reception() {
       }
       if (e.key.length !== 1) return
       e.preventDefault(); e.stopPropagation()
+      // Use the event's own timestamp, not Date.now(): under heavy render
+      // load the 150ms cleanup timer can fire late, letting leftover digits
+      // from a previous scan bleed into the next one. Comparing real key
+      // timestamps catches that gap even when the JS thread is backed up.
+      const now = e.timeStamp
+      if (bufferRef.current && now - lastKeyTimeRef.current > 300) bufferRef.current = ''
+      lastKeyTimeRef.current = now
       bufferRef.current += e.key
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => {

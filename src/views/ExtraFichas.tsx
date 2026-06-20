@@ -10,12 +10,21 @@ function extractNumber(raw: string): string {
   try {
     const url = new URL(raw)
     const p = url.searchParams.get('ficha')
-    if (p) return String(parseInt(p, 10))
+    if (p) return applyFichaOffset(p)
   } catch { /* not a URL */ }
   // Try plain number
   const m = raw.replace(/^\][A-Za-z]\d/, '').match(/\d+/)
-  if (m) return String(parseInt(m[0], 10))
+  if (m) return applyFichaOffset(m[0])
   return ''
+}
+
+// Same rule as resolveFicha (firebaseService.ts): fichas 101-133 strip the
+// leading "1" (101->1, 115->15, 133->33), so the auto-filled number here
+// matches what scanning will actually resolve to.
+function applyFichaOffset(raw: string): string {
+  let num = parseInt(raw, 10)
+  if (num >= 101 && num <= 133) num = num - 100
+  return String(num)
 }
 
 export default function ExtraFichas() {
