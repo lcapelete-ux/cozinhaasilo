@@ -1,13 +1,27 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Clock, Calendar } from 'lucide-react'
-import { subscribeAllOrders } from '../services/firebaseService'
+import { Clock, Calendar, Trash2, Check, X } from 'lucide-react'
+import { subscribeAllOrders, deleteOrder } from '../services/firebaseService'
 import { displayTicket } from '../utils/ticket'
+import { useApp } from '../App'
 import type { Order } from '../types'
 
 export default function History() {
+  const { addToast } = useApp()
   const [orders, setOrders] = useState<Order[]>([])
   const [dateFilter, setDateFilter] = useState('')
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteOrder(id)
+      addToast('Pedido excluído! Estatísticas e faturamento já foram atualizados.', 'success')
+    } catch {
+      addToast('Erro ao excluir pedido')
+    } finally {
+      setConfirmId(null)
+    }
+  }
 
   useEffect(() => {
     const unsub = subscribeAllOrders((all) => {
@@ -103,13 +117,39 @@ export default function History() {
                   {order.updated_at.toLocaleDateString('pt-BR')}
                 </p>
               </div>
-              <div className="shrink-0 text-right">
+              <div className="shrink-0 text-right flex flex-col items-end gap-2">
                 <p className="font-medium text-accent-dark text-sm">
                   R$ {order.items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)}
                 </p>
                 <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg">
                   Entregue
                 </span>
+                {confirmId === order.id ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(order.id)}
+                      title="Confirmar exclusão (pedido de teste)"
+                      className="w-7 h-7 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center"
+                    >
+                      <Check size={13} />
+                    </button>
+                    <button
+                      onClick={() => setConfirmId(null)}
+                      title="Cancelar"
+                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmId(order.id)}
+                    title="Excluir pedido de teste (some das estatísticas)"
+                    className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 flex items-center justify-center"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
             </motion.div>
           ))}
