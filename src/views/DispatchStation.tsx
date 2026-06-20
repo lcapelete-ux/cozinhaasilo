@@ -787,12 +787,19 @@ export default function DispatchStation() {
               n ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
             }`}
           >
-            <div className="flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-4 mb-3">
               <span className={`text-xl font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
                 Prontas ({readyOrdersList.length})
               </span>
-              <ZoomControls zoom={footerZoom} onChange={handleFooterZoom} />
-              <div className="flex items-center gap-6 flex-wrap" style={{ zoom: footerZoom }}>
+              <div className="flex-1" />
+              <span className={`text-xs font-bold uppercase tracking-widest shrink-0 ${n ? 'text-gray-400' : 'text-gray-400'}`}>
+                Zoom da barra
+              </span>
+              <div className={`rounded-xl ${n ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                <ZoomControls zoom={footerZoom} onChange={handleFooterZoom} />
+              </div>
+            </div>
+            <div className="flex items-center gap-6 flex-wrap" style={{ zoom: footerZoom }}>
                 <AnimatePresence mode="popLayout">
                   {readyOrdersList.map((order) => (
                     <motion.button
@@ -816,7 +823,6 @@ export default function DispatchStation() {
                     </motion.button>
                   ))}
                 </AnimatePresence>
-              </div>
             </div>
           </motion.div>
         )}
