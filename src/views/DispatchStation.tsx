@@ -11,6 +11,7 @@ import type { Order, OrderStatus, MenuItem } from '../types'
 const NIGHT_KEY = 'dispatch-night'
 const ZOOM_KEY = 'dispatch-zoom'
 const COLS_KEY = 'dispatch-cols'
+const FOOTER_ZOOM_KEY = 'dispatch-footer-zoom'
 
 function playReadySound() {
   try {
@@ -276,6 +277,11 @@ export default function DispatchStation() {
     const val = saved ? parseInt(saved, 10) : NaN
     return COLS_STEPS_RANGE.includes(val) ? val : 6
   })
+  const [footerZoom, setFooterZoom] = useState<number>(() => {
+    const saved = localStorage.getItem(FOOTER_ZOOM_KEY)
+    const val = saved ? parseFloat(saved) : 1
+    return ZOOM_STEPS.includes(val) ? val : 1
+  })
   const [now, setNow] = useState(Date.now())
 
   const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
@@ -379,6 +385,11 @@ export default function DispatchStation() {
     setColsOverride(cols)
     if (cols === null) localStorage.removeItem(COLS_KEY)
     else localStorage.setItem(COLS_KEY, String(cols))
+  }
+
+  const handleFooterZoom = (z: number) => {
+    setFooterZoom(z)
+    localStorage.setItem(FOOTER_ZOOM_KEY, String(z))
   }
 
   const flashMode = useCallback((mode: 'qr' | 'keyboard') => {
@@ -760,8 +771,9 @@ export default function DispatchStation() {
           </div>
         )}
 
-        {/* Spacer so the ready footer doesn't overlap the last row */}
-        {readyOrdersList.length > 0 && <div className="h-52" />}
+        {/* Spacer so the ready footer doesn't overlap the last row — scales
+            with footerZoom since a bigger footer needs more clearance */}
+        {readyOrdersList.length > 0 && <div style={{ height: `${13 * footerZoom}rem` }} />}
       </div>
 
       {/* Ready footer — fichas prontas para entregar */}
@@ -779,29 +791,32 @@ export default function DispatchStation() {
               <span className={`text-xl font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
                 Prontas ({readyOrdersList.length})
               </span>
-              <AnimatePresence mode="popLayout">
-                {readyOrdersList.map((order) => (
-                  <motion.button
-                    key={order.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.7 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleDeliver(order)}
-                    title="Marcar como entregue"
-                    className={`flex items-center gap-3.5 px-9 py-6 rounded-full font-black text-6xl transition-colors ${
-                      isTakeoutTicket(order.ticket_number)
-                        ? 'bg-purple-500 hover:bg-purple-600 text-white'
-                        : 'bg-green-500 hover:bg-green-600 text-white'
-                    }`}
-                  >
-                    <Check size={40} />
-                    #{displayTicket(order.ticket_number)}
-                    {isTakeoutTicket(order.ticket_number) && <Plane size={36} />}
-                  </motion.button>
-                ))}
-              </AnimatePresence>
+              <ZoomControls zoom={footerZoom} onChange={handleFooterZoom} />
+              <div className="flex items-center gap-6 flex-wrap" style={{ zoom: footerZoom }}>
+                <AnimatePresence mode="popLayout">
+                  {readyOrdersList.map((order) => (
+                    <motion.button
+                      key={order.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.7 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleDeliver(order)}
+                      title="Marcar como entregue"
+                      className={`flex items-center gap-3.5 px-9 py-6 rounded-full font-black text-6xl transition-colors ${
+                        isTakeoutTicket(order.ticket_number)
+                          ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                          : 'bg-green-500 hover:bg-green-600 text-white'
+                      }`}
+                    >
+                      <Check size={40} />
+                      #{displayTicket(order.ticket_number)}
+                      {isTakeoutTicket(order.ticket_number) && <Plane size={36} />}
+                    </motion.button>
+                  ))}
+                </AnimatePresence>
+              </div>
             </div>
           </motion.div>
         )}
