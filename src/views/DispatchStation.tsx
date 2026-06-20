@@ -6,6 +6,10 @@ import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import { isTakeoutTicket, displayTicket, parseManualTicket, isCupomCode } from '../utils/ticket'
 import ZoomControls, { ZOOM_STEPS } from '../components/ZoomControls'
+
+// A barra de "Prontas" precisa encolher mais que a grade principal em TVs
+// grandes, então tem sua própria faixa de zoom com mínimos menores.
+const FOOTER_ZOOM_STEPS = [0.4, 0.5, 0.6, 0.7, 0.75, 0.85, 1, 1.15, 1.3, 1.5]
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const NIGHT_KEY = 'dispatch-night'
@@ -280,7 +284,7 @@ export default function DispatchStation() {
   const [footerZoom, setFooterZoom] = useState<number>(() => {
     const saved = localStorage.getItem(FOOTER_ZOOM_KEY)
     const val = saved ? parseFloat(saved) : 1
-    return ZOOM_STEPS.includes(val) ? val : 1
+    return FOOTER_ZOOM_STEPS.includes(val) ? val : 1
   })
   const [now, setNow] = useState(Date.now())
 
@@ -796,7 +800,7 @@ export default function DispatchStation() {
                 Zoom da barra
               </span>
               <div className={`rounded-xl ${n ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                <ZoomControls zoom={footerZoom} onChange={handleFooterZoom} />
+                <ZoomControls zoom={footerZoom} onChange={handleFooterZoom} steps={FOOTER_ZOOM_STEPS} />
               </div>
             </div>
             <div className="flex items-center gap-6 flex-wrap" style={{ zoom: footerZoom }}>
