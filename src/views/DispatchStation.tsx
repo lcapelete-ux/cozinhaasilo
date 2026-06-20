@@ -777,7 +777,7 @@ export default function DispatchStation() {
 
         {/* Spacer so the ready footer doesn't overlap the last row — scales
             with footerZoom since a bigger footer needs more clearance */}
-        {readyOrdersList.length > 0 && <div style={{ height: `${13 * footerZoom}rem` }} />}
+        {readyOrdersList.length > 0 && <div style={{ height: `min(45vh, ${13 * footerZoom}rem)` }} />}
       </div>
 
       {/* Ready footer — fichas prontas para entregar */}
@@ -787,11 +787,11 @@ export default function DispatchStation() {
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
-            className={`fixed bottom-0 left-0 right-0 z-30 px-4 py-6 border-t shadow-[0_-4px_16px_rgba(0,0,0,0.1)] ${
+            className={`fixed bottom-0 left-0 right-0 z-30 px-4 py-6 border-t shadow-[0_-4px_16px_rgba(0,0,0,0.1)] max-h-[45vh] flex flex-col ${
               n ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
             }`}
           >
-            <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-4 mb-3 shrink-0">
               <span className={`text-xl font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
                 Prontas ({readyOrdersList.length})
               </span>
@@ -803,7 +803,7 @@ export default function DispatchStation() {
                 <ZoomControls zoom={footerZoom} onChange={handleFooterZoom} steps={FOOTER_ZOOM_STEPS} />
               </div>
             </div>
-            <div className="flex items-center gap-6 flex-wrap" style={{ zoom: footerZoom }}>
+            <div className="flex items-center gap-6 flex-wrap overflow-y-auto flex-1 min-h-0" style={{ zoom: footerZoom }}>
                 <AnimatePresence mode="popLayout">
                   {readyOrdersList.map((order) => (
                     <motion.button
