@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send } from 'lucide-react'
 import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus } from '../services/firebaseService'
 import { useApp } from '../App'
+import { useScanner } from '../hooks/useScanner'
 import { displayTicket, isCupomCode } from '../utils/ticket'
 import type { MenuItem } from '../types'
 
@@ -194,9 +195,6 @@ export default function Reception() {
   const sessionRef = useRef<Session | null>(null)
   const menuItemsRef = useRef<MenuItem[]>([])
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const bufferRef = useRef('')
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastKeyTimeRef = useRef(0)
 
   useEffect(() => {
     sessionRef.current = session
@@ -373,41 +371,13 @@ export default function Reception() {
 
   // ── QR scanner keydown handler ───────────────────────────────────────────
 
+  useScanner(processQrScan)
+
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return
-      if (e.key === 'Enter') {
-        e.preventDefault(); e.stopPropagation()
-        if (timerRef.current) clearTimeout(timerRef.current)
-        const val = bufferRef.current.trim()
-        bufferRef.current = ''
-        if (val.length >= 1) processQrScan(val)
-        return
-      }
-      if (e.key.length !== 1) return
-      e.preventDefault(); e.stopPropagation()
-      // Use the event's own timestamp, not Date.now(): under heavy render
-      // load the 150ms cleanup timer can fire late, letting leftover digits
-      // from a previous scan bleed into the next one. Comparing real key
-      // timestamps catches that gap even when the JS thread is backed up.
-      const now = e.timeStamp
-      if (bufferRef.current && now - lastKeyTimeRef.current > 300) bufferRef.current = ''
-      lastKeyTimeRef.current = now
-      bufferRef.current += e.key
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => {
-        const val = bufferRef.current.trim()
-        bufferRef.current = ''
-        if (val.length >= 2) processQrScan(val)
-      }, 150)
-    }
-    window.addEventListener('keydown', handler, { capture: true })
     return () => {
-      window.removeEventListener('keydown', handler, { capture: true })
-      if (timerRef.current) clearTimeout(timerRef.current)
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
     }
-  }, [processQrScan])
+  }, [])
 
   // ── Render ───────────────────────────────────────────────────────────────
 

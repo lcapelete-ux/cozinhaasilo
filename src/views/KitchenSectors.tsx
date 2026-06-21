@@ -4,6 +4,7 @@ import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle,
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
+import { useScanner } from '../hooks/useScanner'
 import { isTakeoutTicket, displayTicket, parseManualTicket, isCupomCode } from '../utils/ticket'
 import ZoomControls, { ZOOM_STEPS } from '../components/ZoomControls'
 import type { Order, OrderStatus, MenuItem } from '../types'
@@ -112,9 +113,6 @@ export default function KitchenSectors() {
 
   const knownOrderIdsRef = useRef<Set<string>>(new Set())
 
-  const bufferRef = useRef('')
-  const lastKeyTimeRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -241,49 +239,7 @@ export default function KitchenSectors() {
     }
   }, [flashMode, addToast])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') { e.preventDefault(); return }
-      if (document.activeElement === manualRef.current) return
-      if (e.key === 'Enter') {
-        if (bufferRef.current.length > 0) {
-          e.preventDefault(); e.stopPropagation()
-          if (timerRef.current) clearTimeout(timerRef.current)
-          const val = bufferRef.current.trim()
-          bufferRef.current = ''; lastKeyTimeRef.current = 0
-          if (val) processTicket(val, true)
-        }
-        return
-      }
-      if (e.key.length !== 1) return
-      // Use the event's own timestamp, not Date.now(): under heavy render
-      // load (many active orders) the handler can run late, but e.timeStamp
-      // still reflects when the key was actually pressed, so fast scanner
-      // input isn't misjudged as slow typing (or vice-versa) by JS jank.
-      const now = e.timeStamp
-      const delta = now - lastKeyTimeRef.current
-      if (lastKeyTimeRef.current !== 0 && delta < 80) {
-        e.preventDefault(); e.stopPropagation()
-        bufferRef.current += e.key
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => {
-          const val = bufferRef.current.trim()
-          bufferRef.current = ''; lastKeyTimeRef.current = 0
-          if (val) processTicket(val, true)
-        }, 150)
-      } else {
-        bufferRef.current = e.key
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => { bufferRef.current = '' }, 200)
-      }
-      lastKeyTimeRef.current = now
-    }
-    window.addEventListener('keydown', handler, { capture: true })
-    return () => {
-      window.removeEventListener('keydown', handler, { capture: true })
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [processTicket])
+  useScanner((val) => processTicket(val, true))
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
