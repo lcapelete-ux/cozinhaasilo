@@ -443,6 +443,10 @@ export default function DispatchStation() {
     // Ficha logic
     try {
       const ticket = await resolveFicha(raw)
+      if (!ticket) {
+        addToast('Leitura não reconhecida — bipe novamente')
+        return
+      }
       setLastScanned(ticket)
 
       // 3 bipadas seguidas na mesma ficha (em até 5s) = pedido entrou errado, cancelar

@@ -196,6 +196,10 @@ export default function KitchenSectors() {
     if (!isQr) raw = parseManualTicket(raw)
     try {
       const ticket = await resolveFicha(raw)
+      if (!ticket) {
+        addToast('Leitura não reconhecida — bipe novamente')
+        return
+      }
 
       // 3 bipadas seguidas na mesma ficha (em até 5s) = pedido entrou errado, cancelar
       const now = Date.now()

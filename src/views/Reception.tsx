@@ -325,7 +325,10 @@ export default function Reception() {
     // É uma ficha (1–200)
     try {
       const ticket = await resolveFicha(raw)
-      if (!ticket) return
+      if (!ticket) {
+        setLastScan({ type: 'error', label: 'Leitura não reconhecida — bipe novamente' })
+        return
+      }
 
       const current = sessionRef.current
 

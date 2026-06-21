@@ -83,6 +83,11 @@ export async function resolveFicha(raw: string): Promise<string> {
     let num = parseInt(numericMatch[0], 10)
     // Fichas 101–133: strip leading "1" (101→1, 115→15, 133→33)
     if (num >= 101 && num <= 133) num = num - 100
+    // Fichas válidas vão de 1 a 220. Uma leitura corrompida — por exemplo, o
+    // traço de um cupom ("0844-124791") se perde na captura e os dígitos de
+    // dois códigos diferentes colam num só — produz um número fora dessa
+    // faixa. Descarta em vez de abrir uma sessão de ficha fantasma na tela.
+    if (num < 1 || num > 220) return ''
     return String(num)
   }
 
