@@ -68,15 +68,6 @@ export async function resolveFicha(raw: string): Promise<string> {
   // Strip common control characters (STX, ETX, GS, RS, EOT)
   cleaned = cleaned.replace(/[\x02\x03\x1C\x1D\x1E\x04]/g, '')
 
-  // Check ExtraFichas mapping using raw value first (custom QR codes registered by user)
-  if (_db) {
-    const q = query(collection(_db, 'extra_fichas'), where('qr_code', '==', raw.trim()))
-    const snap = await getDocs(q)
-    if (!snap.empty) {
-      return snap.docs[0].data().alias as string
-    }
-  }
-
   try {
     const url = new URL(cleaned)
     const fichaParam = url.searchParams.get('ficha')
@@ -92,7 +83,19 @@ export async function resolveFicha(raw: string): Promise<string> {
     let num = parseInt(numericMatch[0], 10)
     // Fichas 101–133: strip leading "1" (101→1, 115→15, 133→33)
     if (num >= 101 && num <= 133) num = num - 100
-    cleaned = String(num)
+    return String(num)
+  }
+
+  // No plain number found — this isn't a standard ficha QR, so only now
+  // fall back to a custom mapping registered in Configurações → Fichas QR.
+  // Standard numeric codes (the vast majority, including every ficha in the
+  // 101-133 range) must never be hijacked by a stray/legacy registration there.
+  if (_db) {
+    const q = query(collection(_db, 'extra_fichas'), where('qr_code', '==', raw.trim()))
+    const snap = await getDocs(q)
+    if (!snap.empty) {
+      return snap.docs[0].data().alias as string
+    }
   }
 
   return cleaned
