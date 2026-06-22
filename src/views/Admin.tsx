@@ -16,7 +16,7 @@ import type { User, MenuItem } from '../types'
 
 type Tab = 'users' | 'menu' | 'fichas' | 'dados'
 
-const ALL_VIEWS = 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin'
+const ALL_VIEWS = 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,internal-panel,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin'
 
 const VIEW_META: { view: string; label: string; icon: LucideIcon }[] = [
   { view: 'reception',       label: 'Recepção',  icon: ShoppingBag },
@@ -24,6 +24,7 @@ const VIEW_META: { view: string; label: string; icon: LucideIcon }[] = [
   { view: 'kitchen-scanner', label: 'Bip',       icon: Scan },
   { view: 'kitchen-sectors', label: 'Setores',   icon: LayoutGrid },
   { view: 'display',         label: 'Painel',    icon: Tv2 },
+  { view: 'internal-panel',  label: 'Painel Interno', icon: Monitor },
   { view: 'dispatch',        label: 'Entrega',   icon: Package },
   { view: 'history',         label: 'Histórico', icon: Clock },
   { view: 'inventory',       label: 'Estoque',   icon: Boxes },

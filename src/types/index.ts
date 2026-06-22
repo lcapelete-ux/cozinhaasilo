@@ -86,6 +86,7 @@ export type ViewName =
   | 'kitchen-scanner'
   | 'kitchen-sectors'
   | 'display'
+  | 'internal-panel'
   | 'dispatch'
   | 'history'
   | 'inventory'

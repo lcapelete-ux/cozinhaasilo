@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, useCallback } from 'rea
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ShoppingBag, ChefHat, Scan, LayoutGrid, Tv2, Package,
-  Clock, Boxes, QrCode, BarChart3, Film, Settings, LogOut, Menu, X,
+  Clock, Boxes, QrCode, BarChart3, Film, Settings, LogOut, Menu, X, Monitor,
   type LucideIcon,
 } from 'lucide-react'
 import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
@@ -12,6 +12,7 @@ import Kitchen from './views/Kitchen'
 import KitchenScanner from './views/KitchenScanner'
 import KitchenSectors from './views/KitchenSectors'
 import Display from './views/Display'
+import InternalPanel from './views/InternalPanel'
 import DispatchStation from './views/DispatchStation'
 import History from './views/History'
 import Inventory from './views/Inventory'
@@ -41,6 +42,7 @@ const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
   { view: 'kitchen-scanner', label: 'Bip', icon: Scan },
   { view: 'kitchen-sectors', label: 'Setores', icon: LayoutGrid },
   { view: 'display', label: 'Painel', icon: Tv2 },
+  { view: 'internal-panel', label: 'Painel Interno', icon: Monitor },
   { view: 'dispatch', label: 'Entrega', icon: Package },
   { view: 'history', label: 'Histórico', icon: Clock },
   { view: 'inventory', label: 'Estoque', icon: Boxes },
@@ -56,6 +58,7 @@ const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
   'kitchen-scanner': KitchenScanner,
   'kitchen-sectors': KitchenSectors,
   display: Display,
+  'internal-panel': InternalPanel,
   dispatch: DispatchStation,
   history: History,
   inventory: Inventory,
@@ -162,9 +165,9 @@ export default function App() {
     )
   }
 
-  // Display view — fullscreen, no sidebar
-  if (currentView === 'display') {
-    const DisplayComponent = VIEW_COMPONENTS.display
+  // Display / Internal Panel views — fullscreen, no sidebar
+  if (currentView === 'display' || currentView === 'internal-panel') {
+    const DisplayComponent = VIEW_COMPONENTS[currentView]
     return (
       <AppContext.Provider value={{ addToast }}>
         <div className="relative">
