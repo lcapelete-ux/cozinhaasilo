@@ -18,6 +18,7 @@ const COLORS_KEY = 'sectors-colors'
 const LAYOUT_KEY = 'sectors-layout'
 const COLS_KEY = 'sectors-cols'
 const FOOTER_ZOOM_KEY = 'sectors-footer-zoom'
+const ORDERS_ZOOM_KEY = 'sectors-orders-zoom'
 
 // Mesma faixa de zoom reduzida usada na barra de "Prontas" da tela Entrega.
 const FOOTER_ZOOM_STEPS = [0.4, 0.5, 0.6, 0.7, 0.75, 0.85, 1, 1.15, 1.3, 1.5]
@@ -115,10 +116,22 @@ export default function KitchenSectors() {
     const val = saved ? parseFloat(saved) : 1
     return FOOTER_ZOOM_STEPS.includes(val) ? val : 1
   })
+  // Zoom do layout "Entrega" é independente do zoom da página em "Setores" —
+  // mesma lógica (auto por quantidade de fichas, com override manual) da tela de Entrega.
+  const [ordersZoomOverride, setOrdersZoomOverride] = useState<number | null>(() => {
+    const saved = localStorage.getItem(ORDERS_ZOOM_KEY)
+    const val = saved ? parseFloat(saved) : NaN
+    return ZOOM_STEPS.includes(val) ? val : null
+  })
 
   const handleZoom = (z: number) => {
     setZoom(z)
     localStorage.setItem(ZOOM_KEY, String(z))
+  }
+
+  const handleOrdersZoom = (z: number) => {
+    setOrdersZoomOverride(z)
+    localStorage.setItem(ORDERS_ZOOM_KEY, String(z))
   }
 
   const toggleLayout = () => {
@@ -336,6 +349,7 @@ export default function KitchenSectors() {
   )
 
   const totalActive = orders.length
+  const ordersQueueCount = orders.filter((o) => o.status !== 'ready').length
   const delayedOrders = orders
     .filter((o) => (o.status === 'pending' || o.status === 'preparing') && (now - o.created_at.getTime()) > 10 * 60 * 1000)
     .sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
@@ -372,7 +386,10 @@ export default function KitchenSectors() {
 
   return (
     <div className={n ? 'min-h-screen bg-gray-950' : ''}>
-    <div style={{ zoom }} className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div
+      style={{ zoom: layout === 'sectors' ? zoom : 1 }}
+      className={`p-4 md:p-6 ${layout === 'sectors' ? 'max-w-7xl mx-auto' : ''}`}
+    >
       {/* Header */}
       <div className="relative flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
@@ -477,7 +494,11 @@ export default function KitchenSectors() {
 
           {layout === 'orders' && <ColumnsControl cols={colsOverride} onChange={handleCols} />}
 
-          <ZoomControls zoom={zoom} onChange={handleZoom} />
+          {layout === 'orders' ? (
+            <ZoomControls zoom={ordersZoomOverride ?? getAutoZoom(ordersQueueCount)} onChange={handleOrdersZoom} />
+          ) : (
+            <ZoomControls zoom={zoom} onChange={handleZoom} />
+          )}
 
           <div className={`text-sm font-bold px-3 py-2 rounded-xl ${n ? 'bg-gray-800 text-gray-300' : 'bg-accent/10 text-accent-dark'}`}>
             {totalActive} ativo{totalActive !== 1 ? 's' : ''}
@@ -685,6 +706,7 @@ export default function KitchenSectors() {
           nightMode={n}
           now={now}
           colsOverride={colsOverride}
+          zoomOverride={ordersZoomOverride}
           footerZoom={footerZoom}
           onFooterZoom={handleFooterZoom}
           onDeliver={handleDeliver}
@@ -750,12 +772,13 @@ export default function KitchenSectors() {
 // tela de Entrega (reaproveita o mesmo OrderCard), com a barra de "Prontas"
 // embaixo. Útil para os turnos que preferem ver a mesma tela da Entrega.
 function OrdersLayout({
-  orders, nightMode: n, now, colsOverride, footerZoom, onFooterZoom, onDeliver,
+  orders, nightMode: n, now, colsOverride, zoomOverride, footerZoom, onFooterZoom, onDeliver,
 }: {
   orders: Order[]
   nightMode: boolean
   now: number
   colsOverride: number | null
+  zoomOverride: number | null
   footerZoom: number
   onFooterZoom: (z: number) => void
   onDeliver: (order: Order) => void
@@ -775,7 +798,7 @@ function OrdersLayout({
         <div
           className={colsOverride === null ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'grid gap-4'}
           style={{
-            zoom: getAutoZoom(queueOrders.length),
+            zoom: zoomOverride ?? getAutoZoom(queueOrders.length),
             ...(colsOverride !== null ? { gridTemplateColumns: `repeat(${colsOverride}, minmax(0, 1fr))` } : {}),
           }}
         >
