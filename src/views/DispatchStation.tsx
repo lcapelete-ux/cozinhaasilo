@@ -5,7 +5,7 @@ import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, 
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import { useScanner } from '../hooks/useScanner'
-import { isTakeoutTicket, displayTicket, parseManualTicket, isCupomCode } from '../utils/ticket'
+import { isTakeoutTicket, displayTicket, parseManualTicket, isCupomCode, matchProductByScan } from '../utils/ticket'
 import ZoomControls, { ZOOM_STEPS } from '../components/ZoomControls'
 import { OrderCard, ColumnsControl, getAutoZoom, COLS_STEPS_RANGE } from '../components/OrderCard'
 
@@ -210,9 +210,8 @@ export default function DispatchStation() {
 
     // Check product code first (4+ digits matching a menu item) — hidden, no feedback
     const digits = raw.trim().replace(/\D/g, '')
-    const first4 = digits.substring(0, 4)
     if (digits.length >= 4) {
-      const matched = menuItemsRef.current.find((m) => m.code && first4 === m.code)
+      const matched = matchProductByScan(menuItemsRef.current, digits)
       if (matched) {
         if (bgFichaRef.current) {
           const existing = bgItemsRef.current.find((i) => i.name === matched.name)

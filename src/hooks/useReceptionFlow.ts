@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus, deleteOrder } from '../services/firebaseService'
 import { useApp } from '../App'
 import { useScanner } from './useScanner'
-import { displayTicket, isCupomCode } from '../utils/ticket'
+import { displayTicket, isCupomCode, matchProductByScan } from '../utils/ticket'
 import type { MenuItem } from '../types'
 
 export interface SessionItem {
@@ -177,7 +177,7 @@ export function useReceptionFlow() {
     const first4 = digits.substring(0, 4)
 
     if (digits.length >= 4) {
-      const matchedProduct = items.find(m => m.code && first4 === m.code)
+      const matchedProduct = matchProductByScan(items, digits)
 
       if (matchedProduct) {
         if (!sessionRef.current) {

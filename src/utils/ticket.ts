@@ -25,6 +25,23 @@ export function isCupomCode(raw: string): boolean {
   return /^\d+-\d+$/.test(raw.trim())
 }
 
+// Acha o produto cujo código casa com o início do cupom bipado. O código pode
+// ter de 1 a 4 dígitos (o cadastro não exige 4), então comparamos usando o
+// tamanho do próprio código — uma comparação fixa nos 4 primeiros dígitos
+// ignorava silenciosamente qualquer produto com código mais curto, fazendo
+// "alguns cupons não serem lidos". Em caso de empate, vence o código mais
+// longo (mais específico), para um código curto não ofuscar outro maior.
+export function matchProductByScan<T extends { code?: string }>(items: T[], digits: string): T | undefined {
+  let best: T | undefined
+  for (const m of items) {
+    if (!m.code) continue
+    if (digits.substring(0, m.code.length) === m.code) {
+      if (!best || best.code!.length < m.code.length) best = m
+    }
+  }
+  return best
+}
+
 export function isTakeoutTicket(ticket: string): boolean {
   const num = parseInt(ticket, 10)
   return !isNaN(num) && isInRange(num, TAKEOUT_RANGES)

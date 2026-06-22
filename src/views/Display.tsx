@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession, subscribeBrandingConfig } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
-import { displayTicket } from '../utils/ticket'
+import { displayTicket, matchProductByScan } from '../utils/ticket'
 import type { Order, MediaSlide, MenuItem, } from '../types'
 import type { VilhinhoItem } from '../services/firebaseService'
 
@@ -461,7 +461,7 @@ export default function Display() {
 
     // Product code (4+ digits matching a menu item)
     if (digits.length >= 4) {
-      const matched = menuItemsRef.current.find((m) => m.code && first4 === m.code)
+      const matched = matchProductByScan(menuItemsRef.current, digits)
       if (matched) {
         if (!bgFichaRef.current) return // need ficha first
         const existing = bgItemsRef.current.find((i) => i.name === matched.name)
