@@ -61,8 +61,8 @@ export default function InternalPanel() {
       <div className="flex-1 flex flex-col">
         <div className="px-6 py-5 flex items-center justify-between border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <ShoppingBag size={28} className="text-accent" />
-            <h1 className="font-serif italic text-2xl md:text-3xl text-white">Recepção</h1>
+            <ShoppingBag size={32} className="text-accent" />
+            <h1 className="font-serif italic text-3xl md:text-4xl text-white">Recepção</h1>
           </div>
           {session && (
             <motion.div
@@ -74,10 +74,10 @@ export default function InternalPanel() {
         </div>
 
         {lastScan && (
-          <div className={`px-6 py-2.5 flex items-center gap-2 text-sm font-medium ${
+          <div className={`px-6 py-3 flex items-center gap-2 text-base font-medium ${
             lastScan.type === 'error' ? 'bg-red-950/50 text-red-300' : 'bg-gray-900 text-gray-300'
           }`}>
-            {lastScan.type === 'error' ? <AlertCircle size={14} /> : <Scan size={14} />}
+            {lastScan.type === 'error' ? <AlertCircle size={16} /> : <Scan size={16} />}
             {lastScan.label}
           </div>
         )}
@@ -86,17 +86,17 @@ export default function InternalPanel() {
           {!session ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-600">
               <ShoppingBag size={64} strokeWidth={1} />
-              <p className="text-lg italic">Aguardando bipagem de ficha...</p>
+              <p className="text-xl italic">Aguardando bipagem de ficha...</p>
             </div>
           ) : (
             <div>
               <div className="mb-5">
-                <p className="text-gray-500 text-xs uppercase tracking-widest font-bold">Ficha</p>
-                <p className="font-black text-white text-6xl leading-none">#{displayTicket(session.ficha)}</p>
+                <p className="text-gray-500 text-sm uppercase tracking-widest font-bold">Ficha</p>
+                <p className="font-black text-white text-7xl leading-none">#{displayTicket(session.ficha)}</p>
               </div>
 
               {session.items.length === 0 ? (
-                <p className="text-gray-500 italic text-lg py-6 text-center">Aguardando cupons...</p>
+                <p className="text-gray-500 italic text-xl py-6 text-center">Aguardando cupons...</p>
               ) : (
                 <div className="space-y-2">
                   <AnimatePresence>
@@ -108,10 +108,10 @@ export default function InternalPanel() {
                         className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3"
                       >
                         <div>
-                          <p className="text-white font-semibold text-lg leading-tight">{item.name}</p>
-                          <p className="text-gray-500 text-sm">{SECTOR_ALIASES[item.sector] ?? item.sector}</p>
+                          <p className="text-white font-semibold text-xl leading-tight">{item.name}</p>
+                          <p className="text-gray-500 text-base">{SECTOR_ALIASES[item.sector] ?? item.sector}</p>
                         </div>
-                        <span className="font-black text-2xl text-accent bg-gray-800 rounded-xl px-3 py-1">
+                        <span className="font-black text-3xl text-yellow-400 bg-yellow-950/40 rounded-xl px-3 py-1">
                           ×{item.quantity}
                         </span>
                       </motion.div>
@@ -128,17 +128,17 @@ export default function InternalPanel() {
       <div className="flex-1 flex flex-col">
         <div className="px-6 py-5 flex items-center justify-between border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <Beef size={28} className="text-blue-400" />
-            <h1 className="font-serif italic text-2xl md:text-3xl text-white">Chapa</h1>
+            <Beef size={32} className="text-blue-400" />
+            <h1 className="font-serif italic text-3xl md:text-4xl text-white">Chapa</h1>
           </div>
-          <span className="font-black text-2xl text-white bg-gray-800 rounded-xl px-3 py-1">{chapaCount}</span>
+          <span className="font-black text-3xl text-yellow-400 bg-yellow-950/40 rounded-xl px-3 py-1">{chapaCount}</span>
         </div>
 
         <div className="flex-1 p-6 overflow-y-auto">
           {chapaItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-600">
               <Package size={64} strokeWidth={1} />
-              <p className="text-lg uppercase tracking-widest font-semibold">Limpo</p>
+              <p className="text-xl uppercase tracking-widest font-semibold">Limpo</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -152,8 +152,8 @@ export default function InternalPanel() {
                     className="rounded-2xl border border-gray-800 bg-gray-900 p-4"
                   >
                     <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-white font-semibold text-xl">{item.name}</span>
-                      <span className="font-black text-2xl bg-gray-800 text-white rounded-xl px-3 py-1">×{item.totalQty}</span>
+                      <span className="text-white font-semibold text-2xl">{item.name}</span>
+                      <span className="font-black text-3xl bg-yellow-950/40 text-yellow-400 rounded-xl px-3 py-1">×{item.totalQty}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {item.fichas.map(({ ticket, status, qty }) => (
@@ -182,9 +182,9 @@ function FichaTag({ ticket, status, qty }: { ticket: string; status: OrderStatus
   }
   const takeoutColors = 'bg-purple-900/60 text-purple-300 border-purple-600'
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border text-sm ${isTakeout ? takeoutColors : colors[status]}`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border text-base ${isTakeout ? takeoutColors : colors[status]}`}>
       <span className={isReady ? 'line-through decoration-2 decoration-gray-500/60' : ''}>#{displayTicket(ticket)}</span>
-      <span className="opacity-70">×{qty}</span>
+      <span className="text-yellow-400 opacity-90">×{qty}</span>
     </span>
   )
 }
