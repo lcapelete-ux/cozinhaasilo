@@ -140,6 +140,11 @@ export default function AdminDashboard() {
     [productStats]
   )
 
+  const allByQty = useMemo(
+    () => Object.entries(productStats).sort((a, b) => b[1].qty - a[1].qty),
+    [productStats]
+  )
+
   const topByRevenue = useMemo(
     () => Object.entries(productStats).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5),
     [productStats]
@@ -261,7 +266,7 @@ export default function AdminDashboard() {
         ? `Dia ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR')}`
         : 'Toda a Festa'
 
-    const tableRowProducts = topByQty
+    const tableRowProducts = allByQty
       .map(
         ([name, data], i) => `
       <tr>
@@ -357,7 +362,7 @@ export default function AdminDashboard() {
     <div class="stat"><div class="val">${peakHour.hora}</div><div class="lbl">Horário de pico</div></div>
   </div>
 
-  <h2>Produtos mais vendidos</h2>
+  <h2>Todos os produtos vendidos</h2>
   <table>
     <thead><tr><th>#</th><th>Produto</th><th>Setor</th><th>Qtd</th><th>Faturamento</th><th>% do total</th></tr></thead>
     <tbody>${tableRowProducts}</tbody>
