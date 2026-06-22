@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles, Palette } from 'lucide-react'
+import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles, Palette, LayoutGrid, LayoutList, Check } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
 import { useScanner } from '../hooks/useScanner'
 import { isTakeoutTicket, displayTicket, parseManualTicket, isCupomCode } from '../utils/ticket'
 import ZoomControls, { ZOOM_STEPS } from '../components/ZoomControls'
+import { OrderCard, ColumnsControl, getAutoZoom, COLS_STEPS_RANGE } from '../components/OrderCard'
 import type { Order, OrderStatus, MenuItem } from '../types'
 
 const LOW_STOCK_THRESHOLD = 15
@@ -14,6 +15,12 @@ const ZOOM_KEY = 'sectors-zoom'
 const NIGHT_KEY = 'sectors-night'
 const SYMBOLS_KEY = 'sectors-symbols'
 const COLORS_KEY = 'sectors-colors'
+const LAYOUT_KEY = 'sectors-layout'
+const COLS_KEY = 'sectors-cols'
+const FOOTER_ZOOM_KEY = 'sectors-footer-zoom'
+
+// Mesma faixa de zoom reduzida usada na barra de "Prontas" da tela Entrega.
+const FOOTER_ZOOM_STEPS = [0.4, 0.5, 0.6, 0.7, 0.75, 0.85, 1, 1.15, 1.3, 1.5]
 
 function playNewOrderSound() {
   try {
@@ -95,11 +102,50 @@ export default function KitchenSectors() {
   const [nightMode, setNightMode] = useState(() => localStorage.getItem(NIGHT_KEY) === 'true')
   const [symbolMode, setSymbolMode] = useState(() => localStorage.getItem(SYMBOLS_KEY) === 'true')
   const [colorMode, setColorMode] = useState(() => localStorage.getItem(COLORS_KEY) !== 'false')
+  const [layout, setLayout] = useState<'sectors' | 'orders'>(() =>
+    localStorage.getItem(LAYOUT_KEY) === 'orders' ? 'orders' : 'sectors'
+  )
+  const [colsOverride, setColsOverride] = useState<number | null>(() => {
+    const saved = localStorage.getItem(COLS_KEY)
+    const val = saved ? parseInt(saved, 10) : NaN
+    return COLS_STEPS_RANGE.includes(val) ? val : 6
+  })
+  const [footerZoom, setFooterZoom] = useState<number>(() => {
+    const saved = localStorage.getItem(FOOTER_ZOOM_KEY)
+    const val = saved ? parseFloat(saved) : 1
+    return FOOTER_ZOOM_STEPS.includes(val) ? val : 1
+  })
 
   const handleZoom = (z: number) => {
     setZoom(z)
     localStorage.setItem(ZOOM_KEY, String(z))
   }
+
+  const toggleLayout = () => {
+    const next = layout === 'orders' ? 'sectors' : 'orders'
+    setLayout(next)
+    localStorage.setItem(LAYOUT_KEY, next)
+  }
+
+  const handleCols = (cols: number | null) => {
+    setColsOverride(cols)
+    if (cols === null) localStorage.removeItem(COLS_KEY)
+    else localStorage.setItem(COLS_KEY, String(cols))
+  }
+
+  const handleFooterZoom = (z: number) => {
+    setFooterZoom(z)
+    localStorage.setItem(FOOTER_ZOOM_KEY, String(z))
+  }
+
+  const handleDeliver = useCallback(async (order: Order) => {
+    try {
+      await setOrderStatus(order.id, 'delivered')
+      addToast(`Ficha #${displayTicket(order.ticket_number)} entregue! ✅`, 'success')
+    } catch {
+      addToast('Erro ao entregar')
+    }
+  }, [addToast])
 
   const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
   const prevStatusMapRef = useRef<Map<string, string>>(new Map())
@@ -389,28 +435,47 @@ export default function KitchenSectors() {
           </button>
 
           <button
-            onClick={toggleColors}
-            title={colorMode ? 'Desativar cores por ficha' : 'Ativar cores por ficha'}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-              colorMode
+            onClick={toggleLayout}
+            title={layout === 'orders' ? 'Ver consolidado por setor' : 'Ver como a tela de Entrega (cards por pedido)'}
+            className={`flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-bold transition-colors ${
+              layout === 'orders'
                 ? n ? 'bg-accent/30 text-accent' : 'bg-accent/15 text-accent-dark'
-                : n ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                : n ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
-            <Palette size={16} />
+            {layout === 'orders' ? <LayoutList size={15} /> : <LayoutGrid size={15} />}
+            {layout === 'orders' ? 'Entrega' : 'Setores'}
           </button>
 
-          <button
-            onClick={toggleSymbols}
-            title={symbolMode ? 'Desativar símbolos por ficha' : 'Ativar símbolos por ficha'}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-              symbolMode
-                ? n ? 'bg-accent/30 text-accent' : 'bg-accent/15 text-accent-dark'
-                : n ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            <Sparkles size={16} />
-          </button>
+          {layout === 'sectors' && (
+            <>
+              <button
+                onClick={toggleColors}
+                title={colorMode ? 'Desativar cores por ficha' : 'Ativar cores por ficha'}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                  colorMode
+                    ? n ? 'bg-accent/30 text-accent' : 'bg-accent/15 text-accent-dark'
+                    : n ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                <Palette size={16} />
+              </button>
+
+              <button
+                onClick={toggleSymbols}
+                title={symbolMode ? 'Desativar símbolos por ficha' : 'Ativar símbolos por ficha'}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                  symbolMode
+                    ? n ? 'bg-accent/30 text-accent' : 'bg-accent/15 text-accent-dark'
+                    : n ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                <Sparkles size={16} />
+              </button>
+            </>
+          )}
+
+          {layout === 'orders' && <ColumnsControl cols={colsOverride} onChange={handleCols} />}
 
           <ZoomControls zoom={zoom} onChange={handleZoom} />
 
@@ -523,6 +588,7 @@ export default function KitchenSectors() {
       {delayedOrders.length > 0 && <DelayedMarquee orders={delayedOrders} />}
 
       {/* Sector columns */}
+      {layout === 'sectors' && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {SECTORS.map(({ name, icon: Icon, color, border }) => {
           const items = getSectorItems(name)
@@ -610,6 +676,20 @@ export default function KitchenSectors() {
           )
         })}
       </div>
+      )}
+
+      {/* Layout "Entrega" — cards por pedido, igual à tela de Entrega */}
+      {layout === 'orders' && (
+        <OrdersLayout
+          orders={orders}
+          nightMode={n}
+          now={now}
+          colsOverride={colsOverride}
+          footerZoom={footerZoom}
+          onFooterZoom={handleFooterZoom}
+          onDeliver={handleDeliver}
+        />
+      )}
 
       {/* Live session preview — bottom-right corner */}
       <AnimatePresence>
@@ -663,6 +743,101 @@ export default function KitchenSectors() {
       </AnimatePresence>
     </div>
     </div>
+  )
+}
+
+// Layout alternativo da tela Setores: mostra os pedidos em cards, idêntico à
+// tela de Entrega (reaproveita o mesmo OrderCard), com a barra de "Prontas"
+// embaixo. Útil para os turnos que preferem ver a mesma tela da Entrega.
+function OrdersLayout({
+  orders, nightMode: n, now, colsOverride, footerZoom, onFooterZoom, onDeliver,
+}: {
+  orders: Order[]
+  nightMode: boolean
+  now: number
+  colsOverride: number | null
+  footerZoom: number
+  onFooterZoom: (z: number) => void
+  onDeliver: (order: Order) => void
+}) {
+  const sorted = [...orders].sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
+  const queueOrders = sorted.filter((o) => o.status !== 'ready')
+  const readyOrdersList = sorted.filter((o) => o.status === 'ready')
+
+  return (
+    <>
+      {queueOrders.length === 0 ? (
+        <div className={`rounded-3xl p-16 text-center shadow-sm ${n ? 'bg-gray-800' : 'bg-white'}`}>
+          <Package size={52} className={`mx-auto mb-4 ${n ? 'text-gray-600' : 'text-gray-300'}`} strokeWidth={1.5} />
+          <p className={`text-lg font-semibold ${n ? 'text-gray-500' : 'text-gray-400'}`}>Nenhum pedido na fila</p>
+        </div>
+      ) : (
+        <div
+          className={colsOverride === null ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'grid gap-4'}
+          style={{
+            zoom: getAutoZoom(queueOrders.length),
+            ...(colsOverride !== null ? { gridTemplateColumns: `repeat(${colsOverride}, minmax(0, 1fr))` } : {}),
+          }}
+        >
+          <AnimatePresence mode="popLayout">
+            {queueOrders.map((order, idx) => (
+              <OrderCard key={order.id} order={order} idx={idx} nightMode={n} now={now} />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {readyOrdersList.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className={`mt-4 rounded-3xl px-4 py-3 border max-h-[35vh] flex flex-col ${
+              n ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-2 shrink-0">
+              <span className={`text-base font-black uppercase tracking-widest shrink-0 ${n ? 'text-green-400' : 'text-green-600'}`}>
+                Prontas ({readyOrdersList.length})
+              </span>
+              <div className="flex-1" />
+              <span className={`text-xs font-bold uppercase tracking-widest shrink-0 ${n ? 'text-gray-400' : 'text-gray-400'}`}>
+                Zoom
+              </span>
+              <div className={`rounded-xl ${n ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                <ZoomControls zoom={footerZoom} onChange={onFooterZoom} steps={FOOTER_ZOOM_STEPS} />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap overflow-y-auto flex-1 min-h-0" style={{ zoom: footerZoom }}>
+              <AnimatePresence mode="popLayout">
+                {readyOrdersList.map((order) => (
+                  <motion.button
+                    key={order.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => onDeliver(order)}
+                    title="Marcar como entregue"
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-black text-2xl transition-colors ${
+                      isTakeoutTicket(order.ticket_number)
+                        ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                  >
+                    <Check size={20} />
+                    #{displayTicket(order.ticket_number)}
+                    {isTakeoutTicket(order.ticket_number) && <Plane size={18} />}
+                  </motion.button>
+                ))}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   )
 }
 
