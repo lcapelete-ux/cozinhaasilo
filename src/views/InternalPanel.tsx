@@ -210,7 +210,7 @@ function FichaTag({ ticket, status, qty }: { ticket: string; status: OrderStatus
   }
   const takeoutColors = 'bg-purple-900/60 text-purple-300 border-purple-600'
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border text-xl ${isTakeout ? takeoutColors : colors[status]}`}>
+    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold border text-3xl ${isTakeout ? takeoutColors : colors[status]}`}>
       <span className={isReady ? 'line-through decoration-2 decoration-gray-500/60' : ''}>#{displayTicket(ticket)}</span>
       <span className="text-yellow-400 opacity-90">×{qty}</span>
     </span>
