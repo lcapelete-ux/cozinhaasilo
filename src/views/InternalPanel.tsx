@@ -151,9 +151,9 @@ export default function InternalPanel() {
                     exit={{ opacity: 0, x: -10 }}
                     className="rounded-2xl border border-gray-800 bg-gray-900 p-4"
                   >
-                    <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-white font-semibold text-2xl">{item.name}</span>
-                      <span className="font-black text-3xl bg-yellow-950/40 text-yellow-400 rounded-xl px-3 py-1">×{item.totalQty}</span>
+                    <div className="flex items-center justify-between mb-3 gap-3">
+                      <span className="text-white font-bold text-4xl leading-tight">{item.name}</span>
+                      <span className="font-black text-5xl bg-yellow-950/40 text-yellow-400 rounded-xl px-4 py-1.5 shrink-0">×{item.totalQty}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {item.fichas.map(({ ticket, status, qty }) => (
@@ -182,7 +182,7 @@ function FichaTag({ ticket, status, qty }: { ticket: string; status: OrderStatus
   }
   const takeoutColors = 'bg-purple-900/60 text-purple-300 border-purple-600'
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border text-base ${isTakeout ? takeoutColors : colors[status]}`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border text-xl ${isTakeout ? takeoutColors : colors[status]}`}>
       <span className={isReady ? 'line-through decoration-2 decoration-gray-500/60' : ''}>#{displayTicket(ticket)}</span>
       <span className="text-yellow-400 opacity-90">×{qty}</span>
     </span>
