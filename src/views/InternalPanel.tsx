@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Beef, Package, Scan, AlertCircle } from 'lucide-react'
+import { ShoppingBag, Beef, Package, Scan, AlertCircle, CheckCircle } from 'lucide-react'
 import { subscribeOrders } from '../services/firebaseService'
 import { displayTicket, isTakeoutTicket } from '../utils/ticket'
 import { useReceptionFlow } from '../hooks/useReceptionFlow'
@@ -47,16 +47,18 @@ function getChapaItems(orders: Order[]): SectorItem[] {
 // com bipador próprio desse computador, processando fichas e cupons como a
 // tela de Recepção) e pedidos da Chapa (direita, somente leitura).
 export default function InternalPanel() {
-  const { session, lastScan } = useReceptionFlow()
+  const { session, lastScan, sentHistory } = useReceptionFlow()
   const [orders, setOrders] = useState<Order[]>([])
 
   useEffect(() => subscribeOrders(['pending', 'preparing', 'ready'], setOrders), [])
 
   const chapaItems = getChapaItems(orders)
   const chapaCount = chapaItems.reduce((s, i) => s + i.totalQty, 0)
+  const lastSentOrders = sentHistory.slice(0, 5)
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-800">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+    <div className="flex-1 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-800">
       {/* LEFT — Recepção (bipador deste computador) */}
       <div className="flex-1 flex flex-col">
         <div className="px-6 py-5 flex items-center justify-between border-b border-gray-800">
@@ -167,6 +169,32 @@ export default function InternalPanel() {
           )}
         </div>
       </div>
+    </div>
+
+    {/* Rodapé — confirmação dos últimos pedidos enviados para a cozinha */}
+    <div className="shrink-0 border-t border-gray-800 bg-gray-900 px-6 py-3 flex items-center gap-3 overflow-x-auto">
+      <span className="text-gray-500 text-sm font-bold uppercase tracking-widest shrink-0">Últimos enviados</span>
+      <AnimatePresence mode="popLayout">
+        {lastSentOrders.length === 0 ? (
+          <span className="text-gray-600 text-base italic">Nenhum pedido enviado ainda</span>
+        ) : (
+          lastSentOrders.map((order) => (
+            <motion.div
+              key={`${order.ficha}-${order.sentAt.getTime()}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center gap-2 bg-green-950/40 border border-green-700 rounded-xl px-3 py-1.5 shrink-0"
+            >
+              <CheckCircle size={18} className="text-green-400" />
+              <span className="font-black text-green-300 text-lg">#{displayTicket(order.ficha)}</span>
+              <span className="text-green-500/70 text-sm">
+                {order.sentAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </motion.div>
+          ))
+        )}
+      </AnimatePresence>
+    </div>
     </div>
   )
 }
