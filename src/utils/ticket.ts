@@ -25,18 +25,31 @@ export function isCupomCode(raw: string): boolean {
   return /^\d+-\d+$/.test(raw.trim())
 }
 
-// Acha o produto cujo código casa com o início do cupom bipado. O código pode
-// ter de 1 a 4 dígitos (o cadastro não exige 4), então comparamos usando o
-// tamanho do próprio código — uma comparação fixa nos 4 primeiros dígitos
-// ignorava silenciosamente qualquer produto com código mais curto, fazendo
-// "alguns cupons não serem lidos". Em caso de empate, vence o código mais
-// longo (mais específico), para um código curto não ofuscar outro maior.
+// Acha o produto cujo código casa com o início do cupom bipado.
+//
+// Dois problemas faziam "alguns cupons não serem lidos":
+//  1. O código pode ter de 1 a 4 dígitos (o cadastro não exige 4); uma
+//     comparação fixa nos 4 primeiros dígitos ignorava produtos com código
+//     mais curto. Por isso comparamos usando o tamanho do próprio código.
+//  2. O cupom impresso quase sempre preenche o código com zeros à esquerda
+//     até 4 dígitos ("844" → "0844"), mas no cadastro o código pode ter sido
+//     digitado sem o zero ("844"). Por isso também comparamos numericamente
+//     os 4 primeiros dígitos com o código (0844 == 844).
+//
+// Em caso de empate, vence o código mais longo (mais específico), para um
+// código curto não ofuscar outro maior.
 export function matchProductByScan<T extends { code?: string }>(items: T[], digits: string): T | undefined {
+  if (!digits) return undefined
+  const first4 = digits.substring(0, 4)
+  const first4Num = first4.length === 4 ? parseInt(first4, 10) : NaN
   let best: T | undefined
   for (const m of items) {
-    if (!m.code) continue
-    if (digits.substring(0, m.code.length) === m.code) {
-      if (!best || best.code!.length < m.code.length) best = m
+    const code = m.code
+    if (!code) continue
+    const prefixMatch = digits.substring(0, code.length) === code
+    const padMatch = code.length <= 4 && !isNaN(first4Num) && parseInt(code, 10) === first4Num
+    if (prefixMatch || padMatch) {
+      if (!best || best.code!.length < code.length) best = m
     }
   }
   return best
