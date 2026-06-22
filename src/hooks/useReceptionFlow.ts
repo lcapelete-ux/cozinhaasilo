@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus } from '../services/firebaseService'
+import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus, deleteOrder } from '../services/firebaseService'
 import { useApp } from '../App'
 import { useScanner } from './useScanner'
 import { displayTicket, isCupomCode } from '../utils/ticket'
@@ -55,7 +55,27 @@ function playProductAddSound() {
   } catch { /* audio not available */ }
 }
 
+function playCancelSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const notes = [440, 330]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.frequency.value = freq; osc.type = 'square'
+      gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.15)
+      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + i * 0.15 + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.18)
+      osc.start(ctx.currentTime + i * 0.15)
+      osc.stop(ctx.currentTime + i * 0.15 + 0.18)
+    })
+  } catch { /* audio not available */ }
+}
+
 const COUNTDOWN_SECONDS = 45
+const CANCEL_SCAN_COUNT = 3
+const CANCEL_SCAN_WINDOW_MS = 5000
 
 // Lógica de bipagem de fichas/cupons e montagem do pedido, compartilhada entre
 // a tela de Recepção e o Painel Interno (cada um com seu próprio bipador).
@@ -72,6 +92,9 @@ export function useReceptionFlow() {
   const sessionRef = useRef<Session | null>(null)
   const menuItemsRef = useRef<MenuItem[]>([])
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const scanTicketRef = useRef<string | null>(null)
+  const scanCountRef = useRef(0)
+  const scanTimeRef = useRef(0)
 
   useEffect(() => {
     sessionRef.current = session
@@ -194,8 +217,40 @@ export function useReceptionFlow() {
         return
       }
 
+      // Conta bipadas seguidas na mesma ficha para detectar erro de leitura
+      const now = Date.now()
+      if (scanTicketRef.current === ticket && now - scanTimeRef.current < CANCEL_SCAN_WINDOW_MS) {
+        scanCountRef.current += 1
+      } else {
+        scanTicketRef.current = ticket
+        scanCountRef.current = 1
+      }
+      scanTimeRef.current = now
+
       const current = sessionRef.current
       const existing = await getActiveOrderByTicket(ticket)
+
+      // 3 bipadas seguidas na mesma ficha (em até 5s) = pedido entrou errado, cancelar
+      if (scanCountRef.current >= CANCEL_SCAN_COUNT) {
+        scanCountRef.current = 0
+        scanTicketRef.current = null
+        const hadOpenSession = current?.ficha === ticket
+        if (existing) await deleteOrder(existing.id)
+        if (hadOpenSession) {
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current)
+            countdownIntervalRef.current = null
+          }
+          setSession(null)
+          sessionRef.current = null
+        }
+        if (existing || hadOpenSession) {
+          playCancelSound()
+          setLastScan({ type: 'error', label: `Pedido da ficha #${displayTicket(ticket)} cancelado! Ficha liberada.` })
+          return
+        }
+        // Nada para cancelar (3ª bipada de uma ficha nova) — segue o fluxo normal abaixo
+      }
 
       if (existing?.status === 'ready') {
         await setOrderStatus(existing.id, 'delivered')
