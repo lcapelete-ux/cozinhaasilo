@@ -105,15 +105,15 @@ export default function InternalPanel() {
                         key={item.name}
                         initial={{ opacity: 0, x: 16 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3"
+                        className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3"
                       >
-                        <div>
-                          <p className="text-white font-semibold text-xl leading-tight">{item.name}</p>
-                          <p className="text-gray-500 text-base">{SECTOR_ALIASES[item.sector] ?? item.sector}</p>
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-3xl text-yellow-400 bg-yellow-950/40 rounded-xl px-3 py-1 shrink-0">
+                            ×{item.quantity}
+                          </span>
+                          <p className="text-white font-semibold text-2xl leading-tight">{item.name}</p>
                         </div>
-                        <span className="font-black text-3xl text-yellow-400 bg-yellow-950/40 rounded-xl px-3 py-1">
-                          ×{item.quantity}
-                        </span>
+                        <p className="text-gray-500 text-base mt-1">{SECTOR_ALIASES[item.sector] ?? item.sector}</p>
                       </motion.div>
                     ))}
                   </AnimatePresence>
