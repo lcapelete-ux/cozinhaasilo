@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Beef, Package } from 'lucide-react'
-import { subscribeActiveSession, subscribeOrders, type ActiveSessionData } from '../services/firebaseService'
+import { ShoppingBag, Beef, Package, Scan, AlertCircle } from 'lucide-react'
+import { subscribeOrders } from '../services/firebaseService'
 import { displayTicket, isTakeoutTicket } from '../utils/ticket'
+import { useReceptionFlow } from '../hooks/useReceptionFlow'
 import type { Order, OrderStatus } from '../types'
 
 // Compatibilidade com itens gravados antes da renomeação dos setores
@@ -42,15 +43,13 @@ function getChapaItems(orders: Order[]): SectorItem[] {
   return Array.from(itemMap.values()).sort((a, b) => b.totalQty - a.totalQty)
 }
 
-// Painel interno para um segundo monitor: tela dividida — Recepção ao vivo
-// (esquerda) e pedidos da Chapa (direita). Somente leitura, sem leitor de
-// QR Code ou teclado próprio, para não conflitar com as telas de Entrega e
-// Setores quando tudo roda no mesmo computador.
+// Painel interno para um segundo monitor: tela dividida — Recepção (esquerda,
+// com bipador próprio desse computador, processando fichas e cupons como a
+// tela de Recepção) e pedidos da Chapa (direita, somente leitura).
 export default function InternalPanel() {
-  const [liveSession, setLiveSession] = useState<ActiveSessionData | null>(null)
+  const { session, lastScan } = useReceptionFlow()
   const [orders, setOrders] = useState<Order[]>([])
 
-  useEffect(() => subscribeActiveSession(setLiveSession), [])
   useEffect(() => subscribeOrders(['pending', 'preparing', 'ready'], setOrders), [])
 
   const chapaItems = getChapaItems(orders)
@@ -58,14 +57,14 @@ export default function InternalPanel() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-800">
-      {/* LEFT — Recepção ao vivo */}
+      {/* LEFT — Recepção (bipador deste computador) */}
       <div className="flex-1 flex flex-col">
         <div className="px-6 py-5 flex items-center justify-between border-b border-gray-800">
           <div className="flex items-center gap-3">
             <ShoppingBag size={28} className="text-accent" />
-            <h1 className="font-serif italic text-2xl md:text-3xl text-white">Recepção — ao vivo</h1>
+            <h1 className="font-serif italic text-2xl md:text-3xl text-white">Recepção</h1>
           </div>
-          {liveSession && (
+          {session && (
             <motion.div
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ duration: 1, repeat: Infinity }}
@@ -74,8 +73,17 @@ export default function InternalPanel() {
           )}
         </div>
 
+        {lastScan && (
+          <div className={`px-6 py-2.5 flex items-center gap-2 text-sm font-medium ${
+            lastScan.type === 'error' ? 'bg-red-950/50 text-red-300' : 'bg-gray-900 text-gray-300'
+          }`}>
+            {lastScan.type === 'error' ? <AlertCircle size={14} /> : <Scan size={14} />}
+            {lastScan.label}
+          </div>
+        )}
+
         <div className="flex-1 p-6 overflow-y-auto">
-          {!liveSession ? (
+          {!session ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-600">
               <ShoppingBag size={64} strokeWidth={1} />
               <p className="text-lg italic">Aguardando bipagem de ficha...</p>
@@ -84,15 +92,15 @@ export default function InternalPanel() {
             <div>
               <div className="mb-5">
                 <p className="text-gray-500 text-xs uppercase tracking-widest font-bold">Ficha</p>
-                <p className="font-black text-white text-6xl leading-none">#{displayTicket(liveSession.ficha)}</p>
+                <p className="font-black text-white text-6xl leading-none">#{displayTicket(session.ficha)}</p>
               </div>
 
-              {liveSession.items.length === 0 ? (
+              {session.items.length === 0 ? (
                 <p className="text-gray-500 italic text-lg py-6 text-center">Aguardando cupons...</p>
               ) : (
                 <div className="space-y-2">
                   <AnimatePresence>
-                    {liveSession.items.map((item) => (
+                    {session.items.map((item) => (
                       <motion.div
                         key={item.name}
                         initial={{ opacity: 0, x: 16 }}
