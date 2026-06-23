@@ -410,15 +410,20 @@ export default function KitchenSectors() {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className={`font-serif italic text-2xl md:text-3xl ${n ? 'text-white' : 'text-accent-dark'}`}>Monitor de Produção</h1>
             {avgDeliveryTime > 0 && (
-              <span
-                title="Tempo médio de entrega (mesmo cálculo do Dashboard)"
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-sm font-bold ${
-                  n ? 'bg-orange-950/40 text-orange-300' : 'bg-orange-50 text-orange-600'
-                }`}
-              >
-                <Clock size={15} />
-                {avgDeliveryTime} min
-              </span>
+              <div className="flex flex-col items-start">
+                <span className={`text-[10px] font-semibold tracking-widest uppercase ${n ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Tempo médio de entrega do pedido
+                </span>
+                <span
+                  title="Tempo médio de entrega (mesmo cálculo do Dashboard)"
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-sm font-bold ${
+                    n ? 'bg-orange-950/40 text-orange-300' : 'bg-orange-50 text-orange-600'
+                  }`}
+                >
+                  <Clock size={15} />
+                  {avgDeliveryTime} min
+                </span>
+              </div>
             )}
           </div>
           <p className={`text-xs font-semibold tracking-widest uppercase mt-0.5 ${n ? 'text-gray-500' : 'text-gray-400'}`}>Consolidado por setor</p>
