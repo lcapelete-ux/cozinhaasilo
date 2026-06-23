@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles, Palette, LayoutGrid, LayoutList, Check } from 'lucide-react'
+import { Flame, Beef, Drumstick, QrCode, Keyboard, Hash, Package, AlertTriangle, Moon, Sun, Plane, Sparkles, Palette, LayoutGrid, LayoutList, Check, Clock } from 'lucide-react'
 import { subscribeOrders, getActiveOrderByTicket, getOrderByTicket, setOrderStatus, deleteOrder, resolveFicha, subscribeActiveSession, subscribeMenuItems, subscribeAllOrders, type ActiveSessionData } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -164,6 +164,10 @@ export default function KitchenSectors() {
   const prevStatusMapRef = useRef<Map<string, string>>(new Map())
   const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Todos os pedidos entregues — usado só para o tempo médio de entrega no
+  // cabeçalho (mesmo cálculo do Dashboard).
+  const [deliveredOrders, setDeliveredOrders] = useState<Order[]>([])
+
   const [cancelledFicha, setCancelledFicha] = useState<string | null>(null)
   const cancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scanTicketRef = useRef<string | null>(null)
@@ -227,6 +231,7 @@ export default function KitchenSectors() {
         }
         prevStatusMapRef.current.set(order.id, order.status)
       })
+      setDeliveredOrders(allOrders.filter((o) => o.status === 'delivered'))
     })
     return () => {
       unsub()
@@ -350,6 +355,15 @@ export default function KitchenSectors() {
 
   const totalActive = orders.length
   const ordersQueueCount = orders.filter((o) => o.status !== 'ready').length
+
+  // Tempo médio de entrega — mesmo cálculo do Dashboard (minutos entre criação
+  // e entrega, descartando < 0 e ≥ 180 min).
+  const avgDeliveryTime = useMemo(() => {
+    const times = deliveredOrders
+      .map((o) => (o.updated_at.getTime() - o.created_at.getTime()) / 60000)
+      .filter((t) => t > 0 && t < 180)
+    return times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0
+  }, [deliveredOrders])
   const delayedOrders = orders
     .filter((o) => (o.status === 'pending' || o.status === 'preparing') && (now - o.created_at.getTime()) > 10 * 60 * 1000)
     .sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
@@ -393,7 +407,20 @@ export default function KitchenSectors() {
       {/* Header */}
       <div className="relative flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className={`font-serif italic text-2xl md:text-3xl ${n ? 'text-white' : 'text-accent-dark'}`}>Monitor de Produção</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className={`font-serif italic text-2xl md:text-3xl ${n ? 'text-white' : 'text-accent-dark'}`}>Monitor de Produção</h1>
+            {avgDeliveryTime > 0 && (
+              <span
+                title="Tempo médio de entrega (mesmo cálculo do Dashboard)"
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-sm font-bold ${
+                  n ? 'bg-orange-950/40 text-orange-300' : 'bg-orange-50 text-orange-600'
+                }`}
+              >
+                <Clock size={15} />
+                {avgDeliveryTime} min
+              </span>
+            )}
+          </div>
           <p className={`text-xs font-semibold tracking-widest uppercase mt-0.5 ${n ? 'text-gray-500' : 'text-gray-400'}`}>Consolidado por setor</p>
         </div>
 
