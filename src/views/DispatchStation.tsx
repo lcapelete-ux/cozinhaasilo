@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Plane, AlertTriangle } from 'lucide-react'
+import { Package, Check, QrCode, Keyboard, Hash, Moon, Sun, Plane, AlertTriangle, Clock } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, getActiveOrderByTicket, getOrderByTicket, deleteOrder, subscribeAllOrders, subscribeMenuItems, createOrder, setActiveSession, clearActiveSession } from '../services/firebaseService'
 import readySound from '../assets/ready.mp3'
 import { useApp } from '../App'
@@ -84,6 +84,10 @@ export default function DispatchStation() {
   const [releasedFicha, setReleasedFicha] = useState<string | null>(null)
   const [cancelledFicha, setCancelledFicha] = useState<string | null>(null)
   const [lastScanned, setLastScanned] = useState('')
+  const [deliveredOrders, setDeliveredOrders] = useState<Order[]>([])
+  const [clockTime, setClockTime] = useState(() =>
+    new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  )
 
   const ordersRef = useRef<Order[]>([])
   const prevStatusMapRef = useRef<Map<string, string>>(new Map())
@@ -150,11 +154,28 @@ export default function DispatchStation() {
         }
         prevStatusMapRef.current.set(order.id, order.status)
       })
+      setDeliveredOrders(allOrders.filter((o) => o.status === 'delivered'))
     })
     return () => {
       unsub()
       if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
     }
+  }, [])
+
+  // Tempo médio de entrega — mesmo cálculo do Dashboard/Setores (minutos
+  // entre criação e entrega, descartando < 0 e ≥ 180 min).
+  const avgDeliveryTime = useMemo(() => {
+    const times = deliveredOrders
+      .map((o) => (o.updated_at.getTime() - o.created_at.getTime()) / 60000)
+      .filter((t) => t > 0 && t < 180)
+    return times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0
+  }, [deliveredOrders])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setClockTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
+    }, 1000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -310,18 +331,43 @@ export default function DispatchStation() {
       <div className="p-4 md:p-6">
 
         {/* Header */}
-        <div className="flex flex-wrap items-center gap-4 mb-6">
+        <div className="relative flex flex-wrap items-center gap-4 mb-6">
           <div>
-            <h1 className={`font-serif italic text-2xl md:text-3xl flex items-center gap-2 ${n ? 'text-white' : 'text-accent-dark'}`}>
-              <Package className="text-accent" size={26} />
-              Separação de Pedidos
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className={`font-serif italic text-2xl md:text-3xl flex items-center gap-2 ${n ? 'text-white' : 'text-accent-dark'}`}>
+                <Package className="text-accent" size={26} />
+                Separação de Pedidos
+              </h1>
+              {avgDeliveryTime > 0 && (
+                <div className="flex flex-col items-start">
+                  <span className={`text-[10px] font-semibold tracking-widest uppercase ${n ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Tempo médio de entrega do pedido
+                  </span>
+                  <span
+                    title="Tempo médio de entrega (mesmo cálculo do Dashboard)"
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-sm font-bold ${
+                      n ? 'bg-orange-950/40 text-orange-300' : 'bg-orange-50 text-orange-600'
+                    }`}
+                  >
+                    <Clock size={15} />
+                    {avgDeliveryTime} min
+                  </span>
+                </div>
+              )}
+            </div>
             <p className={`text-xs font-semibold uppercase tracking-widest mt-0.5 ${n ? 'text-gray-500' : 'text-gray-400'}`}>
               {totalCount} pedido{totalCount !== 1 ? 's' : ''} na fila
               {readyCount > 0 && (
                 <span className="ml-2 text-green-500">· {readyCount} pronto{readyCount !== 1 ? 's' : ''}</span>
               )}
             </p>
+          </div>
+
+          {/* Clock — centered */}
+          <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none hidden md:block">
+            <span className={`font-mono font-black text-3xl md:text-4xl tracking-widest tabular-nums ${n ? 'text-white/25' : 'text-gray-200'}`}>
+              {clockTime}
+            </span>
           </div>
 
           <div className="flex flex-col items-end gap-1.5 ml-auto">
