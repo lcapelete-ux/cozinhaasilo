@@ -128,15 +128,25 @@ function ManualEntryDrawer({
 
 // ── Manual Exit Drawer ───────────────────────────────────────────────────────
 
+type ManualDeliverResult =
+  | { status: 'delivered' }
+  | { status: 'not_found' }
+  | { status: 'not_ready'; orderId: string }
+  | { status: 'error' }
+
 function ManualExitDrawer({
   onClose,
   onDeliver,
+  onCancel,
 }: {
   onClose: () => void
-  onDeliver: (ficha: string) => Promise<void>
+  onDeliver: (ficha: string) => Promise<ManualDeliverResult>
+  onCancel: (orderId: string) => Promise<void>
 }) {
   const [ficha, setFicha] = useState('')
   const [sending, setSending] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [stuckOrderId, setStuckOrderId] = useState<string | null>(null)
   const fichaInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fichaInputRef.current?.focus() }, [])
@@ -144,11 +154,27 @@ function ManualExitDrawer({
   const handleConfirm = async () => {
     if (!ficha.trim()) return
     setSending(true)
+    setStuckOrderId(null)
     try {
-      await onDeliver(ficha.trim())
-      onClose()
+      const result = await onDeliver(ficha.trim())
+      if (result.status === 'delivered') {
+        onClose()
+      } else if (result.status === 'not_ready') {
+        setStuckOrderId(result.orderId)
+      }
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleCancelOrder = async () => {
+    if (!stuckOrderId) return
+    setCancelling(true)
+    try {
+      await onCancel(stuckOrderId)
+      onClose()
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -186,7 +212,7 @@ function ManualExitDrawer({
             type="text"
             inputMode="numeric"
             value={ficha}
-            onChange={e => setFicha(e.target.value.replace(/\D/g, ''))}
+            onChange={e => { setFicha(e.target.value.replace(/\D/g, '')); setStuckOrderId(null) }}
             onKeyDown={e => { if (e.key === 'Enter') handleConfirm() }}
             placeholder="Ex: 42"
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-2xl font-black text-accent-dark focus:outline-none focus:ring-2 focus:ring-accent/30 text-center"
@@ -194,7 +220,7 @@ function ManualExitDrawer({
           <p className="text-xs text-gray-400 mt-2 text-center">Confirma a entrega de um pedido pronto sem precisar bipar</p>
         </div>
 
-        <div className="px-5 py-4 border-t border-gray-100">
+        <div className="px-5 py-4 border-t border-gray-100 space-y-2">
           <button
             onClick={handleConfirm}
             disabled={sending || !ficha.trim()}
@@ -203,6 +229,17 @@ function ManualExitDrawer({
             <LogOut size={16} />
             {sending ? 'Confirmando...' : 'Confirmar saída'}
           </button>
+
+          {stuckOrderId && (
+            <button
+              onClick={handleCancelOrder}
+              disabled={cancelling}
+              className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 rounded-2xl py-3 font-bold text-sm disabled:opacity-40 transition-colors hover:bg-red-100 active:scale-[0.98]"
+            >
+              <X size={15} />
+              {cancelling ? 'Cancelando...' : 'Pedido ainda não está pronto — cancelar mesmo assim'}
+            </button>
+          )}
         </div>
       </motion.div>
     </div>
@@ -210,7 +247,7 @@ function ManualExitDrawer({
 }
 
 export default function Reception() {
-  const { menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory, submitSession, handleManualSend, handleManualDeliver } = useReceptionFlow()
+  const { menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory, submitSession, handleManualSend, handleManualDeliver, handleManualCancel } = useReceptionFlow()
   const [showManual, setShowManual] = useState(false)
   const [showManualExit, setShowManualExit] = useState(false)
 
@@ -469,6 +506,7 @@ export default function Reception() {
           <ManualExitDrawer
             onClose={() => setShowManualExit(false)}
             onDeliver={handleManualDeliver}
+            onCancel={handleManualCancel}
           />
         )}
       </AnimatePresence>

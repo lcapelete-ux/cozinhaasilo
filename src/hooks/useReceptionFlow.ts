@@ -154,22 +154,36 @@ export function useReceptionFlow() {
     }
   }, [addToast])
 
-  const handleManualDeliver = useCallback(async (ficha: string) => {
+  const handleManualDeliver = useCallback(async (ficha: string): Promise<
+    { status: 'delivered' } | { status: 'not_found' } | { status: 'not_ready'; orderId: string } | { status: 'error' }
+  > => {
     try {
       const existing = await getActiveOrderByTicket(ficha)
       if (!existing) {
         addToast(`Ficha #${displayTicket(ficha)} não tem pedido em aberto`)
-        return
+        return { status: 'not_found' }
       }
       if (existing.status !== 'ready') {
         addToast(`Ficha #${displayTicket(ficha)} ainda não está pronta`)
-        return
+        return { status: 'not_ready', orderId: existing.id }
       }
       await setOrderStatus(existing.id, 'delivered')
       playOrderSentSound()
+      return { status: 'delivered' }
     } catch (err) {
       console.error('manual deliver error:', err)
       addToast('Erro ao confirmar saída manual')
+      return { status: 'error' }
+    }
+  }, [addToast])
+
+  const handleManualCancel = useCallback(async (orderId: string) => {
+    try {
+      await deleteOrder(orderId)
+      playCancelSound()
+    } catch (err) {
+      console.error('manual cancel error:', err)
+      addToast('Erro ao cancelar pedido')
     }
   }, [addToast])
 
@@ -317,7 +331,7 @@ export function useReceptionFlow() {
 
   return {
     menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory,
-    submitSession, handleManualSend, handleManualDeliver,
+    submitSession, handleManualSend, handleManualDeliver, handleManualCancel,
   }
 }
 
