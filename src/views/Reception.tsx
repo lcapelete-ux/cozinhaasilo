@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send, LogOut } from 'lucide-react'
+import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send, LogOut, Check } from 'lucide-react'
 import { displayTicket } from '../utils/ticket'
 import { useReceptionFlow, RECEPTION_COUNTDOWN_SECONDS, type SessionItem } from '../hooks/useReceptionFlow'
-import type { MenuItem } from '../types'
+import type { MenuItem, Order } from '../types'
 
 // ── Manual Entry Drawer ──────────────────────────────────────────────────────
 
@@ -134,19 +134,27 @@ type ManualDeliverResult =
   | { status: 'not_ready'; orderId: string }
   | { status: 'error' }
 
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'Pendente',
+  preparing: 'Em preparo',
+  ready: 'Pronto',
+}
+
 function ManualExitDrawer({
+  orders,
   onClose,
   onDeliver,
   onCancel,
 }: {
+  orders: Order[]
   onClose: () => void
   onDeliver: (ficha: string) => Promise<ManualDeliverResult>
   onCancel: (orderId: string) => Promise<void>
 }) {
   const [ficha, setFicha] = useState('')
   const [sending, setSending] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
   const [stuckOrderId, setStuckOrderId] = useState<string | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
   const fichaInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fichaInputRef.current?.focus() }, [])
@@ -167,15 +175,10 @@ function ManualExitDrawer({
     }
   }
 
-  const handleCancelOrder = async () => {
-    if (!stuckOrderId) return
-    setCancelling(true)
-    try {
-      await onCancel(stuckOrderId)
-      onClose()
-    } finally {
-      setCancelling(false)
-    }
+  const handleDeleteOrder = async (orderId: string) => {
+    setStuckOrderId(null)
+    await onCancel(orderId)
+    setConfirmId(null)
   }
 
   return (
@@ -188,7 +191,7 @@ function ManualExitDrawer({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 400 }}
-        className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl"
+        className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-center pt-3 pb-1">
@@ -205,7 +208,7 @@ function ManualExitDrawer({
           </button>
         </div>
 
-        <div className="px-5 py-4">
+        <div className="px-5 py-4 border-b border-gray-100">
           <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Número da Ficha</label>
           <input
             ref={fichaInputRef}
@@ -217,28 +220,78 @@ function ManualExitDrawer({
             placeholder="Ex: 42"
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-2xl font-black text-accent-dark focus:outline-none focus:ring-2 focus:ring-accent/30 text-center"
           />
-          <p className="text-xs text-gray-400 mt-2 text-center">Confirma a entrega de um pedido pronto sem precisar bipar</p>
-        </div>
-
-        <div className="px-5 py-4 border-t border-gray-100 space-y-2">
           <button
             onClick={handleConfirm}
             disabled={sending || !ficha.trim()}
-            className="w-full flex items-center justify-center gap-2 bg-accent text-white rounded-2xl py-3.5 font-bold text-base disabled:opacity-40 transition-colors hover:bg-accent-dark active:scale-[0.98]"
+            className="w-full mt-3 flex items-center justify-center gap-2 bg-accent text-white rounded-2xl py-3 font-bold text-sm disabled:opacity-40 transition-colors hover:bg-accent-dark active:scale-[0.98]"
           >
             <LogOut size={16} />
-            {sending ? 'Confirmando...' : 'Confirmar saída'}
+            {sending ? 'Confirmando...' : 'Confirmar saída (pedido pronto)'}
           </button>
 
           {stuckOrderId && (
             <button
-              onClick={handleCancelOrder}
-              disabled={cancelling}
-              className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 rounded-2xl py-3 font-bold text-sm disabled:opacity-40 transition-colors hover:bg-red-100 active:scale-[0.98]"
+              onClick={() => handleDeleteOrder(stuckOrderId)}
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-red-50 text-red-600 rounded-2xl py-3 font-bold text-sm transition-colors hover:bg-red-100 active:scale-[0.98]"
             >
               <X size={15} />
-              {cancelling ? 'Cancelando...' : 'Pedido ainda não está pronto — cancelar mesmo assim'}
+              Pedido ainda não está pronto — cancelar mesmo assim
             </button>
+          )}
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            Pedidos na tela ({orders.length})
+          </p>
+          {orders.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Nenhum pedido em aberto</p>
+          ) : (
+            <div className="space-y-2">
+              {orders.map(order => (
+                <div key={order.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+                  <div className="flex-1 mr-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-accent-dark text-sm">#{displayTicket(order.ticket_number)}</span>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-lg ${
+                        order.status === 'ready' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {STATUS_LABEL[order.status] ?? order.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {order.items.map(i => `${i.name} ×${i.quantity}`).join(' · ') || 'Sem itens'}
+                    </p>
+                  </div>
+                  {confirmId === order.id ? (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleDeleteOrder(order.id)}
+                        title="Confirmar exclusão"
+                        className="w-7 h-7 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center"
+                      >
+                        <Check size={13} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmId(null)}
+                        title="Cancelar"
+                        className="w-7 h-7 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-500 flex items-center justify-center"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmId(order.id)}
+                      title="Excluir pedido"
+                      className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 flex items-center justify-center shrink-0"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </motion.div>
@@ -247,7 +300,7 @@ function ManualExitDrawer({
 }
 
 export default function Reception() {
-  const { menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory, submitSession, handleManualSend, handleManualDeliver, handleManualCancel } = useReceptionFlow()
+  const { menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory, submitSession, handleManualSend, handleManualDeliver, handleManualCancel, activeOrders } = useReceptionFlow()
   const [showManual, setShowManual] = useState(false)
   const [showManualExit, setShowManualExit] = useState(false)
 
@@ -504,6 +557,7 @@ export default function Reception() {
       <AnimatePresence>
         {showManualExit && (
           <ManualExitDrawer
+            orders={activeOrders}
             onClose={() => setShowManualExit(false)}
             onDeliver={handleManualDeliver}
             onCancel={handleManualCancel}

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus, deleteOrder } from '../services/firebaseService'
+import { subscribeMenuItems, createOrder, resolveFicha, setActiveSession, clearActiveSession, getActiveOrderByTicket, setOrderStatus, deleteOrder, subscribeOrders } from '../services/firebaseService'
 import { useApp } from '../App'
 import { useScanner } from './useScanner'
 import { displayTicket, isCupomCode, matchProductByScan } from '../utils/ticket'
-import type { MenuItem } from '../types'
+import type { MenuItem, Order } from '../types'
 
 export interface SessionItem {
   name: string
@@ -88,6 +88,7 @@ export function useReceptionFlow() {
   const [sending, setSending] = useState(false)
   const [lastSent, setLastSent] = useState<string | null>(null)
   const [sentHistory, setSentHistory] = useState<SentOrder[]>([])
+  const [activeOrders, setActiveOrders] = useState<Order[]>([])
 
   const sessionRef = useRef<Session | null>(null)
   const menuItemsRef = useRef<MenuItem[]>([])
@@ -108,6 +109,11 @@ export function useReceptionFlow() {
 
   useEffect(() => {
     const unsub = subscribeMenuItems(setMenuItems)
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const unsub = subscribeOrders(['pending', 'preparing', 'ready'], setActiveOrders)
     return unsub
   }, [])
 
@@ -331,7 +337,7 @@ export function useReceptionFlow() {
 
   return {
     menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory,
-    submitSession, handleManualSend, handleManualDeliver, handleManualCancel,
+    submitSession, handleManualSend, handleManualDeliver, handleManualCancel, activeOrders,
   }
 }
 
