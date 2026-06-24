@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send } from 'lucide-react'
+import { Scan, Timer, CheckCircle, AlertCircle, ShoppingBag, Zap, History, PenLine, X, Plus, Minus, Send, LogOut } from 'lucide-react'
 import { displayTicket } from '../utils/ticket'
 import { useReceptionFlow, RECEPTION_COUNTDOWN_SECONDS, type SessionItem } from '../hooks/useReceptionFlow'
 import type { MenuItem } from '../types'
@@ -126,9 +126,93 @@ function ManualEntryDrawer({
   )
 }
 
+// ── Manual Exit Drawer ───────────────────────────────────────────────────────
+
+function ManualExitDrawer({
+  onClose,
+  onDeliver,
+}: {
+  onClose: () => void
+  onDeliver: (ficha: string) => Promise<void>
+}) {
+  const [ficha, setFicha] = useState('')
+  const [sending, setSending] = useState(false)
+  const fichaInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { fichaInputRef.current?.focus() }, [])
+
+  const handleConfirm = async () => {
+    if (!ficha.trim()) return
+    setSending(true)
+    try {
+      await onDeliver(ficha.trim())
+      onClose()
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 400 }}
+        className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <LogOut size={18} className="text-accent" />
+            <h2 className="font-bold text-gray-800">Saída Manual</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-gray-100 transition-colors">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4">
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Número da Ficha</label>
+          <input
+            ref={fichaInputRef}
+            type="text"
+            inputMode="numeric"
+            value={ficha}
+            onChange={e => setFicha(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={e => { if (e.key === 'Enter') handleConfirm() }}
+            placeholder="Ex: 42"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-2xl font-black text-accent-dark focus:outline-none focus:ring-2 focus:ring-accent/30 text-center"
+          />
+          <p className="text-xs text-gray-400 mt-2 text-center">Confirma a entrega de um pedido pronto sem precisar bipar</p>
+        </div>
+
+        <div className="px-5 py-4 border-t border-gray-100">
+          <button
+            onClick={handleConfirm}
+            disabled={sending || !ficha.trim()}
+            className="w-full flex items-center justify-center gap-2 bg-accent text-white rounded-2xl py-3.5 font-bold text-base disabled:opacity-40 transition-colors hover:bg-accent-dark active:scale-[0.98]"
+          >
+            <LogOut size={16} />
+            {sending ? 'Confirmando...' : 'Confirmar saída'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 export default function Reception() {
-  const { menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory, submitSession, handleManualSend } = useReceptionFlow()
+  const { menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory, submitSession, handleManualSend, handleManualDeliver } = useReceptionFlow()
   const [showManual, setShowManual] = useState(false)
+  const [showManualExit, setShowManualExit] = useState(false)
 
   const handleManualSendAndClose = async (ficha: string, items: SessionItem[]) => {
     await handleManualSend(ficha, items)
@@ -151,13 +235,22 @@ export default function Reception() {
             <h1 className="font-serif italic text-3xl text-accent-dark">Recepção</h1>
             <p className="text-gray-500 text-sm">Bipe a ficha e os cupons dos produtos</p>
           </div>
-          <button
-            onClick={() => setShowManual(true)}
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 rounded-2xl px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
-          >
-            <PenLine size={15} className="text-accent" />
-            Manual
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowManual(true)}
+              className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 rounded-2xl px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              <PenLine size={15} className="text-accent" />
+              Manual
+            </button>
+            <button
+              onClick={() => setShowManualExit(true)}
+              className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 rounded-2xl px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              <LogOut size={15} className="text-accent" />
+              Saída
+            </button>
+          </div>
         </div>
 
         {/* Last sent confirmation */}
@@ -366,6 +459,16 @@ export default function Reception() {
             menuItems={menuItems}
             onClose={() => setShowManual(false)}
             onSend={handleManualSendAndClose}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Manual exit drawer */}
+      <AnimatePresence>
+        {showManualExit && (
+          <ManualExitDrawer
+            onClose={() => setShowManualExit(false)}
+            onDeliver={handleManualDeliver}
           />
         )}
       </AnimatePresence>

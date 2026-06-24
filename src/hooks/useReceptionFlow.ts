@@ -154,6 +154,25 @@ export function useReceptionFlow() {
     }
   }, [addToast])
 
+  const handleManualDeliver = useCallback(async (ficha: string) => {
+    try {
+      const existing = await getActiveOrderByTicket(ficha)
+      if (!existing) {
+        addToast(`Ficha #${displayTicket(ficha)} não tem pedido em aberto`)
+        return
+      }
+      if (existing.status !== 'ready') {
+        addToast(`Ficha #${displayTicket(ficha)} ainda não está pronta`)
+        return
+      }
+      await setOrderStatus(existing.id, 'delivered')
+      playOrderSentSound()
+    } catch (err) {
+      console.error('manual deliver error:', err)
+      addToast('Erro ao confirmar saída manual')
+    }
+  }, [addToast])
+
   const startCountdown = useCallback(() => {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
     setCountdown(COUNTDOWN_SECONDS)
@@ -298,7 +317,7 @@ export function useReceptionFlow() {
 
   return {
     menuItems, session, countdown, lastScan, sending, lastSent, setLastSent, sentHistory,
-    submitSession, handleManualSend,
+    submitSession, handleManualSend, handleManualDeliver,
   }
 }
 
