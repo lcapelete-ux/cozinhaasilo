@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { User, Lock, LogIn } from 'lucide-react'
 import { getUserByNamePassword } from '../services/firebaseService'
+import FestivalStats from './FestivalStats'
 import type { AppUser } from '../types'
 
 interface Props {
@@ -44,7 +45,7 @@ export default function Login({ onLogin }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background py-10 px-4 flex flex-col items-center">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -122,6 +123,11 @@ export default function Login({ onLogin }: Props) {
           <p>entrega / entrega123 — entrega</p>
         </div>
       </motion.div>
+
+      {/* Landing page pública — retrospectiva da festa */}
+      <div className="w-full mt-12 pt-10 border-t border-gray-200">
+        <FestivalStats />
+      </div>
     </div>
   )
 }
