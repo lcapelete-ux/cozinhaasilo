@@ -1,6 +1,9 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection,
   doc,
   getDocs,
@@ -42,7 +45,20 @@ let _auth: Auth | null = null
 if (isFirebaseConfigured) {
   try {
     _app = initializeApp(firebaseConfig)
-    _db = getFirestore(_app)
+    // Cache local persistente (IndexedDB): o app lê/grava offline e o Firestore
+    // enfileira as escritas (vendas, baixa de estoque, status) para sincronizar
+    // sozinho quando a internet volta. persistentMultipleTabManager permite abrir
+    // várias abas/telas no mesmo computador sem conflito de cache.
+    try {
+      _db = initializeFirestore(_app, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      })
+    } catch (persistErr) {
+      // Navegador sem suporte a IndexedDB (aba anônima/muito antiga): cai para o
+      // modo online padrão em vez de derrubar o app.
+      console.warn('Persistência offline indisponível, usando modo online:', persistErr)
+      _db = getFirestore(_app)
+    }
     _auth = getAuth(_app)
   } catch (e) {
     console.error('Firebase init failed:', e)

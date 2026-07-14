@@ -32,7 +32,9 @@ export function usePushNotifications() {
     try {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') return false
-      const reg = await navigator.serviceWorker.register('/sw.js')
+      // O service worker é registrado automaticamente pelo vite-plugin-pwa;
+      // aqui só aguardamos ele ficar pronto para assinar o push.
+      const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),

@@ -23,6 +23,7 @@ import Admin from './views/Admin'
 import Toast, { type ToastMessage } from './components/Toast'
 import LateOrdersAlert from './components/LateOrdersAlert'
 import ViewErrorBoundary from './components/ViewErrorBoundary'
+import OfflineIndicator from './components/OfflineIndicator'
 import type { AppUser, ViewName } from './types'
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -85,13 +86,18 @@ export default function App() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    let done = false
+    const finish = () => { if (!done) { done = true; setReady(true) } }
+    // Offline, o login anônimo do Firebase pode não responder (fica pendente).
+    // Não deixamos a tela de carregamento travar: liberamos o app em no máximo
+    // 3s. As leituras/escritas seguem pelo cache offline do Firestore com o
+    // token de autenticação já guardado localmente da última vez online.
+    const fallback = setTimeout(finish, 3000)
     initAuth()
       .then(() => seedInitialData())
-      .then(() => setReady(true))
-      .catch((err) => {
-        console.error('Firebase init error:', err)
-        setReady(true)
-      })
+      .catch((err) => console.error('Firebase init error:', err))
+      .finally(() => { clearTimeout(fallback); finish() })
+    return () => clearTimeout(fallback)
   }, [])
 
   const addToast = useCallback((message: string, type: ToastMessage['type'] = 'error') => {
@@ -181,6 +187,7 @@ export default function App() {
             <DisplayComponent />
           </ViewErrorBoundary>
         </div>
+        <OfflineIndicator />
         <Toast toasts={toasts} onRemove={removeToast} />
       </AppContext.Provider>
     )
@@ -294,6 +301,7 @@ export default function App() {
         </main>
       </div>
       <LateOrdersAlert currentView={currentView} />
+      <OfflineIndicator />
       <Toast toasts={toasts} onRemove={removeToast} />
     </AppContext.Provider>
   )

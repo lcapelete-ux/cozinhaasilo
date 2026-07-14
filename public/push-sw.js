@@ -1,3 +1,5 @@
+// Handlers de Web Push, carregados dentro do service worker do PWA via
+// workbox.importScripts (ver vite.config.ts). Mantém o alerta de estoque baixo.
 self.addEventListener('push', (event) => {
   let data = { title: 'Estoque', body: 'Um item está acabando.' }
   try {
@@ -19,7 +21,7 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clients) => {
       if (clients.length > 0) return clients[0].focus()
-      return self.clients.openWindow('/')
+      return self.clients.openWindow('/cozinhaasilo/')
     })
   )
 })
