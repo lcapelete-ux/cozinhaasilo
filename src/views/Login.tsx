@@ -4,10 +4,9 @@ import { User, Lock, LogIn } from 'lucide-react'
 import { getUserByNamePassword } from '../services/firebaseService'
 import FestivalStats from './FestivalStats'
 import OktoberfestHero from './OktoberfestHero'
-import { LOGIN_THEMES, DEFAULT_LOGIN_THEME, type LoginThemeId } from '../data/loginThemes'
+import { LOGIN_THEMES, type LoginThemeId } from '../data/loginThemes'
+import { getStoredTheme, setStoredTheme } from '../utils/theme'
 import type { AppUser } from '../types'
-
-const THEME_KEY = 'login-theme'
 
 interface Props {
   onLogin: (user: AppUser) => void
@@ -18,16 +17,13 @@ export default function Login({ onLogin }: Props) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [themeId, setThemeId] = useState<LoginThemeId>(() => {
-    const saved = localStorage.getItem(THEME_KEY)
-    return saved === 'oktoberfest' || saved === 'saojoao' ? saved : DEFAULT_LOGIN_THEME
-  })
+  const [themeId, setThemeId] = useState<LoginThemeId>(() => getStoredTheme())
 
   const theme = LOGIN_THEMES[themeId]
 
   const changeTheme = (id: LoginThemeId) => {
     setThemeId(id)
-    localStorage.setItem(THEME_KEY, id)
+    setStoredTheme(id) // persiste e aplica data-theme no <html> (vale para o app interno)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

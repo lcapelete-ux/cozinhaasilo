@@ -7,11 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#F5F5F0',
+        // Destaque e fundo vêm de variáveis CSS (ver index.css) para o tema
+        // (Arraiá / Oktoberfest) re-estilizar o app inteiro via data-theme.
+        background: 'rgb(var(--color-background) / <alpha-value>)',
         sidebar: '#151619',
-        accent: '#5A5A40',
-        'accent-light': '#7A7A58',
-        'accent-dark': '#3A3A28',
+        accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        'accent-light': 'rgb(var(--color-accent-light) / <alpha-value>)',
+        'accent-dark': 'rgb(var(--color-accent-dark) / <alpha-value>)',
       },
       fontFamily: {
         serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],

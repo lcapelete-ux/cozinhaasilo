@@ -2,6 +2,10 @@ import { StrictMode, Component, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { applyTheme, getStoredTheme } from './utils/theme'
+
+// Aplica o tema salvo antes de renderizar, para o app já abrir com a cor certa.
+applyTheme(getStoredTheme())
 
 class GlobalErrorBoundary extends Component<{ children: ReactNode }, { crashed: boolean; error: string }> {
   state = { crashed: false, error: '' }

@@ -24,6 +24,7 @@ import Toast, { type ToastMessage } from './components/Toast'
 import LateOrdersAlert from './components/LateOrdersAlert'
 import ViewErrorBoundary from './components/ViewErrorBoundary'
 import OfflineIndicator from './components/OfflineIndicator'
+import { getStoredTheme, themeEmoji } from './utils/theme'
 import type { AppUser, ViewName } from './types'
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -195,6 +196,7 @@ export default function App() {
 
   const allowedViews = user.allowed_views
   const allowedNavItems = NAV_ITEMS.filter((n) => allowedViews.includes(n.view))
+  const brandEmoji = themeEmoji(getStoredTheme())
   const ViewComponent = VIEW_COMPONENTS[currentView] ?? VIEW_COMPONENTS[allowedViews[0] as ViewName]
 
   const navigateTo = (view: ViewName) => {
@@ -210,7 +212,7 @@ export default function App() {
         <nav className="hidden md:flex flex-col w-20 bg-sidebar shrink-0 py-6 gap-1">
           <div className="px-2 mb-4">
             <div className="w-10 h-10 rounded-xl bg-accent/30 flex items-center justify-center mx-auto">
-              <span className="text-amber-400 text-lg">🌽</span>
+              <span className="text-amber-400 text-lg">{brandEmoji}</span>
             </div>
           </div>
           {allowedNavItems.map(({ view, label, icon: Icon }) => (
@@ -262,7 +264,7 @@ export default function App() {
             >
               <div className="px-2 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-accent/30 flex items-center justify-center mx-auto">
-                  <span className="text-amber-400 text-lg">🌽</span>
+                  <span className="text-amber-400 text-lg">{brandEmoji}</span>
                 </div>
               </div>
               {allowedNavItems.map(({ view, label, icon: Icon }) => (

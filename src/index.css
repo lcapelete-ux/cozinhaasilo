@@ -2,15 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Cores do tema (RGB separado por espaço para o formato do Tailwind com alpha). */
+:root {
+  --color-background: 245 245 240; /* #F5F5F0 */
+  --color-accent: 90 90 64;        /* #5A5A40 */
+  --color-accent-light: 122 122 88;/* #7A7A58 */
+  --color-accent-dark: 58 58 40;   /* #3A3A28 */
+}
+
+/* Tema Oktoberfest — azul bávaro, aplicado quando data-theme="oktoberfest". */
+:root[data-theme='oktoberfest'] {
+  --color-background: 238 243 250; /* #EEF3FA */
+  --color-accent: 21 101 192;      /* #1565C0 */
+  --color-accent-light: 66 133 214;/* #4285D6 */
+  --color-accent-dark: 13 71 161;  /* #0D47A1 */
+}
+
 body {
-  background-color: #F5F5F0;
+  background-color: rgb(var(--color-background));
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(90,90,64,0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(90,90,64,0); }
-  100% { box-shadow: 0 0 0 0 rgba(90,90,64,0); }
+  0% { box-shadow: 0 0 0 0 rgb(var(--color-accent) / 0.4); }
+  70% { box-shadow: 0 0 0 10px rgb(var(--color-accent) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--color-accent) / 0); }
 }
 
 .pulse-ring {
