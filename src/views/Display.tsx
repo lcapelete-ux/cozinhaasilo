@@ -4,6 +4,7 @@ import { ChefHat, UtensilsCrossed } from 'lucide-react'
 import { subscribeOrders, setOrderStatus, resolveFicha, subscribeMediaSlides, createOrder, getActiveOrderByTicket, subscribeMenuItems, setActiveSession, clearActiveSession, subscribeBrandingConfig } from '../services/firebaseService'
 import { useQrScanner } from '../hooks/useQrScanner'
 import { displayTicket, matchProductByScan } from '../utils/ticket'
+import { getStoredTheme } from '../utils/theme'
 import type { Order, MediaSlide, MenuItem, } from '../types'
 import type { VilhinhoItem } from '../services/firebaseService'
 
@@ -35,19 +36,89 @@ const JUNINA_PHRASES = [
   'Alegria, alegria! Seu pedido tá aqui!',
 ]
 
+const OKTOBERFEST_PHRASES = [
+  'Prost! Sua cerveja está pronta!',
+  'Vem buscar que tá geladinha!',
+  'O chopp não vai ficar sozinho!',
+  'Seu pedido tá a caminho da festa!',
+  'Levanta o copo, seu pedido chegou!',
+  'Meia noite, meia noite, o pedido já saiu!',
+  'Três quartos de cerveja pro seu pedido!',
+  'Saúde! Seu pedido tá na mão!',
+  'Ei, ouviu o clarim? Seu pedido tá pronto!',
+  'Dirndl pronta, seu pedido mais ainda!',
+  'Corre que o chopp tá esperando!',
+  'Segura o oktoberfest, seu pedido chegou!',
+  'Brinde! Seu pedido tá no balcão!',
+  'A banda parou pra tocar a sua chegada!',
+  'Tá cheirando melhor que pretzel!',
+  'Vem pro oktoberfest, seu pedido tá na mão!',
+  'Bora lá que a festa não para!',
+  'Olha a cerveja! E olha o seu pedido!',
+  'Ficou pronto caprichado, é claro!',
+  'Cintura, cintura! Seu pedido tá aqui!',
+]
+
+interface ThemeConfig {
+  emoji: string
+  title: string
+  subtitle: string
+  leftPanelTitle: string
+  rightPanelTitle: string
+  emptyLeftMessage: string
+  emptyRightMessage: string
+  accentColor: string
+  secondaryColor: string
+  titleColor: string
+  phrases: string[]
+  buntingColors: string[]
+  headerBg: string
+}
+
+const THEME_CONFIGS: Record<'saojoao' | 'oktoberfest', ThemeConfig> = {
+  saojoao: {
+    emoji: '🔥',
+    title: 'Arraiá do Lar São Cristóvão',
+    subtitle: '✦ Festa de São João 2026',
+    leftPanelTitle: 'Esquentando o Fuzuê',
+    rightPanelTitle: 'Tá no Ponto, Sô!',
+    emptyLeftMessage: 'Cozinha livre no momento',
+    emptyRightMessage: 'O Arraiá tá começando...',
+    accentColor: '#FF8800',
+    secondaryColor: '#FFD700',
+    titleColor: '#FFD700',
+    phrases: JUNINA_PHRASES,
+    buntingColors: ['#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800'],
+    headerBg: '#1a1a1a',
+  },
+  oktoberfest: {
+    emoji: '🍺',
+    title: 'Oktoberfest',
+    subtitle: '🥨 Festa Alemã 2026',
+    leftPanelTitle: 'Pronto para Beber!',
+    rightPanelTitle: 'No Balcão da Festa!',
+    emptyLeftMessage: 'Cozinha descansando',
+    emptyRightMessage: 'Prost! A festa não começou...',
+    accentColor: '#1565C0',
+    secondaryColor: '#FFFFFF',
+    titleColor: '#FFFFFF',
+    phrases: OKTOBERFEST_PHRASES,
+    buntingColors: ['#1565C0', '#FFFFFF', '#1565C0', '#FFFFFF', '#1565C0', '#FFFFFF', '#1565C0', '#FFFFFF', '#1565C0', '#FFFFFF', '#1565C0', '#FFFFFF', '#1565C0', '#FFFFFF', '#1565C0', '#FFFFFF', '#1565C0'],
+    headerBg: '#003d82',
+  },
+}
+
 interface ReadyNotif { ticket: string; phrase: string }
 
 // ── Bunting flags ────────────────────────────────────────────────────────────
-const FLAG_COLORS = ['#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800', '#CC44CC', '#FFD700', '#FF4444', '#44BB44', '#4488FF', '#FF8800']
-
-function Bunting() {
+function Bunting({ colors }: { colors: string[] }) {
   return (
     <div className="relative w-full overflow-hidden" style={{ height: 36 }}>
       <svg width="100%" height="36" preserveAspectRatio="none">
         {/* String */}
         <path d="M0,8 Q50,4 100,8 Q150,12 200,8 Q250,4 300,8 Q350,12 400,8 Q450,4 500,8 Q550,12 600,8 Q650,4 700,8 Q750,12 800,8 Q850,4 900,8 Q950,12 1000,8 Q1100,4 1200,8 Q1300,12 1400,8" stroke="#888" strokeWidth="1.5" fill="none" />
-        {FLAG_COLORS.map((color, i) => {
-          const x = (i / (FLAG_COLORS.length - 1)) * 1400
+        {colors.map((color, i) => {
+          const x = (i / (colors.length - 1)) * 1400
           return (
             <polygon
               key={i}
@@ -62,8 +133,8 @@ function Bunting() {
   )
 }
 
-// ── Animated fire ────────────────────────────────────────────────────────────
-function FireAnimated({ size = 48 }: { size?: number }) {
+// ── Animated emoji ─────────────────────────────────────────────────────────
+function AnimatedEmoji({ emoji, size = 48 }: { emoji: string; size?: number }) {
   return (
     <motion.div
       style={{ fontSize: size, lineHeight: 1, display: 'inline-block', originY: 1 }}
@@ -74,13 +145,13 @@ function FireAnimated({ size = 48 }: { size?: number }) {
       }}
       transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
     >
-      🔥
+      {emoji}
     </motion.div>
   )
 }
 
 // ── Clock ────────────────────────────────────────────────────────────────────
-function Clock() {
+function Clock({ color }: { color: string }) {
   const [time, setTime] = useState(new Date())
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -89,7 +160,7 @@ function Clock() {
   const h = String(time.getHours()).padStart(2, '0')
   const m = String(time.getMinutes()).padStart(2, '0')
   return (
-    <span className="font-black text-4xl md:text-5xl tabular-nums" style={{ color: '#FF8800' }}>
+    <span className="font-black text-4xl md:text-5xl tabular-nums" style={{ color }}>
       {h}<motion.span animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }}>:</motion.span>{m}
     </span>
   )
@@ -335,6 +406,9 @@ function MediaSlideView({ slide, idx, total }: { slide: MediaSlide; idx: number;
 
 // ── Main Display ─────────────────────────────────────────────────────────────
 export default function Display() {
+  const themeId = (getStoredTheme() === 'oktoberfest' ? 'oktoberfest' : 'saojoao') as 'saojoao' | 'oktoberfest'
+  const theme = THEME_CONFIGS[themeId]
+
   const [activeOrders, setActiveOrders] = useState<Order[]>([])
   const [readyOrders, setReadyOrders] = useState<Order[]>([])
   const [readyNotif, setReadyNotif] = useState<ReadyNotif | null>(null)
@@ -530,7 +604,7 @@ export default function Display() {
       const unique = dedup(orders)
       unique.forEach((o) => {
         if (!prevReadyRef.current.has(o.ticket_number)) {
-          const phrase = JUNINA_PHRASES[Math.floor(Math.random() * JUNINA_PHRASES.length)]
+          const phrase = theme.phrases[Math.floor(Math.random() * theme.phrases.length)]
           playChime()
           setReadyNotif({ ticket: o.ticket_number, phrase })
           if (announcementTimer.current) clearTimeout(announcementTimer.current)
@@ -544,7 +618,7 @@ export default function Display() {
       unsub2()
       if (announcementTimer.current) clearTimeout(announcementTimer.current)
     }
-  }, [])
+  }, [theme])
 
   const enabledSlides = slides.filter((s) => s.enabled)
 
@@ -609,10 +683,10 @@ export default function Display() {
       }}
     >
       {/* Bunting */}
-      <Bunting />
+      <Bunting colors={theme.buntingColors} />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4" style={{ background: '#1a1a1a' }}>
+      <div className="flex items-center justify-between px-6 py-4" style={{ background: theme.headerBg }}>
         <div className="flex items-center gap-4">
           {logoUrl ? (
             <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center bg-black/20">
@@ -620,21 +694,21 @@ export default function Display() {
             </div>
           ) : (
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl"
-              style={{ background: 'linear-gradient(135deg, #FF6B00, #FF2200)' }}>
-              🔥
+              style={{ background: `linear-gradient(135deg, ${theme.accentColor}, ${theme.secondaryColor})` }}>
+              {theme.emoji}
             </div>
           )}
           <div>
             <h1 className="font-black text-3xl md:text-4xl uppercase italic tracking-wide"
-              style={{ color: '#FFD700', textShadow: '0 0 20px rgba(255,200,0,0.5)' }}>
-              Arraiá do Lar São Cristóvão
+              style={{ color: theme.titleColor, textShadow: `0 0 20px ${theme.titleColor}40` }}>
+              {theme.title}
             </h1>
-            <p className="text-sm font-semibold tracking-widest mt-0.5" style={{ color: '#FF8800' }}>
-              ✦ Festa de São João 2026
+            <p className="text-sm font-semibold tracking-widest mt-0.5" style={{ color: theme.accentColor }}>
+              {theme.subtitle}
             </p>
           </div>
         </div>
-        <Clock />
+        <Clock color={theme.accentColor} />
       </div>
 
       {/* Festive ready overlay */}
@@ -657,7 +731,7 @@ export default function Display() {
               className="w-[min(90vw,560px)] rounded-3xl p-10 flex flex-col items-center text-center"
               style={{
                 background: '#1a1a1a',
-                boxShadow: '0 0 0 2.5px #FF8800, 0 0 80px rgba(255,136,0,0.25)',
+                boxShadow: `0 0 0 2.5px ${theme.accentColor}, 0 0 80px ${theme.accentColor}40`,
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -671,7 +745,7 @@ export default function Display() {
 
               <p
                 className="font-black uppercase italic mb-7 leading-tight px-2"
-                style={{ color: '#FFD700', fontSize: 'clamp(1.1rem, 4vw, 1.6rem)' }}
+                style={{ color: theme.secondaryColor, fontSize: 'clamp(1.1rem, 4vw, 1.6rem)' }}
               >
                 {readyNotif.phrase}
               </p>
@@ -687,7 +761,7 @@ export default function Display() {
 
               <div
                 className="px-8 py-3 rounded-full font-black uppercase tracking-widest"
-                style={{ background: '#FFD700', color: '#111', fontSize: '0.8rem' }}
+                style={{ background: theme.secondaryColor, color: theme.accentColor === '#1565C0' ? '#001d4d' : '#111', fontSize: '0.8rem' }}
               >
                 Favor retirar no balcão
               </div>
@@ -706,10 +780,11 @@ export default function Display() {
               <motion.div
                 animate={{ scale: [1, 1.3, 1], opacity: [1, 0.6, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
-                className="w-4 h-4 rounded-full bg-orange-500"
+                className="w-4 h-4 rounded-full"
+                style={{ background: theme.accentColor }}
               />
-              <h2 className="font-black text-2xl uppercase italic tracking-wide text-orange-400">
-                Esquentando o Fuzuê
+              <h2 className="font-black text-2xl uppercase italic tracking-wide" style={{ color: theme.accentColor }}>
+                {theme.leftPanelTitle}
               </h2>
             </div>
             <ChefHat size={28} className="text-white/30" />
@@ -720,7 +795,7 @@ export default function Display() {
             {activeOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 opacity-30">
                 <ChefHat size={64} className="text-white" strokeWidth={1} />
-                <p className="text-white/60 text-xl italic">Cozinha livre no momento</p>
+                <p className="text-white/60 text-xl italic">{theme.emptyLeftMessage}</p>
               </div>
             ) : (
               <div className={"grid grid-cols-2 sm:grid-cols-3 gap-4"}>
@@ -734,7 +809,7 @@ export default function Display() {
                       className="rounded-3xl p-5 flex flex-col items-center gap-3"
                       style={{ background: '#222' }}
                     >
-                      <FireAnimated size={Math.round(36 * cardSize)} />
+                      <AnimatedEmoji emoji={theme.emoji} size={Math.round(36 * cardSize)} />
                       <div className="text-center">
                         <p className="text-white/40 text-sm uppercase tracking-widest">Ficha</p>
                         <p className="font-black text-white leading-none mt-1" style={{ fontSize: `${2.5 * cardSize}rem` }}>#{displayTicket(order.ticket_number)}</p>
@@ -755,14 +830,15 @@ export default function Display() {
               <motion.div
                 animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
                 transition={{ duration: 0.6, repeat: Infinity }}
-                className="w-4 h-4 rounded-full bg-yellow-400"
+                className="w-4 h-4 rounded-full"
+                style={{ background: theme.secondaryColor }}
               />
-              <h2 className="font-black text-2xl uppercase italic tracking-wide text-white">
-                Tá no Ponto, Sô!
+              <h2 className="font-black text-2xl uppercase italic tracking-wide" style={{ color: theme.secondaryColor }}>
+                {theme.rightPanelTitle}
               </h2>
             </div>
             <span className="font-black text-sm px-4 py-1.5 rounded-full uppercase tracking-wider"
-              style={{ background: '#FFD700', color: '#111' }}>
+              style={{ background: theme.secondaryColor, color: theme.accentColor === '#1565C0' ? '#001d4d' : '#111' }}>
               Balcão
             </span>
           </div>
@@ -772,7 +848,7 @@ export default function Display() {
             {readyOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 opacity-30">
                 <UtensilsCrossed size={64} className="text-white" strokeWidth={1} />
-                <p className="text-white/60 text-xl italic uppercase tracking-widest">O Arraiá tá começando...</p>
+                <p className="text-white/60 text-xl italic uppercase tracking-widest">{theme.emptyRightMessage}</p>
               </div>
             ) : (
               <div className={"grid grid-cols-2 sm:grid-cols-3 gap-4"}>
@@ -784,21 +860,21 @@ export default function Display() {
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
                       className="rounded-3xl p-5 flex flex-col items-center gap-3 border"
-                      style={{ background: '#222', borderColor: '#FFD70040' }}
+                      style={{ background: '#222', borderColor: `${theme.secondaryColor}40` }}
                     >
                       <div className="text-center">
-                        <p className="text-yellow-400/60 text-sm uppercase tracking-widest mb-1">Ficha</p>
+                        <p className="text-sm uppercase tracking-widest mb-1" style={{ color: `${theme.secondaryColor}99` }}>Ficha</p>
                         <motion.p
                           className="font-black leading-none"
-                          style={{ color: '#FFD700', fontSize: `${3 * cardSize}rem` }}
-                          animate={{ scale: [1, 1.08, 1], textShadow: ['0 0 0px #FFD700', '0 0 32px #FFD700', '0 0 0px #FFD700'] }}
+                          style={{ color: theme.secondaryColor, fontSize: `${3 * cardSize}rem` }}
+                          animate={{ scale: [1, 1.08, 1], textShadow: [`0 0 0px ${theme.secondaryColor}`, `0 0 32px ${theme.secondaryColor}`, `0 0 0px ${theme.secondaryColor}`] }}
                           transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
                         >
                           #{displayTicket(order.ticket_number)}
                         </motion.p>
                       </div>
                       <span className="text-base font-black px-4 py-1 rounded-full uppercase"
-                        style={{ background: '#FFD700', color: '#111' }}>
+                        style={{ background: theme.secondaryColor, color: theme.accentColor === '#1565C0' ? '#001d4d' : '#111' }}>
                         Pronto!
                       </span>
                     </motion.div>
@@ -872,11 +948,11 @@ export default function Display() {
             value={deliveryInput}
             onChange={(e) => setDeliveryInput(e.target.value)}
             className="w-28 px-3 py-2 rounded-xl text-base font-bold text-center focus:outline-none"
-            style={{ background: '#222', color: '#FFD700', border: '1px solid #333' }}
+            style={{ background: '#222', color: theme.secondaryColor, border: '1px solid #333' }}
           />
           <button type="submit"
             className="px-4 py-2 rounded-xl text-sm font-bold uppercase transition-colors"
-            style={{ background: '#333', color: '#FFD700' }}>
+            style={{ background: '#333', color: theme.secondaryColor }}>
             OK
           </button>
         </form>
