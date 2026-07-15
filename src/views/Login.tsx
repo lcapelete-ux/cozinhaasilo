@@ -3,7 +3,11 @@ import { motion } from 'framer-motion'
 import { User, Lock, LogIn } from 'lucide-react'
 import { getUserByNamePassword } from '../services/firebaseService'
 import FestivalStats from './FestivalStats'
+import OktoberfestHero from './OktoberfestHero'
+import { LOGIN_THEMES, DEFAULT_LOGIN_THEME, type LoginThemeId } from '../data/loginThemes'
 import type { AppUser } from '../types'
+
+const THEME_KEY = 'login-theme'
 
 interface Props {
   onLogin: (user: AppUser) => void
@@ -14,6 +18,17 @@ export default function Login({ onLogin }: Props) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [themeId, setThemeId] = useState<LoginThemeId>(() => {
+    const saved = localStorage.getItem(THEME_KEY)
+    return saved === 'oktoberfest' || saved === 'saojoao' ? saved : DEFAULT_LOGIN_THEME
+  })
+
+  const theme = LOGIN_THEMES[themeId]
+
+  const changeTheme = (id: LoginThemeId) => {
+    setThemeId(id)
+    localStorage.setItem(THEME_KEY, id)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,8 +60,33 @@ export default function Login({ onLogin }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-background py-10 px-4 flex flex-col items-center">
+    <div
+      className="min-h-screen py-8 px-4 flex flex-col items-center transition-colors duration-300"
+      style={{
+        backgroundColor: theme.bg,
+        ['--login-primary' as string]: theme.primary,
+      } as React.CSSProperties}
+    >
+      {/* Seletor de tema */}
+      <div className="flex items-center gap-1 mb-8 bg-white rounded-full p-1 shadow-sm">
+        {Object.values(LOGIN_THEMES).map((th) => (
+          <button
+            key={th.id}
+            onClick={() => changeTheme(th.id)}
+            className="px-4 py-2 rounded-full text-sm font-bold transition-colors"
+            style={
+              themeId === th.id
+                ? { backgroundColor: theme.primary, color: '#fff' }
+                : { color: '#9ca3af' }
+            }
+          >
+            {th.switchEmoji} {th.switchLabel}
+          </button>
+        ))}
+      </div>
+
       <motion.div
+        key={themeId}
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -54,10 +94,10 @@ export default function Login({ onLogin }: Props) {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-3">🌽</div>
-          <h1 className="font-serif italic text-3xl text-accent-dark">Arraiá do</h1>
-          <h2 className="font-serif italic text-xl text-accent">Lar São Cristóvão</h2>
-          <p className="text-sm text-gray-500 mt-1">Sistema de Gestão de Pedidos</p>
+          <div className="text-6xl mb-3">{theme.emoji}</div>
+          <h1 className={`${theme.titleClass} text-3xl`} style={{ color: theme.titleColor }}>{theme.titleTop}</h1>
+          <h2 className={`${theme.titleClass} text-xl`} style={{ color: theme.primary }}>{theme.titleBottom}</h2>
+          <p className="text-sm text-gray-500 mt-1">{theme.subtitle}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-lg p-8 space-y-4">
@@ -68,7 +108,7 @@ export default function Login({ onLogin }: Props) {
               placeholder="Nome de usuário"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full pl-9 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+              className="w-full pl-9 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-[color:var(--login-primary)] text-sm"
               autoComplete="username"
             />
           </div>
@@ -80,7 +120,7 @@ export default function Login({ onLogin }: Props) {
               placeholder="Senha"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-9 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
+              className="w-full pl-9 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-[color:var(--login-primary)] text-sm"
               autoComplete="current-password"
             />
           </div>
@@ -98,7 +138,8 @@ export default function Login({ onLogin }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-accent-dark text-white py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            className="w-full text-white py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition hover:brightness-90 disabled:opacity-50"
+            style={{ backgroundColor: theme.primary }}
           >
             {loading ? (
               <motion.div
@@ -124,9 +165,9 @@ export default function Login({ onLogin }: Props) {
         </div>
       </motion.div>
 
-      {/* Landing page pública — retrospectiva da festa */}
+      {/* Landing page pública — muda conforme o tema */}
       <div className="w-full mt-12 pt-10 border-t border-gray-200">
-        <FestivalStats />
+        {themeId === 'saojoao' ? <FestivalStats /> : <OktoberfestHero />}
       </div>
     </div>
   )
