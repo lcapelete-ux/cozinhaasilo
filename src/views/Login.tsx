@@ -1,30 +1,26 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { User, Lock, LogIn } from 'lucide-react'
+import { User, Lock, LogIn, ArrowLeft } from 'lucide-react'
 import { getUserByNamePassword } from '../services/firebaseService'
 import FestivalStats from './FestivalStats'
 import OktoberfestHero from './OktoberfestHero'
-import { LOGIN_THEMES, type LoginThemeId } from '../data/loginThemes'
-import { getStoredTheme, setStoredTheme } from '../utils/theme'
+import { LOGIN_THEMES } from '../data/loginThemes'
+import { getStoredTheme } from '../utils/theme'
 import type { AppUser } from '../types'
 
 interface Props {
   onLogin: (user: AppUser) => void
+  onBack?: () => void
 }
 
-export default function Login({ onLogin }: Props) {
+export default function Login({ onLogin, onBack }: Props) {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [themeId, setThemeId] = useState<LoginThemeId>(() => getStoredTheme())
+  const themeId = getStoredTheme()
 
   const theme = LOGIN_THEMES[themeId]
-
-  const changeTheme = (id: LoginThemeId) => {
-    setThemeId(id)
-    setStoredTheme(id) // persiste e aplica data-theme no <html> (vale para o app interno)
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,23 +59,19 @@ export default function Login({ onLogin }: Props) {
         ['--login-primary' as string]: theme.primary,
       } as React.CSSProperties}
     >
-      {/* Seletor de tema */}
-      <div className="flex items-center gap-1 mb-8 bg-white rounded-full p-1 shadow-sm">
-        {Object.values(LOGIN_THEMES).map((th) => (
+      {/* Voltar para a escolha de tema */}
+      {onBack && (
+        <div className="w-full max-w-sm mb-4">
           <button
-            key={th.id}
-            onClick={() => changeTheme(th.id)}
-            className="px-4 py-2 rounded-full text-sm font-bold transition-colors"
-            style={
-              themeId === th.id
-                ? { backgroundColor: theme.primary, color: '#fff' }
-                : { color: '#9ca3af' }
-            }
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold rounded-full px-3 py-1.5 bg-white/70 hover:bg-white transition-colors"
+            style={{ color: theme.primary }}
           >
-            {th.switchEmoji} {th.switchLabel}
+            <ArrowLeft size={15} />
+            Trocar festa
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       <motion.div
         key={themeId}

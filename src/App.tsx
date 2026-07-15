@@ -24,7 +24,9 @@ import Toast, { type ToastMessage } from './components/Toast'
 import LateOrdersAlert from './components/LateOrdersAlert'
 import ViewErrorBoundary from './components/ViewErrorBoundary'
 import OfflineIndicator from './components/OfflineIndicator'
-import { getStoredTheme, themeEmoji } from './utils/theme'
+import ThemeChooser from './views/ThemeChooser'
+import { getStoredTheme, setStoredTheme, themeEmoji } from './utils/theme'
+import type { LoginThemeId } from './data/loginThemes'
 import type { AppUser, ViewName } from './types'
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -85,6 +87,8 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [ready, setReady] = useState(false)
+  // Tela de escolha de tema aparece antes do login (e volta ao sair).
+  const [themePicked, setThemePicked] = useState(false)
 
   useEffect(() => {
     let done = false
@@ -120,6 +124,12 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('arraia_user')
     setUser(null)
+    setThemePicked(false)
+  }
+
+  const handlePickTheme = (id: LoginThemeId) => {
+    setStoredTheme(id)
+    setThemePicked(true)
   }
 
   if (!isFirebaseConfigured) {
@@ -166,7 +176,9 @@ export default function App() {
   if (!user) {
     return (
       <AppContext.Provider value={{ addToast }}>
-        <Login onLogin={handleLogin} />
+        {themePicked
+          ? <Login onLogin={handleLogin} onBack={() => setThemePicked(false)} />
+          : <ThemeChooser onPick={handlePickTheme} />}
         <Toast toasts={toasts} onRemove={removeToast} />
       </AppContext.Provider>
     )

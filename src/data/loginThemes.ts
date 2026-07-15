@@ -10,6 +10,8 @@ export interface LoginTheme {
   titleTop: string
   titleBottom: string
   subtitle: string
+  festivalName: string
+  tagline: string
   bg: string
   primary: string
   primaryDark: string
@@ -26,6 +28,8 @@ export const LOGIN_THEMES: Record<LoginThemeId, LoginTheme> = {
     titleTop: 'Arraiá do',
     titleBottom: 'Lar São Cristóvão',
     subtitle: 'Sistema de Gestão de Pedidos',
+    festivalName: 'Festa de São João',
+    tagline: 'O tradicional arraiá do Lar',
     bg: '#F5F5F0',
     primary: '#5A5A40',
     primaryDark: '#3A3A28',
@@ -40,6 +44,8 @@ export const LOGIN_THEMES: Record<LoginThemeId, LoginTheme> = {
     titleTop: 'Oktoberfest',
     titleBottom: 'Lar São Cristóvão',
     subtitle: 'Sistema de Gestão de Pedidos',
+    festivalName: 'Oktoberfest',
+    tagline: 'A festa alemã da cerveja',
     bg: '#EEF3FA',
     primary: '#1565C0',
     primaryDark: '#0D47A1',
