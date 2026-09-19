@@ -21,7 +21,6 @@ import AdminDashboard from './views/AdminDashboard'
 import MediaSlides from './views/MediaSlides'
 import Admin from './views/Admin'
 import Toast, { type ToastMessage } from './components/Toast'
-import LateOrdersAlert from './components/LateOrdersAlert'
 import ViewErrorBoundary from './components/ViewErrorBoundary'
 import OfflineIndicator from './components/OfflineIndicator'
 import ThemeChooser from './views/ThemeChooser'
@@ -314,7 +313,6 @@ export default function App() {
           </motion.div>
         </main>
       </div>
-      <LateOrdersAlert currentView={currentView} />
       <OfflineIndicator />
       <Toast toasts={toasts} onRemove={removeToast} />
     </AppContext.Provider>
