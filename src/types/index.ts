@@ -8,6 +8,11 @@ export interface OrderItem {
   completed: boolean
 }
 
+export interface OrderStatusChange {
+  status: OrderStatus
+  at: Date
+}
+
 export interface Order {
   id: string
   ticket_number: string
@@ -15,6 +20,9 @@ export interface Order {
   items: OrderItem[]
   created_at: Date
   updated_at: Date
+  // Trilha de auditoria: um registro por mudança de status. Pedidos criados
+  // antes desta versão não têm o campo — a UI cai para created_at/updated_at.
+  status_history: OrderStatusChange[]
 }
 
 export interface User {

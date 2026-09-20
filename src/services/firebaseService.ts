@@ -17,6 +17,7 @@ import {
   orderBy,
   serverTimestamp,
   writeBatch,
+  arrayUnion,
   Timestamp,
   type Firestore,
 } from 'firebase/firestore'
@@ -130,15 +131,36 @@ function toDate(v: unknown): Date {
   return new Date()
 }
 
+function mapStatusHistory(raw: unknown, fallback: Order): Order['status_history'] {
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw
+      .map((e) => {
+        const entry = e as Record<string, unknown>
+        return { status: entry.status as OrderStatus, at: toDate(entry.at) }
+      })
+      .sort((a, b) => a.at.getTime() - b.at.getTime())
+  }
+  // Pedidos anteriores à trilha de auditoria: reconstrói o mínimo verificável —
+  // a criação e, se o pedido já saiu de "pending", a última mudança conhecida.
+  const history: Order['status_history'] = [{ status: 'pending', at: fallback.created_at }]
+  if (fallback.status !== 'pending') {
+    history.push({ status: fallback.status, at: fallback.updated_at })
+  }
+  return history
+}
+
 function mapOrder(id: string, data: Record<string, unknown>): Order {
-  return {
+  const base: Order = {
     id,
     ticket_number: data.ticket_number as string,
     status: data.status as OrderStatus,
     items: (data.items as Order['items']) ?? [],
     created_at: toDate(data.created_at),
     updated_at: toDate(data.updated_at),
+    status_history: [],
   }
+  base.status_history = mapStatusHistory(data.status_history, base)
+  return base
 }
 
 export function subscribeOrders(
@@ -175,6 +197,9 @@ export async function createOrder(ticket_number: string, items: Order['items']):
     items,
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
+    // serverTimestamp() não é aceito dentro de array, então a trilha usa o
+    // relógio do aparelho — o que também mantém o registro correto offline.
+    status_history: [{ status: 'pending', at: Timestamp.now() }],
   })
   await deductStockForItems(items)
   return ref.id
@@ -194,6 +219,7 @@ export async function advanceOrderStatus(orderId: string, currentStatus: OrderSt
   await updateDoc(doc(_db, 'orders', orderId), {
     status: next,
     updated_at: serverTimestamp(),
+    status_history: arrayUnion({ status: next, at: Timestamp.now() }),
   })
 }
 
@@ -202,6 +228,7 @@ export async function setOrderStatus(orderId: string, status: OrderStatus): Prom
   await updateDoc(doc(_db, 'orders', orderId), {
     status,
     updated_at: serverTimestamp(),
+    status_history: arrayUnion({ status, at: Timestamp.now() }),
   })
 }
 
