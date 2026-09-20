@@ -422,9 +422,9 @@ export async function seedInitialData(): Promise<void> {
   if (!usersSnap.empty) return
 
   const usersData: Omit<User, 'id'>[] = [
-    { name: 'admin', password: 'admin123', role: 'admin', allowed_views: 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin' },
+    { name: 'admin', password: 'admin123', role: 'admin', allowed_views: 'internal-panel,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin' },
     { name: 'cozinha', password: 'cozinha123', role: 'kitchen', allowed_views: 'kitchen,kitchen-scanner,kitchen-sectors,display' },
-    { name: 'recepcao', password: 'recepcao123', role: 'reception', allowed_views: 'reception,display' },
+    { name: 'recepcao', password: 'recepcao123', role: 'reception', allowed_views: 'internal-panel,display' },
     { name: 'entrega', password: 'entrega123', role: 'dispatch', allowed_views: 'dispatch,display,history' },
   ]
   for (const u of usersData) await addDoc(collection(_db, 'users'), u)

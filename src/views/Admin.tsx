@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ShoppingBag, ChefHat, Scan, LayoutGrid, Package, Clock, Boxes, QrCode, BarChart3, Film, Image, Upload, type LucideIcon } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ChefHat, Scan, LayoutGrid, Package, Clock, Boxes, QrCode, BarChart3, Film, Image, Upload, type LucideIcon } from 'lucide-react'
 import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY, DISPLAY_ORIENTATION_KEY } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -16,10 +16,9 @@ import type { User, MenuItem } from '../types'
 
 type Tab = 'users' | 'menu' | 'fichas' | 'dados'
 
-const ALL_VIEWS = 'reception,kitchen,kitchen-scanner,kitchen-sectors,display,internal-panel,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin'
+const ALL_VIEWS = 'kitchen,kitchen-scanner,kitchen-sectors,display,internal-panel,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin'
 
 const VIEW_META: { view: string; label: string; icon: LucideIcon }[] = [
-  { view: 'reception',       label: 'Recepção',  icon: ShoppingBag },
   { view: 'kitchen',         label: 'Cozinha',   icon: ChefHat },
   { view: 'kitchen-scanner', label: 'Bip',       icon: Scan },
   { view: 'kitchen-sectors', label: 'Setores',   icon: LayoutGrid },

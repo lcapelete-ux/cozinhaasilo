@@ -89,7 +89,6 @@ export interface MediaSlide {
 }
 
 export type ViewName =
-  | 'reception'
   | 'kitchen'
   | 'kitchen-scanner'
   | 'kitchen-sectors'

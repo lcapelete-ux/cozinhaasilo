@@ -1,13 +1,12 @@
 import { useState, useEffect, createContext, useContext, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  ShoppingBag, ChefHat, Scan, LayoutGrid, Tv2, Package,
+  ChefHat, Scan, LayoutGrid, Tv2, Package,
   Clock, Boxes, QrCode, BarChart3, Film, Settings, LogOut, Menu, X, Monitor,
   type LucideIcon,
 } from 'lucide-react'
 import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
 import Login from './views/Login'
-import Reception from './views/Reception'
 import Kitchen from './views/Kitchen'
 import KitchenScanner from './views/KitchenScanner'
 import KitchenSectors from './views/KitchenSectors'
@@ -40,7 +39,6 @@ export const useApp = () => useContext(AppContext)
 // ── Nav config ───────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
-  { view: 'reception', label: 'Recepção', icon: ShoppingBag },
   { view: 'kitchen', label: 'Cozinha', icon: ChefHat },
   { view: 'kitchen-scanner', label: 'Bip', icon: Scan },
   { view: 'kitchen-sectors', label: 'Setores', icon: LayoutGrid },
@@ -56,7 +54,6 @@ const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
 ]
 
 const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
-  reception: Reception,
   kitchen: Kitchen,
   'kitchen-scanner': KitchenScanner,
   'kitchen-sectors': KitchenSectors,
@@ -71,18 +68,40 @@ const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
   admin: Admin,
 }
 
+// A tela de Recepção antiga foi aposentada — o Painel Interno é a recepção que
+// a equipe usa de verdade. Cadastros salvos antes disso (no Firestore e na
+// sessão guardada no aparelho) ainda trazem "reception", então convertemos na
+// leitura: ninguém fica sem acesso à tela que usa, sem precisar reeditar
+// usuário por usuário. Nomes de tela desconhecidos são descartados para
+// currentView nunca apontar para um componente inexistente.
+function normalizeViews(views: string[]): ViewName[] {
+  const out: ViewName[] = []
+  for (const raw of views) {
+    const view = (raw === 'reception' ? 'internal-panel' : raw) as ViewName
+    if (VIEW_COMPONENTS[view] && !out.includes(view)) out.push(view)
+  }
+  return out
+}
+
 // ── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(() => {
     try {
       const stored = localStorage.getItem('arraia_user')
-      return stored ? JSON.parse(stored) : null
+      if (!stored) return null
+      const parsed = JSON.parse(stored) as AppUser
+      return { ...parsed, allowed_views: normalizeViews(parsed.allowed_views ?? []) }
     } catch {
       return null
     }
   })
-  const [currentView, setCurrentView] = useState<ViewName>('reception')
+  // Ao retomar uma sessão guardada não passamos pelo login, então a tela
+  // inicial vem das permissões do próprio usuário — um valor fixo aqui abriria
+  // uma tela que ele não tem acesso.
+  const [currentView, setCurrentView] = useState<ViewName>(
+    () => (user?.allowed_views[0] as ViewName) ?? 'internal-panel'
+  )
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [ready, setReady] = useState(false)
@@ -114,10 +133,10 @@ export default function App() {
   }, [])
 
   const handleLogin = (appUser: AppUser) => {
-    localStorage.setItem('arraia_user', JSON.stringify(appUser))
-    setUser(appUser)
-    const firstView = appUser.allowed_views[0] as ViewName
-    setCurrentView(firstView || 'reception')
+    const normalized: AppUser = { ...appUser, allowed_views: normalizeViews(appUser.allowed_views) }
+    localStorage.setItem('arraia_user', JSON.stringify(normalized))
+    setUser(normalized)
+    setCurrentView((normalized.allowed_views[0] as ViewName) ?? 'internal-panel')
   }
 
   const handleLogout = () => {
@@ -183,19 +202,54 @@ export default function App() {
     )
   }
 
-  // Display / Internal Panel views — fullscreen, no sidebar
-  if (currentView === 'display' || currentView === 'internal-panel') {
-    const DisplayComponent = VIEW_COMPONENTS[currentView]
+  const allowedViews = user.allowed_views
+  // Nunca renderiza uma tela fora das permissões: se currentView não estiver
+  // liberada (sessão antiga, tela aposentada), cai na primeira permitida.
+  const effectiveView = allowedViews.includes(currentView)
+    ? currentView
+    : (allowedViews[0] as ViewName)
+
+  // Usuário sem nenhuma tela liberada: avisa em vez de renderizar em branco.
+  if (!effectiveView) {
+    return (
+      <AppContext.Provider value={{ addToast }}>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="max-w-sm w-full bg-white rounded-3xl shadow-lg p-8 text-center">
+            <div className="text-5xl mb-4">🔒</div>
+            <h1 className="font-serif italic text-xl text-accent-dark mb-2">Sem telas liberadas</h1>
+            <p className="text-sm text-gray-500 mb-5">
+              O usuário <strong>{user.name}</strong> não tem nenhuma tela liberada. Peça para o
+              responsável ajustar o acesso em Config.
+            </p>
+            <button
+              onClick={handleLogout}
+              className="bg-accent text-white px-5 py-2.5 rounded-2xl text-sm font-semibold"
+            >
+              Sair
+            </button>
+          </div>
+        </div>
+        <Toast toasts={toasts} onRemove={removeToast} />
+      </AppContext.Provider>
+    )
+  }
+
+  // Painel externo (TV) — tela cheia, sem menu. O Painel Interno saiu daqui:
+  // virou a estação de recepção, então precisa do menu para a equipe circular
+  // entre as telas sem ficar presa nele.
+  if (effectiveView === 'display') {
+    const DisplayComponent = VIEW_COMPONENTS.display
+    const exitTo = (allowedViews.find((v) => v !== 'display') as ViewName) ?? 'internal-panel'
     return (
       <AppContext.Provider value={{ addToast }}>
         <div className="relative">
           <button
-            onClick={() => setCurrentView(user.allowed_views[0] as ViewName || 'reception')}
+            onClick={() => setCurrentView(exitTo)}
             className="absolute top-4 right-4 z-10 bg-black/40 text-white p-2 rounded-xl hover:bg-black/60 transition-colors"
           >
             <X size={18} />
           </button>
-          <ViewErrorBoundary onReset={() => setCurrentView('reception')}>
+          <ViewErrorBoundary onReset={() => setCurrentView(exitTo)}>
             <DisplayComponent />
           </ViewErrorBoundary>
         </div>
@@ -205,10 +259,9 @@ export default function App() {
     )
   }
 
-  const allowedViews = user.allowed_views
   const allowedNavItems = NAV_ITEMS.filter((n) => allowedViews.includes(n.view))
   const brandEmoji = themeEmoji(getStoredTheme())
-  const ViewComponent = VIEW_COMPONENTS[currentView] ?? VIEW_COMPONENTS[allowedViews[0] as ViewName]
+  const ViewComponent = VIEW_COMPONENTS[effectiveView]
 
   const navigateTo = (view: ViewName) => {
     if (!allowedViews.includes(view)) return
@@ -229,7 +282,7 @@ export default function App() {
           {allowedNavItems.map(({ view, label, icon: Icon }) => (
             <NavButton
               key={view}
-              active={currentView === view}
+              active={effectiveView === view}
               onClick={() => navigateTo(view)}
               label={label}
               icon={<Icon size={20} />}
@@ -281,7 +334,7 @@ export default function App() {
               {allowedNavItems.map(({ view, label, icon: Icon }) => (
                 <NavButton
                   key={view}
-                  active={currentView === view}
+                  active={effectiveView === view}
                   onClick={() => navigateTo(view)}
                   label={label}
                   icon={<Icon size={20} />}
@@ -301,13 +354,13 @@ export default function App() {
         {/* Main content */}
         <main className="flex-1 overflow-auto">
           <motion.div
-            key={currentView}
+            key={effectiveView}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.15 }}
             className="min-h-screen"
           >
-            <ViewErrorBoundary key={currentView} onReset={() => setCurrentView(currentView)}>
+            <ViewErrorBoundary key={effectiveView} onReset={() => setCurrentView(effectiveView)}>
               <ViewComponent />
             </ViewErrorBoundary>
           </motion.div>
