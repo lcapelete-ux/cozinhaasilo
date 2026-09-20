@@ -394,11 +394,19 @@ export default function AdminDashboard() {
 </body>
 </html>`
 
-    const win = window.open('', '_blank', 'width=920,height=720')
-    if (win) {
-      win.document.write(html)
-      win.document.close()
-      setTimeout(() => { win.focus(); win.print() }, 600)
+    try {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `relatorio-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.html`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Erro ao exportar relatório:', err)
+      alert('Erro ao gerar o relatório. Tente novamente.')
     }
   }
 
