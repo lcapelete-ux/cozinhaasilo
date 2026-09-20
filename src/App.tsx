@@ -1,21 +1,19 @@
 import { useState, useEffect, createContext, useContext, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  ChefHat, Scan, LayoutGrid, Tv2, Package,
-  Clock, Boxes, QrCode, BarChart3, Film, Settings, LogOut, Menu, X, Monitor,
+  ChefHat, LayoutGrid, Tv2, Package,
+  Clock, Boxes, BarChart3, Film, Settings, LogOut, Menu, X, Monitor,
   type LucideIcon,
 } from 'lucide-react'
 import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
 import Login from './views/Login'
 import Kitchen from './views/Kitchen'
-import KitchenScanner from './views/KitchenScanner'
 import KitchenSectors from './views/KitchenSectors'
-import Display from './views/Display'
+import Display, { DISPLAY_ENABLED_KEY, DISPLAY_ENABLED_EVENT } from './views/Display'
 import InternalPanel from './views/InternalPanel'
 import DispatchStation from './views/DispatchStation'
 import History from './views/History'
 import Inventory from './views/Inventory'
-import ExtraFichas from './views/ExtraFichas'
 import AdminDashboard from './views/AdminDashboard'
 import MediaSlides from './views/MediaSlides'
 import Admin from './views/Admin'
@@ -40,14 +38,12 @@ export const useApp = () => useContext(AppContext)
 
 const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
   { view: 'kitchen', label: 'Cozinha', icon: ChefHat },
-  { view: 'kitchen-scanner', label: 'Bip', icon: Scan },
   { view: 'kitchen-sectors', label: 'Setores', icon: LayoutGrid },
   { view: 'display', label: 'Painel', icon: Tv2 },
   { view: 'internal-panel', label: 'Painel Interno', icon: Monitor },
   { view: 'dispatch', label: 'Entrega', icon: Package },
   { view: 'history', label: 'Histórico', icon: Clock },
   { view: 'inventory', label: 'Estoque', icon: Boxes },
-  { view: 'extra-fichas', label: 'QR Extra', icon: QrCode },
   { view: 'admin-dashboard', label: 'Dashboard', icon: BarChart3 },
   { view: 'media-slides', label: 'Mídia', icon: Film },
   { view: 'admin', label: 'Config', icon: Settings },
@@ -55,14 +51,12 @@ const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
 
 const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
   kitchen: Kitchen,
-  'kitchen-scanner': KitchenScanner,
   'kitchen-sectors': KitchenSectors,
   display: Display,
   'internal-panel': InternalPanel,
   dispatch: DispatchStation,
   history: History,
   inventory: Inventory,
-  'extra-fichas': ExtraFichas,
   'admin-dashboard': AdminDashboard,
   'media-slides': MediaSlides,
   admin: Admin,
@@ -105,6 +99,20 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [ready, setReady] = useState(false)
+  // Atalho do Painel Externo no menu: ligado por aparelho em Configurações.
+  const [displayEnabled, setDisplayEnabled] = useState(
+    () => localStorage.getItem(DISPLAY_ENABLED_KEY) === 'true'
+  )
+
+  useEffect(() => {
+    const sync = () => setDisplayEnabled(localStorage.getItem(DISPLAY_ENABLED_KEY) === 'true')
+    window.addEventListener(DISPLAY_ENABLED_EVENT, sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener(DISPLAY_ENABLED_EVENT, sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
   // Tela de escolha de tema aparece antes do login (e volta ao sair).
   const [themePicked, setThemePicked] = useState(false)
 
@@ -259,7 +267,9 @@ export default function App() {
     )
   }
 
-  const allowedNavItems = NAV_ITEMS.filter((n) => allowedViews.includes(n.view))
+  const allowedNavItems = NAV_ITEMS.filter(
+    (n) => allowedViews.includes(n.view) && (n.view !== 'display' || displayEnabled)
+  )
   const brandEmoji = themeEmoji(getStoredTheme())
   const ViewComponent = VIEW_COMPONENTS[effectiveView]
 

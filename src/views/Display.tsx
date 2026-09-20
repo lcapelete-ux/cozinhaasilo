@@ -8,6 +8,11 @@ import { getStoredTheme } from '../utils/theme'
 import type { Order, MediaSlide, MenuItem, } from '../types'
 import type { VilhinhoItem } from '../services/firebaseService'
 
+// Liga/desliga o atalho do Painel Externo no menu lateral. É por aparelho
+// (localStorage), então só o computador ligado na TV precisa deixá-lo à mão.
+export const DISPLAY_ENABLED_KEY = 'display-enabled'
+export const DISPLAY_ENABLED_EVENT = 'display-enabled-change'
+
 export const DISPLAY_ZOOM_KEY = 'display-zoom'
 export const DISPLAY_SCANNER_HIDDEN_KEY = 'display-scanner-hidden'
 export const DISPLAY_CARD_SIZE_KEY = 'display-card-size'

@@ -53,13 +53,6 @@ export interface InventoryItem {
   unit: string
 }
 
-export interface ExtraFicha {
-  id: string
-  qr_code: string
-  alias: string
-  description: string
-}
-
 export interface StockEntry {
   id: string
   menu_item_id: string
@@ -90,14 +83,12 @@ export interface MediaSlide {
 
 export type ViewName =
   | 'kitchen'
-  | 'kitchen-scanner'
   | 'kitchen-sectors'
   | 'display'
   | 'internal-panel'
   | 'dispatch'
   | 'history'
   | 'inventory'
-  | 'extra-fichas'
   | 'admin-dashboard'
   | 'media-slides'
   | 'admin'

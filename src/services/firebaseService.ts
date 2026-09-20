@@ -22,7 +22,7 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
-import type { Order, OrderStatus, MenuItem, InventoryItem, ExtraFicha, User, StockEntry, MediaSlide } from '../types'
+import type { Order, OrderStatus, MenuItem, InventoryItem, User, StockEntry, MediaSlide } from '../types'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
@@ -108,10 +108,11 @@ export async function resolveFicha(raw: string): Promise<string> {
     return String(num)
   }
 
-  // No plain number found — this isn't a standard ficha QR, so only now
-  // fall back to a custom mapping registered in Configurações → Fichas QR.
-  // Standard numeric codes (the vast majority, including every ficha in the
-  // 101-133 range) must never be hijacked by a stray/legacy registration there.
+  // Sem número puro: não é um QR de ficha padrão, então cai no mapeamento
+  // personalizado gravado em extra_fichas. A tela que cadastrava esses QRs foi
+  // removida, mas a consulta continua aqui para que os códigos já registrados
+  // sigam sendo lidos normalmente. Códigos numéricos (a grande maioria,
+  // incluindo toda a faixa 101-133) nunca passam por aqui.
   if (_db) {
     const q = query(collection(_db, 'extra_fichas'), where('qr_code', '==', raw.trim()))
     const snap = await getDocs(q)
@@ -360,22 +361,8 @@ export async function deleteInventoryItem(id: string): Promise<void> {
 
 // ── Extra Fichas ────────────────────────────────────────────────────────────
 
-export function subscribeExtraFichas(callback: (fichas: ExtraFicha[]) => void) {
-  if (!_db) return () => {}
-  return onSnapshot(collection(_db, 'extra_fichas'), (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ExtraFicha, 'id'>) })))
-  })
-}
 
-export async function addExtraFicha(ficha: Omit<ExtraFicha, 'id'>): Promise<void> {
-  if (!_db) return
-  await addDoc(collection(_db, 'extra_fichas'), ficha)
-}
 
-export async function deleteExtraFicha(id: string): Promise<void> {
-  if (!_db) return
-  await deleteDoc(doc(_db, 'extra_fichas', id))
-}
 
 // ── Users ───────────────────────────────────────────────────────────────────
 
@@ -422,8 +409,8 @@ export async function seedInitialData(): Promise<void> {
   if (!usersSnap.empty) return
 
   const usersData: Omit<User, 'id'>[] = [
-    { name: 'admin', password: 'admin123', role: 'admin', allowed_views: 'internal-panel,kitchen,kitchen-scanner,kitchen-sectors,display,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin' },
-    { name: 'cozinha', password: 'cozinha123', role: 'kitchen', allowed_views: 'kitchen,kitchen-scanner,kitchen-sectors,display' },
+    { name: 'admin', password: 'admin123', role: 'admin', allowed_views: 'internal-panel,kitchen,kitchen-sectors,display,dispatch,history,inventory,admin-dashboard,media-slides,admin' },
+    { name: 'cozinha', password: 'cozinha123', role: 'kitchen', allowed_views: 'kitchen,kitchen-sectors,display' },
     { name: 'recepcao', password: 'recepcao123', role: 'reception', allowed_views: 'internal-panel,display' },
     { name: 'entrega', password: 'entrega123', role: 'dispatch', allowed_views: 'dispatch,display,history' },
   ]

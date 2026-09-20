@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ChefHat, Scan, LayoutGrid, Package, Clock, Boxes, QrCode, BarChart3, Film, Image, Upload, type LucideIcon } from 'lucide-react'
-import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY, DISPLAY_ORIENTATION_KEY } from './Display'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ChefHat, LayoutGrid, Package, Clock, Boxes, BarChart3, Film, Image, Upload, type LucideIcon } from 'lucide-react'
+import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY, DISPLAY_ORIENTATION_KEY, DISPLAY_ENABLED_KEY, DISPLAY_ENABLED_EVENT } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   subscribeUsers, addUser, updateUser, deleteUser,
@@ -16,18 +16,16 @@ import type { User, MenuItem } from '../types'
 
 type Tab = 'users' | 'menu' | 'fichas' | 'dados'
 
-const ALL_VIEWS = 'kitchen,kitchen-scanner,kitchen-sectors,display,internal-panel,dispatch,history,inventory,extra-fichas,admin-dashboard,media-slides,admin'
+const ALL_VIEWS = 'kitchen,kitchen-sectors,display,internal-panel,dispatch,history,inventory,admin-dashboard,media-slides,admin'
 
 const VIEW_META: { view: string; label: string; icon: LucideIcon }[] = [
   { view: 'kitchen',         label: 'Cozinha',   icon: ChefHat },
-  { view: 'kitchen-scanner', label: 'Bip',       icon: Scan },
   { view: 'kitchen-sectors', label: 'Setores',   icon: LayoutGrid },
   { view: 'display',         label: 'Painel',    icon: Tv2 },
   { view: 'internal-panel',  label: 'Painel Interno', icon: Monitor },
   { view: 'dispatch',        label: 'Entrega',   icon: Package },
   { view: 'history',         label: 'Histórico', icon: Clock },
   { view: 'inventory',       label: 'Estoque',   icon: Boxes },
-  { view: 'extra-fichas',    label: 'QR Extra',  icon: QrCode },
   { view: 'admin-dashboard', label: 'Dashboard', icon: BarChart3 },
   { view: 'media-slides',    label: 'Mídia',     icon: Film },
   { view: 'admin',           label: 'Config',    icon: Settings },
@@ -352,6 +350,38 @@ function OrientationToggle() {
         className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${portrait ? 'bg-accent' : 'bg-gray-200'}`}
       >
         <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${portrait ? 'translate-x-6' : 'translate-x-0.5'}`} />
+      </button>
+    </div>
+  )
+}
+
+// O Painel Externo fica fora do menu lateral por padrão: só o computador
+// ligado na TV precisa dele à mão. Ligar aqui faz o atalho aparecer neste
+// aparelho (para quem tem a tela liberada em Usuários).
+function DisplayEnabledToggle() {
+  const [enabled, setEnabled] = useState(() => localStorage.getItem(DISPLAY_ENABLED_KEY) === 'true')
+
+  const toggle = () => {
+    const next = !enabled
+    setEnabled(next)
+    localStorage.setItem(DISPLAY_ENABLED_KEY, String(next))
+    window.dispatchEvent(new Event(DISPLAY_ENABLED_EVENT))
+  }
+
+  return (
+    <div className="flex items-center gap-4 py-3">
+      <div className="flex items-center gap-2 flex-1">
+        <Tv2 size={16} className="text-gray-400" />
+        <div>
+          <p className="text-sm font-medium text-gray-700">Mostrar o Painel Externo no menu</p>
+          <p className="text-xs text-gray-400">Ligue no computador da TV. Vale só para este aparelho.</p>
+        </div>
+      </div>
+      <button
+        onClick={toggle}
+        className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${enabled ? 'bg-accent' : 'bg-gray-200'}`}
+      >
+        <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
       </button>
     </div>
   )
@@ -852,8 +882,9 @@ function DadosTab({ addToast }: { addToast: (msg: string, type?: 'error' | 'succ
 
       {/* Zoom dos monitores */}
       <div className="bg-white rounded-3xl p-6 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-1">Zoom dos monitores</h3>
-        <p className="text-sm text-gray-400 mb-4">Ajuste o tamanho da interface em cada TV. As alterações têm efeito imediato.</p>
+        <h3 className="font-bold text-gray-800 mb-1">Monitores e painéis</h3>
+        <p className="text-sm text-gray-400 mb-4">Escolha quais painéis ficam à mão neste aparelho e ajuste o tamanho da interface em cada TV. As alterações têm efeito imediato.</p>
+        <DisplayEnabledToggle />
         <ZoomRow label="Monitor de Produção (Setores)" icon={Monitor} storageKey={SECTORS_ZOOM_KEY} eventName="sectors-zoom-change" />
         <ZoomRow label="Painel Externo (Display)" icon={Tv2} storageKey={DISPLAY_ZOOM_KEY} eventName="display-zoom-change" />
         <ZoomRow label="Tamanho das fichas (Painel Externo)" icon={Ticket} storageKey={DISPLAY_CARD_SIZE_KEY} eventName="display-card-size-change" />
