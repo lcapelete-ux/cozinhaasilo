@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ChefHat, LayoutGrid, Package, Clock, Boxes, BarChart3, Film, Image, Upload, type LucideIcon } from 'lucide-react'
+import { Settings, Users, UtensilsCrossed, Ticket, Printer, Plus, Trash2, Edit2, Check, X, Eye, EyeOff, DatabaseZap, AlertTriangle, ZoomIn, ZoomOut, Monitor, ShoppingBag, Tv2, CloudUpload, ExternalLink, ArrowUp, ArrowDown, Smartphone, ChefHat, LayoutGrid, Package, Clock, Boxes, BarChart3, Film, Image, Upload, type LucideIcon } from 'lucide-react'
 import { DISPLAY_ZOOM_KEY, DISPLAY_SCANNER_HIDDEN_KEY, DISPLAY_CARD_SIZE_KEY, DISPLAY_ORIENTATION_KEY, DISPLAY_ENABLED_KEY, DISPLAY_ENABLED_EVENT } from './Display'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -22,7 +22,7 @@ const VIEW_META: { view: string; label: string; icon: LucideIcon }[] = [
   { view: 'kitchen',         label: 'Cozinha',   icon: ChefHat },
   { view: 'kitchen-sectors', label: 'Setores',   icon: LayoutGrid },
   { view: 'display',         label: 'Painel',    icon: Tv2 },
-  { view: 'internal-panel',  label: 'Painel Interno', icon: Monitor },
+  { view: 'internal-panel',  label: 'Recepção',   icon: ShoppingBag },
   { view: 'dispatch',        label: 'Entrega',   icon: Package },
   { view: 'history',         label: 'Histórico', icon: Clock },
   { view: 'inventory',       label: 'Estoque',   icon: Boxes },

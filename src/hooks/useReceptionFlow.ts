@@ -77,8 +77,8 @@ const COUNTDOWN_SECONDS = 45
 const CANCEL_SCAN_COUNT = 3
 const CANCEL_SCAN_WINDOW_MS = 5000
 
-// Lógica de bipagem de fichas/cupons e montagem do pedido, compartilhada entre
-// a tela de Recepção e o Painel Interno (cada um com seu próprio bipador).
+// Lógica de bipagem de fichas/cupons e montagem do pedido, usada pela tela de
+// Recepção (InternalPanel), que tem o bipador do próprio computador.
 export function useReceptionFlow() {
   const { addToast } = useApp()
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])

@@ -1,8 +1,8 @@
 import { useState, useEffect, createContext, useContext, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  ChefHat, LayoutGrid, Tv2, Package,
-  Clock, Boxes, BarChart3, Film, Settings, LogOut, Menu, X, Monitor,
+  ChefHat, LayoutGrid, Tv2, Package, ShoppingBag,
+  Clock, Boxes, BarChart3, Film, Settings, LogOut, Menu, X,
   type LucideIcon,
 } from 'lucide-react'
 import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
@@ -40,7 +40,7 @@ const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
   { view: 'kitchen', label: 'Cozinha', icon: ChefHat },
   { view: 'kitchen-sectors', label: 'Setores', icon: LayoutGrid },
   { view: 'display', label: 'Painel', icon: Tv2 },
-  { view: 'internal-panel', label: 'Painel Interno', icon: Monitor },
+  { view: 'internal-panel', label: 'Recepção', icon: ShoppingBag },
   { view: 'dispatch', label: 'Entrega', icon: Package },
   { view: 'history', label: 'Histórico', icon: Clock },
   { view: 'inventory', label: 'Estoque', icon: Boxes },
@@ -62,12 +62,12 @@ const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
   admin: Admin,
 }
 
-// A tela de Recepção antiga foi aposentada — o Painel Interno é a recepção que
-// a equipe usa de verdade. Cadastros salvos antes disso (no Firestore e na
-// sessão guardada no aparelho) ainda trazem "reception", então convertemos na
-// leitura: ninguém fica sem acesso à tela que usa, sem precisar reeditar
-// usuário por usuário. Nomes de tela desconhecidos são descartados para
-// currentView nunca apontar para um componente inexistente.
+// A Recepção da equipe é a tela 'internal-panel'; a antiga 'reception' foi
+// aposentada. Cadastros salvos antes disso (no Firestore e na sessão guardada
+// no aparelho) ainda trazem "reception", então convertemos na leitura: ninguém
+// fica sem acesso à tela que usa, sem precisar reeditar usuário por usuário.
+// Nomes de tela desconhecidos são descartados para currentView nunca apontar
+// para um componente inexistente.
 function normalizeViews(views: string[]): ViewName[] {
   const out: ViewName[] = []
   for (const raw of views) {
@@ -242,9 +242,9 @@ export default function App() {
     )
   }
 
-  // Painel externo (TV) — tela cheia, sem menu. O Painel Interno saiu daqui:
-  // virou a estação de recepção, então precisa do menu para a equipe circular
-  // entre as telas sem ficar presa nele.
+  // Painel externo (TV) — tela cheia, sem menu. A Recepção saiu daqui: como é
+  // estação de trabalho, precisa do menu para a equipe circular entre as telas
+  // sem ficar presa nela.
   if (effectiveView === 'display') {
     const DisplayComponent = VIEW_COMPONENTS.display
     const exitTo = (allowedViews.find((v) => v !== 'display') as ViewName) ?? 'internal-panel'
