@@ -5,7 +5,7 @@ import { subscribeDonations } from '../services/firebaseService'
 import { formatBRL, rankDonors, totalDonated } from '../utils/donations'
 import type { Donation } from '../types'
 
-// Doômetro do Oktoberfest, exibido abaixo do login quando o tema Oktoberfest
+// Doadômetro do Oktoberfest, exibido abaixo do login quando o tema Oktoberfest
 // está selecionado. É página pública (antes do login): mostra quanto já foi
 // doado e o ranking dos doadores, lido ao vivo do banco.
 
@@ -42,7 +42,7 @@ export default function OktoberfestHero() {
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 pb-16">
-      {/* Doômetro */}
+      {/* Doadômetro */}
       <div className="rounded-3xl overflow-hidden shadow-sm mb-6">
         <div className="h-3" style={bavarianPattern} />
         <div className="bg-white px-5 py-9 text-center">
@@ -56,10 +56,10 @@ export default function OktoberfestHero() {
           </motion.div>
 
           <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest mb-3"
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-3 sm:px-4 py-1.5 text-xs font-bold uppercase tracking-wide sm:tracking-widest mb-3"
             style={{ backgroundColor: '#E8F0FB', color: AZUL_ESCURO }}
           >
-            <Heart size={13} /> Doômetro · Oktoberfest 2026
+            <Heart size={13} className="shrink-0" /> Doadômetro · Oktoberfest 2026
           </div>
 
           <h2 className="font-serif font-bold text-2xl md:text-3xl mb-5" style={{ color: AZUL_ESCURO }}>
