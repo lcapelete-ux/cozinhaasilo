@@ -12,7 +12,7 @@ export default defineConfig({
       // (HTML/JS/CSS/ícones) em cache. Os dados continuam vindo do cache offline
       // do Firestore (ver firebaseService.ts).
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,mp3}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,jpg,svg,woff2,mp3}'],
         // Mantém os handlers de Web Push (alerta de estoque) dentro do SW do PWA.
         importScripts: ['push-sw.js'],
         // SPA: qualquer navegação offline cai no index.html cacheado.
@@ -44,3 +44,4 @@ export default defineConfig({
     port: 3000,
   },
 })
+

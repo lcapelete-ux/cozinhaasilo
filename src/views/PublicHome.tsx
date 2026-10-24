@@ -17,6 +17,16 @@ export default function PublicHome({ onEnter, onBack }: Props) {
   const themeId = getStoredTheme()
   const theme = LOGIN_THEMES[themeId]
 
+  if (themeId === 'oktoberfest') return (
+    <div className="relative">
+      <OktoberfestHero />
+      <div className="flex justify-center gap-3 pb-5 bg-[#091b2f] text-[#b8c6d4]">
+        {onBack && <button onClick={onBack} className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-full border border-white/20 hover:bg-white/10"><ArrowLeft size={14} />Trocar festa</button>}
+        <button onClick={onEnter} aria-label="Acessar o sistema da equipe" className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-full border border-white/20 hover:bg-white/10"><Lock size={14} />Equipe</button>
+      </div>
+    </div>
+  )
+
   return (
     <div
       className="min-h-screen lg:h-screen lg:overflow-hidden flex flex-col py-6 px-4 transition-colors duration-300"
@@ -57,3 +67,4 @@ export default function PublicHome({ onEnter, onBack }: Props) {
     </div>
   )
 }
+
