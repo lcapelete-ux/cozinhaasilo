@@ -62,7 +62,10 @@ export default function OktoberfestHero() {
             <Heart size={13} className="shrink-0" /> Doadômetro · Oktoberfest 2026
           </div>
 
-          <h2 className="font-serif font-bold text-2xl md:text-3xl mb-5" style={{ color: AZUL_ESCURO }}>
+          <h2 className="font-serif font-bold text-2xl md:text-3xl mb-5 px-2" style={{ color: AZUL_ESCURO }}>
+            <span className="block text-base md:text-lg font-normal text-gray-500 mb-0.5">
+              Em prol do
+            </span>
             Lar São Cristóvão
           </h2>
 
