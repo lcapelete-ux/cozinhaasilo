@@ -1,229 +1,88 @@
 import { useState, useEffect, useMemo } from 'react'
-import { motion } from 'framer-motion'
-import { Heart, Trophy } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Heart, Trophy, Crown, Users, Maximize, Minimize } from 'lucide-react'
 import { subscribeDonations, subscribeDonationGoal, META_PADRAO } from '../services/firebaseService'
 import { formatBRL, rankDonors, totalDonated } from '../utils/donations'
 import type { Donation } from '../types'
-
-// Doadômetro do Oktoberfest, na página pública. Mostra ao vivo quanto já foi
-// doado, o quanto falta para a meta e o ranking dos doadores.
-//
-// A mesma tela serve o celular e o telão da festa (768x512). A partir de 700px
-// ela vira duas colunas e ocupa exatamente uma tela, sem rolagem. Os tamanhos
-// têm dois conjuntos de clamp(): o primeiro atende a tela empilhada do celular,
-// e o prefixo telao: redimensiona para a COLUNA, que é metade da largura — com
-// um único conjunto baseado na tela inteira, os valores do pódio invadiam o
-// card vizinho e o total era cortado ao meio.
-
-// Padrão losango azul/branco da bandeira da Baviera
-const bavarianPattern: React.CSSProperties = {
-  backgroundColor: '#1565C0',
-  backgroundImage:
-    'linear-gradient(135deg, #fff 25%, transparent 25%), linear-gradient(225deg, #fff 25%, transparent 25%), linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(315deg, #fff 25%, transparent 25%)',
-  backgroundPosition: '12px 0, 12px 0, 0 0, 0 0',
-  backgroundSize: '24px 24px',
-  opacity: 0.9,
-}
-
-const AZUL = '#1565C0'
-const AZUL_ESCURO = '#0D47A1'
-const VERDE = '#2E9E5B'
-
-const PODIUM = [
-  { medal: '🥇', ring: '#D4AF37', bg: '#FFFBEA', order: 'order-2' },
-  { medal: '🥈', ring: '#9BA6B2', bg: '#F6F8FA', order: 'order-1' },
-  { medal: '🥉', ring: '#C08457', bg: '#FDF4EE', order: 'order-3' },
-]
-
-const S = {
-  caneca: 'text-[clamp(1.75rem,6vw,2.5rem)] telao:text-[clamp(1.4rem,2.5vw,3rem)]',
-  tarja: 'text-[clamp(0.6rem,2.5vw,0.8rem)] telao:text-[clamp(0.58rem,1vw,1.05rem)]',
-  emProl: 'text-[clamp(0.8rem,3.2vw,1.1rem)] telao:text-[clamp(0.72rem,1.25vw,1.5rem)]',
-  casa: 'text-[clamp(1.25rem,5.5vw,2rem)] telao:text-[clamp(1.05rem,2.3vw,2.75rem)]',
-  total: 'text-[clamp(2rem,10vw,3.5rem)] telao:text-[clamp(1.6rem,4.6vw,5rem)]',
-  meta: 'text-[clamp(0.72rem,3vw,1rem)] telao:text-[clamp(0.68rem,1.25vw,1.6rem)]',
-  medalha: 'text-[clamp(1.25rem,5vw,2rem)] telao:text-[clamp(1rem,1.9vw,2.5rem)]',
-  nome: 'text-[clamp(0.68rem,2.5vw,0.95rem)] telao:text-[clamp(0.62rem,1vw,1.3rem)]',
-  valor: 'text-[clamp(0.8rem,3.2vw,1.15rem)] telao:text-[clamp(0.72rem,1.3vw,1.8rem)]',
-  linha: 'text-[clamp(0.75rem,2.9vw,1rem)] telao:text-[clamp(0.7rem,1.25vw,1.7rem)]',
-}
+import './oktoberfest.css'
 
 export default function OktoberfestHero() {
   const [donations, setDonations] = useState<Donation[]>([])
   const [meta, setMeta] = useState(META_PADRAO)
-
+  const [page, setPage] = useState(0)
+  const [fullscreen, setFullscreen] = useState(false)
   useEffect(() => subscribeDonations(setDonations), [])
   useEffect(() => subscribeDonationGoal(setMeta), [])
-
+  useEffect(() => {
+    const sync = () => setFullscreen(Boolean(document.fullscreenElement))
+    document.addEventListener('fullscreenchange', sync)
+    return () => document.removeEventListener('fullscreenchange', sync)
+  }, [])
   const ranking = useMemo(() => rankDonors(donations), [donations])
   const total = useMemo(() => totalDonated(donations), [donations])
-
-  const podium = ranking.slice(0, 3)
-  const resto = ranking.slice(3)
-  const maior = ranking[0]?.total ?? 0
-
-  const pctMeta = meta > 0 ? (total / meta) * 100 : 0
-  const bateuMeta = pctMeta >= 100
+  const pages = Math.max(1, Math.ceil((ranking.length - 3) / 4))
+  useEffect(() => {
+    setPage(0)
+    if (pages <= 1) return
+    const timer = window.setInterval(() => setPage(p => (p + 1) % pages), 12000)
+    return () => window.clearInterval(timer)
+  }, [pages])
+  const currentPage = page % pages
+  const rest = ranking.slice(3 + currentPage * 4, 7 + currentPage * 4)
+  const percent = meta > 0 ? total / meta * 100 : 0
+  const reached = meta > 0 && total >= meta
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen()
+      else await document.documentElement.requestFullscreen()
+    } catch { /* Browsers without fullscreen support keep the responsive layout. */ }
+  }
 
   return (
-    <div className="w-full max-w-[min(1600px,94vw)] mx-auto pb-8 telao:pb-0 telao:h-full telao:grid telao:grid-cols-2 telao:gap-3 telao:items-stretch">
-      {/* Medidor */}
-      <div className="rounded-2xl overflow-hidden shadow-sm mb-3 telao:mb-0 telao:self-center">
-        <div className="h-2" style={bavarianPattern} />
-        <div className="bg-white px-4 py-[clamp(1rem,2.4vw,2rem)] text-center">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            className={`mb-1 leading-none ${S.caneca}`}
-          >
-            🍺
-          </motion.div>
-
-          <div
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-bold uppercase tracking-wide mb-2 ${S.tarja}`}
-            style={{ backgroundColor: '#E8F0FB', color: AZUL_ESCURO }}
-          >
-            <Heart size={12} className="shrink-0" /> Doadômetro · Oktoberfest 2026
-          </div>
-
-          <h2 className={`font-serif font-bold mb-2 px-1 leading-tight ${S.casa}`} style={{ color: AZUL_ESCURO }}>
-            <span className={`block font-normal text-gray-500 ${S.emProl}`}>Em prol do</span>
-            Lar São Cristóvão
-          </h2>
-
-          <motion.p
-            key={total}
-            initial={{ scale: 0.96, opacity: 0.6 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className={`font-black leading-none tabular-nums break-words ${S.total}`}
-            style={{ color: AZUL }}
-          >
-            {formatBRL(total)}
-          </motion.p>
-
-          {/* Barra da meta */}
-          <div className="mx-auto mt-[clamp(0.6rem,1.5vw,1.5rem)] max-w-[94%]">
-            <div
-              className="w-full rounded-full overflow-hidden h-[clamp(0.55rem,2.2vw,0.85rem)] telao:h-[clamp(0.55rem,1.3vw,1.6rem)]"
-              style={{ backgroundColor: '#E8F0FB' }}
-            >
-              <motion.div
-                className="h-full rounded-full"
-                style={{ backgroundColor: bateuMeta ? VERDE : AZUL }}
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, pctMeta)}%` }}
-                transition={{ type: 'spring', stiffness: 60, damping: 18 }}
-              />
-            </div>
-            <p
-              className={`mt-1.5 font-semibold tabular-nums leading-tight ${S.meta}`}
-              style={{ color: bateuMeta ? VERDE : '#6B7280' }}
-            >
-              {bateuMeta ? (
-                <>🎉 Meta de {formatBRL(meta)} atingida — {pctMeta.toFixed(0)}%!</>
-              ) : (
-                <>
-                  {pctMeta.toFixed(1).replace('.', ',')}% da meta de{' '}
-                  <strong style={{ color: AZUL_ESCURO }}>{formatBRL(meta)}</strong> · faltam{' '}
-                  <strong style={{ color: AZUL_ESCURO }}>{formatBRL(meta - total)}</strong>
-                </>
-              )}
-            </p>
-          </div>
-
-          <p className={`text-gray-500 mt-1.5 ${S.meta}`}>
-            {ranking.length === 0
-              ? 'Seja o primeiro a doar!'
-              : `${ranking.length} doador${ranking.length !== 1 ? 'es' : ''}`}
-          </p>
+    <section className="oktober-board" aria-label="Doadômetro do Oktoberfest em prol do Lar São Cristóvão">
+      <header className="oktober-header">
+        <div className="oktober-logo" role="img" aria-label="Oktoberfest Laranjal Paulista — logo original">
+          <img src={`${import.meta.env.BASE_URL}oktoberfest-original.jpg`} alt="" />
         </div>
-        <div className="h-2" style={bavarianPattern} />
-      </div>
+        <div className="oktober-header-copy"><span className="oktober-eyebrow">Laranjal Paulista · 2026</span><p>Uma festa de todos.<br /><strong>Uma causa que nos une.</strong></p></div>
+        <button className="oktober-fullscreen" onClick={toggleFullscreen} title={fullscreen ? 'Sair da tela cheia' : 'Exibir no telão'} aria-label={fullscreen ? 'Sair da tela cheia' : 'Exibir no telão'}>{fullscreen ? <Minimize size={20} /> : <Maximize size={20} />}</button>
+      </header>
 
-      {/* Pódio + ranking */}
-      <div className="telao:flex telao:flex-col telao:min-h-0">
-        {ranking.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm p-10 text-center telao:flex-1 telao:flex telao:flex-col telao:items-center telao:justify-center">
-            <Trophy size={40} className="mx-auto mb-2 text-gray-200" />
-            <p className={`text-gray-400 ${S.meta}`}>O ranking de doadores aparece aqui</p>
+      <div className="oktober-main">
+        <article className={`oktober-meter ${reached ? 'is-complete' : ''}`}>
+          <div className="oktober-eyebrow"><Heart size={17} /> Doadômetro solidário</div>
+          <h1>Juntos pelo<br /><span>Lar São Cristóvão</span></h1>
+          <p className="oktober-description">Cada doação se transforma em cuidado, carinho e acolhimento.</p>
+          <div className="oktober-total-label">Já arrecadamos</div>
+          <motion.div key={total} initial={{ opacity: 0.5, y: 8 }} animate={{ opacity: 1, y: 0 }} className="oktober-total">{formatBRL(total)}</motion.div>
+          <div className="oktober-progress-heading"><strong>{reached ? 'Meta alcançada!' : 'Nossa corrente do bem'}</strong><span>{percent.toFixed(1).replace('.', ',')}%</span></div>
+          <div className="oktober-progress" role="progressbar" aria-label="Progresso da arrecadação" aria-valuenow={Math.min(100, Math.max(0, percent))} aria-valuemin={0} aria-valuemax={100}>
+            <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, Math.max(0, percent))}%` }} transition={{ duration: 1.2 }} />
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-3 gap-2 mb-2 items-end shrink-0">
-              {podium.map((r, i) => {
-                const style = PODIUM[i]
-                const alturas = ['pt-3 pb-4', 'pt-2.5 pb-3', 'pt-2 pb-2.5']
-                return (
-                  <motion.div
-                    key={r.donor}
-                    initial={{ opacity: 0, y: 14 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                    className={`${style.order} rounded-2xl shadow-sm px-1.5 ${alturas[i]} text-center border-2 overflow-hidden`}
-                    style={{ borderColor: style.ring, backgroundColor: style.bg }}
-                  >
-                    <div className={`mb-0.5 leading-none ${S.medalha}`}>{style.medal}</div>
-                    <p
-                      className={`font-bold text-gray-800 leading-tight break-words ${S.nome}`}
-                      title={r.donor}
-                    >
-                      {r.donor}
-                    </p>
-                    <p
-                      className={`font-black mt-0.5 tabular-nums leading-tight break-words ${S.valor}`}
-                      style={{ color: AZUL_ESCURO }}
-                    >
-                      {formatBRL(r.total)}
-                    </p>
-                  </motion.div>
-                )
-              })}
-            </div>
+          <div className="oktober-goal"><div><span>Meta de arrecadação</span><strong>{meta > 0 ? formatBRL(meta) : 'A definir'}</strong></div><div><span>{reached ? 'Além da meta' : 'Falta para chegar lá'}</span><strong>{formatBRL(meta > 0 ? Math.abs(meta - total) : 0)}</strong></div></div>
+          <div className="oktober-impact"><Users size={24} /><p><strong>{ranking.length} {ranking.length === 1 ? 'doador fazendo' : 'doadores fazendo'} a diferença</strong><span>{reached ? 'A solidariedade continua. Vamos ainda mais longe!' : 'Faça parte dessa corrente de solidariedade.'}</span></p><Heart size={26} /></div>
+        </article>
 
-            {resto.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm p-2.5 telao:flex-1 telao:min-h-0 telao:flex telao:flex-col">
-                <div className="space-y-1 max-h-[45vh] telao:max-h-none telao:flex-1 telao:min-h-0 overflow-y-auto">
-                  {resto.map((r, i) => {
-                    const pos = i + 4
-                    const pct = maior > 0 ? Math.max(6, (r.total / maior) * 100) : 0
-                    return (
-                      <motion.div
-                        key={r.donor}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: Math.min(i * 0.04, 0.4) }}
-                        className="relative flex items-center gap-2 px-2 py-[clamp(0.3rem,0.7vw,0.75rem)] rounded-lg overflow-hidden bg-white border border-gray-100"
-                      >
-                        <div
-                          className="absolute inset-y-0 left-0"
-                          style={{ width: `${pct}%`, backgroundColor: '#CEE2F8' }}
-                        />
-                        <span
-                          className={`relative text-center font-black shrink-0 w-[clamp(1.5rem,2.4vw,3rem)] ${S.linha}`}
-                          style={{ color: AZUL }}
-                        >
-                          {pos}º
-                        </span>
-                        <span className={`relative flex-1 font-semibold text-gray-700 truncate ${S.linha}`}>
-                          {r.donor}
-                        </span>
-                        <span
-                          className={`relative font-black tabular-nums shrink-0 ${S.linha}`}
-                          style={{ color: AZUL_ESCURO }}
-                        >
-                          {formatBRL(r.total)}
-                        </span>
-                      </motion.div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        <article className="oktober-ranking">
+          <div className="oktober-ranking-heading"><div><div className="oktober-eyebrow">Quem faz a festa acontecer</div><h2><Trophy /> Ranking solidário</h2></div><span className="oktober-ranking-count">{ranking.length} {ranking.length === 1 ? 'doador' : 'doadores'}</span></div>
+          {ranking.length === 0 ? <div className="oktober-empty"><Heart size={52} strokeWidth={1} /><h3>O primeiro gesto pode ser seu.</h3><p>Assim que as doações forem registradas,<br />nossos apoiadores aparecerão aqui.</p></div> : <>
+            <div className="oktober-podium">
+              {ranking.slice(0, 3).map((donor, i) => <div key={donor.donor} className={`oktober-winner place-${i + 1}`}>
+                <div className="oktober-medallion">{i === 0 ? <Crown size={28} /> : <Trophy size={23} />}<span>{i + 1}º</span></div>
+                <p title={donor.donor}>{donor.donor}</p><strong>{formatBRL(donor.total)}</strong><span className="oktober-podium-label">{i === 0 ? 'Grande coração' : 'Solidariedade que inspira'}</span>
+              </div>)}
+            </div>
+            <div className="oktober-list">
+              <AnimatePresence mode="wait"><motion.div key={currentPage} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                {rest.map((donor, i) => <div className="oktober-rank-row" key={donor.donor}><span className="oktober-position">{4 + currentPage * 4 + i}<small>º</small></span><span className="oktober-donor-name" title={donor.donor}>{donor.donor}</span><strong>{formatBRL(donor.total)}</strong></div>)}
+              </motion.div></AnimatePresence>
+            </div>
+            {pages > 1 && <div className="oktober-pagination" aria-label="Páginas do ranking">{Array.from({ length: pages }, (_, i) => <button key={i} onClick={() => setPage(i)} aria-label={`Página ${i + 1} do ranking`} aria-current={currentPage === i ? 'page' : undefined} className={currentPage === i ? 'active' : ''} />)}<span>{currentPage + 1} / {pages}</span></div>}
+          </>}
+          <div className="oktober-ranking-footer"><Heart size={15} /> A todos que doam: o nosso muito obrigado.</div>
+        </article>
       </div>
-    </div>
+      <footer className="oktober-footer"><span>Oktoberfest <b>·</b> Laranjal Paulista</span><p>Celebrar a vida. <strong>Compartilhar o bem.</strong></p><span>Em prol do Lar São Cristóvão <Heart size={14} /></span></footer>
+    </section>
   )
 }

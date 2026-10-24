@@ -24,6 +24,16 @@ export default function PublicHome({ onEnter, onBack }: Props) {
   // uma página longa, com gráficos, e precisa continuar rolando.
   const umaTelaSo = themeId !== 'saojoao'
 
+  if (themeId === 'oktoberfest') return (
+    <div className="relative">
+      <OktoberfestHero />
+      <div className="absolute bottom-1 right-4 flex gap-2 text-[#b8c6d4] opacity-20 hover:opacity-100 focus-within:opacity-100">
+        {onBack && <button onClick={onBack} className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-full border border-white/20 hover:bg-white/10"><ArrowLeft size={14} />Trocar festa</button>}
+        <button onClick={onEnter} aria-label="Acessar o sistema da equipe" className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-full border border-white/20 hover:bg-white/10"><Lock size={14} />Equipe</button>
+      </div>
+    </div>
+  )
+
   return (
     <div
       className={`relative min-h-screen flex flex-col px-3 py-3 telao:px-4 transition-colors duration-300 ${
@@ -64,3 +74,4 @@ export default function PublicHome({ onEnter, onBack }: Props) {
     </div>
   )
 }
+
