@@ -25,7 +25,7 @@ export default function PublicHome({ onEnter, onBack }: Props) {
   const umaTelaSo = themeId !== 'saojoao'
 
   if (themeId === 'oktoberfest') return (
-    <div className="relative">
+    <div className="relative min-h-screen overflow-hidden" style={{ background: '#091b2f' }}>
       <OktoberfestHero />
       <div className="absolute bottom-1 right-4 flex gap-2 text-[#b8c6d4] opacity-20 hover:opacity-100 focus-within:opacity-100">
         {onBack && <button onClick={onBack} className="inline-flex items-center gap-2 px-4 py-2 text-xs rounded-full border border-white/20 hover:bg-white/10"><ArrowLeft size={14} />Trocar festa</button>}

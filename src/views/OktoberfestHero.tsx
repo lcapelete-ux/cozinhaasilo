@@ -11,6 +11,22 @@ export default function OktoberfestHero() {
   const [meta, setMeta] = useState(META_PADRAO)
   const [page, setPage] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
+  // Margem de segurança para painel de LED que corta as bordas (overscan, ou
+  // sinal 16:9 num painel 3:2). Define uma vez por aparelho abrindo a página
+  // com ?margem=8 — o valor fica guardado. ?margem=0 volta ao normal.
+  const [margem] = useState(() => {
+    try {
+      const url = new URLSearchParams(window.location.search).get('margem')
+      if (url !== null) {
+        const n = Math.min(15, Math.max(0, Number(url) || 0))
+        localStorage.setItem('telao-margem', String(n))
+        return n
+      }
+      return Math.min(15, Math.max(0, Number(localStorage.getItem('telao-margem')) || 0))
+    } catch {
+      return 0
+    }
+  })
   useEffect(() => subscribeDonations(setDonations), [])
   useEffect(() => subscribeDonationGoal(setMeta), [])
   useEffect(() => {
@@ -39,7 +55,21 @@ export default function OktoberfestHero() {
   }
 
   return (
-    <section className="oktober-board" aria-label="Doadômetro do Oktoberfest em prol do Lar São Cristóvão">
+    <section
+      className="oktober-board"
+      aria-label="Doadômetro do Oktoberfest em prol do Lar São Cristóvão"
+      style={
+        margem
+          ? {
+              transform: `scale(${1 - margem / 100})`,
+              transformOrigin: 'center center',
+              // Pinta a faixa que sobra ao redor com o fundo do quadro, para a
+              // margem não aparecer clara no painel.
+              boxShadow: '0 0 0 100vmax #091b2f',
+            }
+          : undefined
+      }
+    >
       <header className="oktober-header">
         <div className="oktober-logo" role="img" aria-label="Oktoberfest Laranjal Paulista — logo original">
           <img src={`${import.meta.env.BASE_URL}oktoberfest-original.jpg`} alt="" />
