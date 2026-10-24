@@ -16,7 +16,7 @@ export function formatBRL(v: number): string {
 // quando o nome é digitado de outro jeito, o agrupamento ignora maiúsculas,
 // acentos e espaços repetidos — "Família Schmidt" e "familia  schmidt" contam
 // como a mesma pessoa. Exibe o nome como foi digitado na primeira vez.
-function donorKey(name: string): string {
+export function donorKey(name: string): string {
   return name
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

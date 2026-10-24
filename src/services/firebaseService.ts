@@ -427,6 +427,28 @@ export async function updateDonation(
   await updateDoc(doc(_db, 'donations', id), fields)
 }
 
+// Renomeia e exclui doador: as duas mexem em TODAS as doações daquela pessoa
+// de uma vez, porque no ranking ela aparece como uma linha só.
+export async function renameDonorDonations(ids: string[], donor: string): Promise<void> {
+  if (!_db || ids.length === 0) return
+  const LIMITE = 500
+  for (let i = 0; i < ids.length; i += LIMITE) {
+    const batch = writeBatch(_db)
+    for (const id of ids.slice(i, i + LIMITE)) batch.update(doc(_db, 'donations', id), { donor })
+    await batch.commit()
+  }
+}
+
+export async function deleteDonations(ids: string[]): Promise<void> {
+  if (!_db || ids.length === 0) return
+  const LIMITE = 500
+  for (let i = 0; i < ids.length; i += LIMITE) {
+    const batch = writeBatch(_db)
+    for (const id of ids.slice(i, i + LIMITE)) batch.delete(doc(_db, 'donations', id))
+    await batch.commit()
+  }
+}
+
 export async function deleteDonation(id: string): Promise<void> {
   if (!_db) return
   await deleteDoc(doc(_db, 'donations', id))
