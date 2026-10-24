@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Plus, Trash2, Check, X, Edit2, Trophy } from 'lucide-react'
+import { Heart, Trash2, Check, X, Edit2, Trophy } from 'lucide-react'
 import {
-  subscribeDonations, addDonation, updateDonation, deleteDonation,
+  subscribeDonations, addDonationsBatch, updateDonation, deleteDonation,
 } from '../services/firebaseService'
 import { formatBRL, parseAmount, rankDonors, totalDonated } from '../utils/donations'
+import DonationEntryGrid, { type GridItem } from '../components/DonationEntryGrid'
 import { useApp } from '../App'
 import type { Donation } from '../types'
 
@@ -13,10 +14,6 @@ const MEDALS = ['🥇', '🥈', '🥉']
 export default function Donations() {
   const { addToast } = useApp()
   const [donations, setDonations] = useState<Donation[]>([])
-  const [donor, setDonor] = useState('')
-  const [amount, setAmount] = useState('')
-  const [note, setNote] = useState('')
-  const [saving, setSaving] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ donor: '', amount: '', note: '' })
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -26,26 +23,17 @@ export default function Donations() {
   const ranking = useMemo(() => rankDonors(donations), [donations])
   const total = useMemo(() => totalDonated(donations), [donations])
 
-  const handleAdd = async () => {
-    const nome = donor.trim()
-    const valor = parseAmount(amount)
-    if (!nome) {
-      addToast('Informe o nome do doador')
-      return
-    }
-    if (!Number.isFinite(valor) || valor <= 0) {
-      addToast('Informe um valor válido, como 150 ou 1.250,50')
-      return
-    }
-    setSaving(true)
+  const handleSaveGrid = async (items: GridItem[]) => {
     try {
-      await addDonation(nome, valor, note.trim())
-      setDonor(''); setAmount(''); setNote('')
-      addToast(`Doação de ${formatBRL(valor)} registrada!`, 'success')
+      await addDonationsBatch(items)
+      const soma = items.reduce((s, i) => s + i.amount, 0)
+      addToast(
+        `${items.length} doaç${items.length === 1 ? 'ão' : 'ões'} · ${formatBRL(soma)} registrad${items.length === 1 ? 'a' : 'as'}!`,
+        'success'
+      )
     } catch {
-      addToast('Erro ao registrar a doação')
-    } finally {
-      setSaving(false)
+      addToast('Erro ao registrar as doações')
+      throw new Error('falha ao salvar')
     }
   }
 
@@ -106,46 +94,8 @@ export default function Donations() {
       </div>
 
       {/* Nova doação */}
-      <div className="bg-white rounded-3xl p-5 shadow-sm mb-6">
-        <h2 className="font-bold text-gray-800 mb-1">Registrar doação</h2>
-        <p className="text-xs text-gray-400 mb-4">
-          Doações repetidas do mesmo nome somam automaticamente no ranking.
-        </p>
-        <div className="grid md:grid-cols-[1fr_160px] gap-3">
-          <input
-            type="text"
-            placeholder="Nome do doador"
-            value={donor}
-            onChange={(e) => setDonor(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
-            className="px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
-          />
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="Valor (R$)"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
-            className="px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-bold"
-          />
-        </div>
-        <input
-          type="text"
-          placeholder="Observação (opcional)"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
-          className="w-full mt-3 px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-accent text-sm"
-        />
-        <button
-          onClick={handleAdd}
-          disabled={saving}
-          className="mt-3 flex items-center gap-2 bg-accent hover:bg-accent-dark disabled:opacity-50 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
-        >
-          <Plus size={16} />
-          Adicionar
-        </button>
+      <div className="mb-6">
+        <DonationEntryGrid onSave={handleSaveGrid} />
       </div>
 
       {/* Ranking atual */}

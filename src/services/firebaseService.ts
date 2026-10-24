@@ -402,6 +402,23 @@ export async function addDonation(donor: string, amount: number, note: string): 
   })
 }
 
+// Grava várias doações de uma vez (digitação em grade / colagem de planilha).
+// O Firestore aceita no máximo 500 operações por lote, então uma colagem
+// grande é dividida em partes.
+export async function addDonationsBatch(
+  items: { donor: string; amount: number; note: string }[]
+): Promise<void> {
+  if (!_db || items.length === 0) return
+  const LIMITE = 500
+  for (let i = 0; i < items.length; i += LIMITE) {
+    const batch = writeBatch(_db)
+    for (const item of items.slice(i, i + LIMITE)) {
+      batch.set(doc(collection(_db, 'donations')), { ...item, created_at: serverTimestamp() })
+    }
+    await batch.commit()
+  }
+}
+
 export async function updateDonation(
   id: string,
   fields: { donor: string; amount: number; note: string }
