@@ -4,8 +4,9 @@ import { Heart, Trash2, Check, X, Edit2, Trophy, Target } from 'lucide-react'
 import {
   subscribeDonations, addDonationsBatch, updateDonation, deleteDonation,
   subscribeDonationGoal, setDonationGoal, META_PADRAO,
+  renameDonorDonations, deleteDonations,
 } from '../services/firebaseService'
-import { formatBRL, parseAmount, rankDonors, totalDonated } from '../utils/donations'
+import { formatBRL, parseAmount, rankDonors, totalDonated, donorKey } from '../utils/donations'
 import DonationEntryGrid, { type GridItem } from '../components/DonationEntryGrid'
 import { useApp } from '../App'
 import type { Donation } from '../types'
@@ -21,6 +22,9 @@ export default function Donations() {
   const [meta, setMeta] = useState(META_PADRAO)
   const [metaInput, setMetaInput] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
+  const [editDonor, setEditDonor] = useState<string | null>(null)
+  const [donorName, setDonorName] = useState('')
+  const [confirmDonor, setConfirmDonor] = useState<string | null>(null)
 
   useEffect(() => subscribeDonations(setDonations), [])
   useEffect(
@@ -37,6 +41,32 @@ export default function Donations() {
   const ranking = useMemo(() => rankDonors(donations), [donations])
   const total = useMemo(() => totalDonated(donations), [donations])
   const pctMeta = meta > 0 ? (total / meta) * 100 : 0
+
+  const handleRenameDonor = async (ids: string[]) => {
+    const nome = donorName.trim()
+    if (!nome) {
+      addToast('O nome do doador não pode ficar vazio')
+      return
+    }
+    try {
+      await renameDonorDonations(ids, nome)
+      setEditDonor(null)
+      addToast(`Doador renomeado para ${nome}`, 'success')
+    } catch {
+      addToast('Erro ao renomear o doador')
+    }
+  }
+
+  const handleDeleteDonor = async (ids: string[], nome: string) => {
+    try {
+      await deleteDonations(ids)
+      addToast(`${nome} removido do ranking`, 'success')
+    } catch {
+      addToast('Erro ao excluir o doador')
+    } finally {
+      setConfirmDonor(null)
+    }
+  }
 
   const handleSaveMeta = async () => {
     const valor = parseAmount(metaInput)
@@ -177,23 +207,108 @@ export default function Donations() {
       {/* Ranking atual */}
       {ranking.length > 0 && (
         <div className="bg-white rounded-3xl p-5 shadow-sm mb-6">
-          <h2 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+          <h2 className="font-bold text-gray-800 mb-1 flex items-center gap-2">
             <Trophy size={16} className="text-accent" />
             Ranking que está no ar
           </h2>
+          <p className="text-xs text-gray-400 mb-3">
+            Editar ou excluir aqui vale para todas as doações daquele doador.
+          </p>
           <div className="space-y-1.5">
-            {ranking.map((r, i) => (
-              <div key={r.donor} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50">
-                <span className="w-7 text-center font-black text-gray-400 text-sm">
-                  {MEDALS[i] ?? `${i + 1}º`}
-                </span>
-                <span className="flex-1 text-sm font-semibold text-gray-700 truncate">{r.donor}</span>
-                {r.count > 1 && (
-                  <span className="text-[11px] text-gray-400 shrink-0">{r.count} doações</span>
-                )}
-                <span className="text-sm font-black text-accent-dark shrink-0">{formatBRL(r.total)}</span>
-              </div>
-            ))}
+            {ranking.map((r, i) => {
+              const chave = donorKey(r.donor)
+              const idsDoDoador = donations.filter((d) => donorKey(d.donor) === chave).map((d) => d.id)
+              const editando = editDonor === chave
+              const confirmando = confirmDonor === chave
+              return (
+                <div key={chave} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50">
+                  <span className="w-7 text-center font-black text-gray-400 text-sm shrink-0">
+                    {MEDALS[i] ?? `${i + 1}º`}
+                  </span>
+
+                  {editando ? (
+                    <>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={donorName}
+                        onChange={(e) => setDonorName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRenameDonor(idsDoDoador)
+                          if (e.key === 'Escape') setEditDonor(null)
+                        }}
+                        className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:border-accent text-sm"
+                      />
+                      <button
+                        onClick={() => handleRenameDonor(idsDoDoador)}
+                        title="Salvar nome"
+                        className="w-8 h-8 shrink-0 rounded-lg bg-accent text-white flex items-center justify-center"
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button
+                        onClick={() => setEditDonor(null)}
+                        title="Cancelar"
+                        className="w-8 h-8 shrink-0 rounded-lg bg-gray-200 text-gray-500 flex items-center justify-center"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm font-semibold text-gray-700 truncate">{r.donor}</span>
+                      {r.count > 1 && (
+                        <span className="text-[11px] text-gray-400 shrink-0">{r.count} doações</span>
+                      )}
+                      <span className="text-sm font-black text-accent-dark shrink-0">{formatBRL(r.total)}</span>
+
+                      {confirmando ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] font-semibold text-red-500 mr-1">
+                            Excluir {r.count} doaç{r.count === 1 ? 'ão' : 'ões'}?
+                          </span>
+                          <button
+                            onClick={() => handleDeleteDonor(idsDoDoador, r.donor)}
+                            title="Confirmar exclusão do doador"
+                            className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDonor(null)}
+                            title="Cancelar"
+                            className="w-8 h-8 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-500 flex items-center justify-center"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => {
+                              setConfirmDonor(null)
+                              setEditDonor(chave)
+                              setDonorName(r.donor)
+                            }}
+                            title="Renomear doador"
+                            className="w-8 h-8 rounded-lg bg-white hover:bg-gray-200 text-gray-500 flex items-center justify-center"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onClick={() => { setEditDonor(null); setConfirmDonor(chave) }}
+                            title="Excluir doador e todas as suas doações"
+                            className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 flex items-center justify-center"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Beer, Heart, Trophy } from 'lucide-react'
+import { Heart, Trophy } from 'lucide-react'
 import { subscribeDonations, subscribeDonationGoal, META_PADRAO } from '../services/firebaseService'
 import { formatBRL, rankDonors, totalDonated } from '../utils/donations'
 import type { Donation } from '../types'
@@ -8,9 +8,12 @@ import type { Donation } from '../types'
 // Doadômetro do Oktoberfest, na página pública. Mostra ao vivo quanto já foi
 // doado, o quanto falta para a meta e o ranking dos doadores.
 //
-// A mesma tela vai para o telão e para o celular, então os tamanhos usam
-// clamp() com vw: o mínimo serve o celular e o máximo aproveita a TV sem que
-// seja preciso uma versão separada.
+// A mesma tela serve o celular e o telão da festa (768x512). A partir de 700px
+// ela vira duas colunas e ocupa exatamente uma tela, sem rolagem. Os tamanhos
+// têm dois conjuntos de clamp(): o primeiro atende a tela empilhada do celular,
+// e o prefixo telao: redimensiona para a COLUNA, que é metade da largura — com
+// um único conjunto baseado na tela inteira, os valores do pódio invadiam o
+// card vizinho e o total era cortado ao meio.
 
 // Padrão losango azul/branco da bandeira da Baviera
 const bavarianPattern: React.CSSProperties = {
@@ -24,6 +27,7 @@ const bavarianPattern: React.CSSProperties = {
 
 const AZUL = '#1565C0'
 const AZUL_ESCURO = '#0D47A1'
+const VERDE = '#2E9E5B'
 
 const PODIUM = [
   { medal: '🥇', ring: '#D4AF37', bg: '#FFFBEA', order: 'order-2' },
@@ -31,19 +35,17 @@ const PODIUM = [
   { medal: '🥉', ring: '#C08457', bg: '#FDF4EE', order: 'order-3' },
 ]
 
-// Tamanhos: mínimo (celular) → preferido (proporcional à largura) → máximo (telão)
-const T = {
-  caneca: 'clamp(2.5rem, 5vw, 3.5rem)',
-  tarja: 'clamp(0.65rem, 1.05vw, 1.15rem)',
-  emProl: 'clamp(0.9rem, 1.5vw, 1.6rem)',
-  casa: 'clamp(1.5rem, 3.2vw, 2.75rem)',
-  total: 'clamp(2rem, 9vw, 5rem)',
-  meta: 'clamp(0.85rem, 1.6vw, 1.9rem)',
-  medalha: 'clamp(1.5rem, 2.4vw, 3rem)',
-  nome: 'clamp(0.75rem, 1.15vw, 1.4rem)',
-  valor: 'clamp(0.9rem, 1.5vw, 1.9rem)',
-  pos: 'clamp(0.8rem, 1.6vw, 1.9rem)',
-  linha: 'clamp(0.8rem, 1.6vw, 1.9rem)',
+const S = {
+  caneca: 'text-[clamp(1.75rem,6vw,2.5rem)] telao:text-[clamp(1.4rem,2.5vw,3rem)]',
+  tarja: 'text-[clamp(0.6rem,2.5vw,0.8rem)] telao:text-[clamp(0.58rem,1vw,1.05rem)]',
+  emProl: 'text-[clamp(0.8rem,3.2vw,1.1rem)] telao:text-[clamp(0.72rem,1.25vw,1.5rem)]',
+  casa: 'text-[clamp(1.25rem,5.5vw,2rem)] telao:text-[clamp(1.05rem,2.3vw,2.75rem)]',
+  total: 'text-[clamp(2rem,10vw,3.5rem)] telao:text-[clamp(1.6rem,4.6vw,5rem)]',
+  meta: 'text-[clamp(0.72rem,3vw,1rem)] telao:text-[clamp(0.68rem,1.25vw,1.6rem)]',
+  medalha: 'text-[clamp(1.25rem,5vw,2rem)] telao:text-[clamp(1rem,1.9vw,2.5rem)]',
+  nome: 'text-[clamp(0.68rem,2.5vw,0.95rem)] telao:text-[clamp(0.62rem,1vw,1.3rem)]',
+  valor: 'text-[clamp(0.8rem,3.2vw,1.15rem)] telao:text-[clamp(0.72rem,1.3vw,1.8rem)]',
+  linha: 'text-[clamp(0.75rem,2.9vw,1rem)] telao:text-[clamp(0.7rem,1.25vw,1.7rem)]',
 }
 
 export default function OktoberfestHero() {
@@ -64,32 +66,29 @@ export default function OktoberfestHero() {
   const bateuMeta = pctMeta >= 100
 
   return (
-    <div className="w-full max-w-[min(1600px,95vw)] mx-auto px-4 pb-10 lg:pb-0 lg:h-full lg:grid lg:grid-cols-2 lg:gap-6 lg:items-stretch">
-      {/* Doadômetro */}
-      <div className="rounded-3xl overflow-hidden shadow-sm mb-4 lg:mb-0 lg:self-center">
-        <div className="h-3" style={bavarianPattern} />
-        <div className="bg-white px-5 py-[clamp(1.5rem,2.6vw,2.5rem)] text-center">
+    <div className="w-full max-w-[min(1600px,94vw)] mx-auto pb-8 telao:pb-0 telao:h-full telao:grid telao:grid-cols-2 telao:gap-3 telao:items-stretch">
+      {/* Medidor */}
+      <div className="rounded-2xl overflow-hidden shadow-sm mb-3 telao:mb-0 telao:self-center">
+        <div className="h-2" style={bavarianPattern} />
+        <div className="bg-white px-4 py-[clamp(1rem,2.4vw,2rem)] text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            className="mb-2 leading-none"
-            style={{ fontSize: T.caneca }}
+            className={`mb-1 leading-none ${S.caneca}`}
           >
             🍺
           </motion.div>
 
           <div
-            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-3 sm:px-4 py-1.5 font-bold uppercase tracking-wide sm:tracking-widest mb-3"
-            style={{ backgroundColor: '#E8F0FB', color: AZUL_ESCURO, fontSize: T.tarja }}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-bold uppercase tracking-wide mb-2 ${S.tarja}`}
+            style={{ backgroundColor: '#E8F0FB', color: AZUL_ESCURO }}
           >
-            <Heart size={13} className="shrink-0" /> Doadômetro · Oktoberfest 2026
+            <Heart size={12} className="shrink-0" /> Doadômetro · Oktoberfest 2026
           </div>
 
-          <h2 className="font-serif font-bold mb-4 px-2" style={{ color: AZUL_ESCURO, fontSize: T.casa }}>
-            <span className="block font-normal text-gray-500 mb-0.5" style={{ fontSize: T.emProl }}>
-              Em prol do
-            </span>
+          <h2 className={`font-serif font-bold mb-2 px-1 leading-tight ${S.casa}`} style={{ color: AZUL_ESCURO }}>
+            <span className={`block font-normal text-gray-500 ${S.emProl}`}>Em prol do</span>
             Lar São Cristóvão
           </h2>
 
@@ -98,29 +97,29 @@ export default function OktoberfestHero() {
             initial={{ scale: 0.96, opacity: 0.6 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className="font-black leading-none tabular-nums break-words"
-            style={{ color: AZUL, fontSize: T.total }}
+            className={`font-black leading-none tabular-nums break-words ${S.total}`}
+            style={{ color: AZUL }}
           >
             {formatBRL(total)}
           </motion.p>
 
           {/* Barra da meta */}
-          <div className="mx-auto mt-[clamp(1rem,2vw,2rem)] max-w-[min(1100px,92%)]">
+          <div className="mx-auto mt-[clamp(0.6rem,1.5vw,1.5rem)] max-w-[94%]">
             <div
-              className="w-full rounded-full overflow-hidden"
-              style={{ backgroundColor: '#E8F0FB', height: 'clamp(0.85rem, 1.9vw, 2.25rem)' }}
+              className="w-full rounded-full overflow-hidden h-[clamp(0.55rem,2.2vw,0.85rem)] telao:h-[clamp(0.55rem,1.3vw,1.6rem)]"
+              style={{ backgroundColor: '#E8F0FB' }}
             >
               <motion.div
                 className="h-full rounded-full"
-                style={{ backgroundColor: bateuMeta ? '#2E9E5B' : AZUL }}
+                style={{ backgroundColor: bateuMeta ? VERDE : AZUL }}
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(100, pctMeta)}%` }}
                 transition={{ type: 'spring', stiffness: 60, damping: 18 }}
               />
             </div>
             <p
-              className="mt-2 font-semibold tabular-nums"
-              style={{ color: bateuMeta ? '#2E9E5B' : '#6B7280', fontSize: T.meta }}
+              className={`mt-1.5 font-semibold tabular-nums leading-tight ${S.meta}`}
+              style={{ color: bateuMeta ? VERDE : '#6B7280' }}
             >
               {bateuMeta ? (
                 <>🎉 Meta de {formatBRL(meta)} atingida — {pctMeta.toFixed(0)}%!</>
@@ -134,110 +133,96 @@ export default function OktoberfestHero() {
             </p>
           </div>
 
-          <p className="text-gray-500 mt-3" style={{ fontSize: T.meta }}>
+          <p className={`text-gray-500 mt-1.5 ${S.meta}`}>
             {ranking.length === 0
               ? 'Seja o primeiro a doar!'
               : `${ranking.length} doador${ranking.length !== 1 ? 'es' : ''}`}
           </p>
         </div>
-        <div className="h-3" style={bavarianPattern} />
+        <div className="h-2" style={bavarianPattern} />
       </div>
 
-      <div className="lg:flex lg:flex-col lg:min-h-0">
-      {ranking.length === 0 ? (
-        <div className="bg-white rounded-3xl shadow-sm p-12 text-center">
-          <Trophy size={44} className="mx-auto mb-3 text-gray-200" />
-          <p className="text-gray-400" style={{ fontSize: T.meta }}>
-            O ranking de doadores aparece aqui
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Pódio */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 items-end shrink-0">
-            {podium.map((r, i) => {
-              const style = PODIUM[i]
-              const alturas = ['pt-5 pb-6', 'pt-4 pb-5', 'pt-3 pb-4']
-              return (
-                <motion.div
-                  key={r.donor}
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.08 }}
-                  className={`${style.order} rounded-3xl shadow-sm px-2 sm:px-4 ${alturas[i]} text-center border-2`}
-                  style={{ borderColor: style.ring, backgroundColor: style.bg }}
-                >
-                  <div className="mb-1 leading-none" style={{ fontSize: T.medalha }}>
-                    {style.medal}
-                  </div>
-                  <p
-                    className="font-bold text-gray-800 leading-tight break-words"
-                    style={{ fontSize: T.nome }}
-                    title={r.donor}
-                  >
-                    {r.donor}
-                  </p>
-                  <p
-                    className="font-black mt-1 tabular-nums leading-tight break-words"
-                    style={{ color: AZUL_ESCURO, fontSize: T.valor }}
-                  >
-                    {formatBRL(r.total)}
-                  </p>
-                </motion.div>
-              )
-            })}
+      {/* Pódio + ranking */}
+      <div className="telao:flex telao:flex-col telao:min-h-0">
+        {ranking.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-sm p-10 text-center telao:flex-1 telao:flex telao:flex-col telao:items-center telao:justify-center">
+            <Trophy size={40} className="mx-auto mb-2 text-gray-200" />
+            <p className={`text-gray-400 ${S.meta}`}>O ranking de doadores aparece aqui</p>
           </div>
-
-          {/* Demais colocações — a lista rola quando passa da altura da tela */}
-          {resto.length > 0 && (
-            <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-5 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
-              <div className="space-y-1.5 max-h-[45vh] lg:max-h-none lg:flex-1 lg:min-h-0 overflow-y-auto">
-                {resto.map((r, i) => {
-                  const pos = i + 4
-                  const pct = maior > 0 ? Math.max(6, (r.total / maior) * 100) : 0
-                  return (
-                    <motion.div
-                      key={r.donor}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: Math.min(i * 0.04, 0.4) }}
-                      className="relative flex items-center gap-3 px-3 py-[clamp(0.5rem,0.9vw,1rem)] rounded-xl overflow-hidden bg-white border border-gray-100"
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2 mb-2 items-end shrink-0">
+              {podium.map((r, i) => {
+                const style = PODIUM[i]
+                const alturas = ['pt-3 pb-4', 'pt-2.5 pb-3', 'pt-2 pb-2.5']
+                return (
+                  <motion.div
+                    key={r.donor}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}
+                    className={`${style.order} rounded-2xl shadow-sm px-1.5 ${alturas[i]} text-center border-2 overflow-hidden`}
+                    style={{ borderColor: style.ring, backgroundColor: style.bg }}
+                  >
+                    <div className={`mb-0.5 leading-none ${S.medalha}`}>{style.medal}</div>
+                    <p
+                      className={`font-bold text-gray-800 leading-tight break-words ${S.nome}`}
+                      title={r.donor}
                     >
-                      {/* Barra proporcional ao primeiro colocado */}
-                      <div
-                        className="absolute inset-y-0 left-0"
-                        style={{ width: `${pct}%`, backgroundColor: '#CEE2F8' }}
-                      />
-                      <span
-                        className="relative text-center font-black shrink-0"
-                        style={{ color: AZUL, fontSize: T.pos, width: 'clamp(2rem, 3vw, 3.5rem)' }}
-                      >
-                        {pos}º
-                      </span>
-                      <span
-                        className="relative flex-1 font-semibold text-gray-700 truncate"
-                        style={{ fontSize: T.linha }}
-                      >
-                        {r.donor}
-                      </span>
-                      <span
-                        className="relative font-black tabular-nums shrink-0"
-                        style={{ color: AZUL_ESCURO, fontSize: T.linha }}
-                      >
-                        {formatBRL(r.total)}
-                      </span>
-                    </motion.div>
-                  )
-                })}
-              </div>
+                      {r.donor}
+                    </p>
+                    <p
+                      className={`font-black mt-0.5 tabular-nums leading-tight break-words ${S.valor}`}
+                      style={{ color: AZUL_ESCURO }}
+                    >
+                      {formatBRL(r.total)}
+                    </p>
+                  </motion.div>
+                )
+              })}
             </div>
-          )}
-        </>
-      )}
 
-      <p className="text-center text-gray-400 mt-3 shrink-0 flex items-center justify-center gap-1.5" style={{ fontSize: T.tarja }}>
-        <Beer size={13} /> Obrigado por ajudar o Lar São Cristóvão — Prost! 🎉
-      </p>
+            {resto.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm p-2.5 telao:flex-1 telao:min-h-0 telao:flex telao:flex-col">
+                <div className="space-y-1 max-h-[45vh] telao:max-h-none telao:flex-1 telao:min-h-0 overflow-y-auto">
+                  {resto.map((r, i) => {
+                    const pos = i + 4
+                    const pct = maior > 0 ? Math.max(6, (r.total / maior) * 100) : 0
+                    return (
+                      <motion.div
+                        key={r.donor}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: Math.min(i * 0.04, 0.4) }}
+                        className="relative flex items-center gap-2 px-2 py-[clamp(0.3rem,0.7vw,0.75rem)] rounded-lg overflow-hidden bg-white border border-gray-100"
+                      >
+                        <div
+                          className="absolute inset-y-0 left-0"
+                          style={{ width: `${pct}%`, backgroundColor: '#CEE2F8' }}
+                        />
+                        <span
+                          className={`relative text-center font-black shrink-0 w-[clamp(1.5rem,2.4vw,3rem)] ${S.linha}`}
+                          style={{ color: AZUL }}
+                        >
+                          {pos}º
+                        </span>
+                        <span className={`relative flex-1 font-semibold text-gray-700 truncate ${S.linha}`}>
+                          {r.donor}
+                        </span>
+                        <span
+                          className={`relative font-black tabular-nums shrink-0 ${S.linha}`}
+                          style={{ color: AZUL_ESCURO }}
+                        >
+                          {formatBRL(r.total)}
+                        </span>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
