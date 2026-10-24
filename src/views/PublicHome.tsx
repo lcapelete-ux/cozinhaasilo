@@ -19,7 +19,7 @@ export default function PublicHome({ onEnter, onBack }: Props) {
 
   return (
     <div
-      className="min-h-screen flex flex-col py-6 px-4 transition-colors duration-300"
+      className="min-h-screen lg:h-screen lg:overflow-hidden flex flex-col py-6 px-4 transition-colors duration-300"
       style={{ backgroundColor: theme.bg }}
     >
       {onBack && (
@@ -38,13 +38,13 @@ export default function PublicHome({ onEnter, onBack }: Props) {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="flex-1 w-full mt-6"
+        className="flex-1 min-h-0 w-full mt-6"
       >
         {themeId === 'saojoao' ? <FestivalStats /> : <OktoberfestHero />}
       </motion.div>
 
       {/* Cadeado — entrada da equipe no sistema */}
-      <div className="flex justify-center pt-6 pb-4">
+      <div className="flex justify-center pt-4 pb-2 shrink-0">
         <button
           onClick={onEnter}
           title="Acessar o sistema"

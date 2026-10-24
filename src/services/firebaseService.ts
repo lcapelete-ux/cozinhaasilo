@@ -432,6 +432,27 @@ export async function deleteDonation(id: string): Promise<void> {
   await deleteDoc(doc(_db, 'donations', id))
 }
 
+// Meta do Doadômetro. Fica no banco (e não no aparelho) porque o telão e o
+// computador onde a meta é digitada são máquinas diferentes.
+export const META_PADRAO = 50000
+
+export function subscribeDonationGoal(callback: (goal: number) => void) {
+  if (!_db) return () => {}
+  return onSnapshot(
+    doc(_db, 'config', 'donations'),
+    (snap) => {
+      const valor = snap.exists() ? Number((snap.data() as { goal?: unknown }).goal) : NaN
+      callback(Number.isFinite(valor) && valor > 0 ? valor : META_PADRAO)
+    },
+    (err) => console.error('subscribeDonationGoal error:', err)
+  )
+}
+
+export async function setDonationGoal(goal: number): Promise<void> {
+  if (!_db) return
+  await setDoc(doc(_db, 'config', 'donations'), { goal }, { merge: true })
+}
+
 // ── Users ───────────────────────────────────────────────────────────────────
 
 

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Trash2, Check, X, Edit2, Trophy } from 'lucide-react'
+import { Heart, Trash2, Check, X, Edit2, Trophy, Target } from 'lucide-react'
 import {
   subscribeDonations, addDonationsBatch, updateDonation, deleteDonation,
+  subscribeDonationGoal, setDonationGoal, META_PADRAO,
 } from '../services/firebaseService'
 import { formatBRL, parseAmount, rankDonors, totalDonated } from '../utils/donations'
 import DonationEntryGrid, { type GridItem } from '../components/DonationEntryGrid'
@@ -17,11 +18,42 @@ export default function Donations() {
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ donor: '', amount: '', note: '' })
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [meta, setMeta] = useState(META_PADRAO)
+  const [metaInput, setMetaInput] = useState('')
+  const [savingMeta, setSavingMeta] = useState(false)
 
   useEffect(() => subscribeDonations(setDonations), [])
+  useEffect(
+    () =>
+      subscribeDonationGoal((g) => {
+        setMeta(g)
+        // Só preenche o campo enquanto ele estiver intocado, para não
+        // sobrescrever o que a pessoa está digitando.
+        setMetaInput((atual) => (atual === '' ? g.toLocaleString('pt-BR') : atual))
+      }),
+    []
+  )
 
   const ranking = useMemo(() => rankDonors(donations), [donations])
   const total = useMemo(() => totalDonated(donations), [donations])
+  const pctMeta = meta > 0 ? (total / meta) * 100 : 0
+
+  const handleSaveMeta = async () => {
+    const valor = parseAmount(metaInput)
+    if (!Number.isFinite(valor) || valor <= 0) {
+      addToast('Informe uma meta válida, como 50.000')
+      return
+    }
+    setSavingMeta(true)
+    try {
+      await setDonationGoal(valor)
+      addToast(`Meta alterada para ${formatBRL(valor)}`, 'success')
+    } catch {
+      addToast('Erro ao salvar a meta')
+    } finally {
+      setSavingMeta(false)
+    }
+  }
 
   const handleSaveGrid = async (items: GridItem[]) => {
     try {
@@ -90,6 +122,50 @@ export default function Donations() {
         <div className="bg-white rounded-3xl p-4 shadow-sm text-center">
           <p className="text-xl md:text-2xl font-black text-accent-dark leading-tight">{donations.length}</p>
           <p className="text-xs text-gray-500">Doações</p>
+        </div>
+      </div>
+
+      {/* Meta do Doadômetro */}
+      <div className="bg-white rounded-3xl p-5 shadow-sm mb-6">
+        <h2 className="font-bold text-gray-800 mb-1 flex items-center gap-2">
+          <Target size={16} className="text-accent" />
+          Meta do Doadômetro
+        </h2>
+        <p className="text-xs text-gray-400 mb-4">
+          É a barra que enche no telão. Vale para todos os aparelhos.
+        </p>
+
+        <div className="w-full h-3 rounded-full bg-gray-100 overflow-hidden mb-3">
+          <div
+            className="h-full rounded-full bg-accent transition-all"
+            style={{ width: `${Math.min(100, pctMeta)}%` }}
+          />
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          {formatBRL(total)} de <strong className="text-accent-dark">{formatBRL(meta)}</strong> ·{' '}
+          {pctMeta >= 100
+            ? '🎉 meta atingida!'
+            : `faltam ${formatBRL(meta - total)} (${pctMeta.toFixed(1).replace('.', ',')}%)`}
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={metaInput}
+            onChange={(e) => setMetaInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveMeta() }}
+            placeholder="50.000"
+            className="w-40 px-4 py-2.5 rounded-2xl border border-gray-200 focus:outline-none focus:border-accent text-sm font-bold"
+          />
+          <button
+            onClick={handleSaveMeta}
+            disabled={savingMeta}
+            className="flex items-center gap-2 bg-accent hover:bg-accent-dark disabled:opacity-50 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
+          >
+            <Check size={16} />
+            Salvar meta
+          </button>
         </div>
       </div>
 
