@@ -434,18 +434,6 @@ export async function deleteDonation(id: string): Promise<void> {
 
 // ── Users ───────────────────────────────────────────────────────────────────
 
-export async function getUserByNamePassword(name: string, password: string): Promise<User | null> {
-  if (!_db) return null
-  const q = query(
-    collection(_db, 'users'),
-    where('name', '==', name),
-    where('password', '==', password)
-  )
-  const snap = await getDocs(q)
-  if (snap.empty) return null
-  const d = snap.docs[0]
-  return { id: d.id, ...(d.data() as Omit<User, 'id'>) }
-}
 
 export function subscribeUsers(callback: (users: User[]) => void) {
   if (!_db) return () => {}

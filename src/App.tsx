@@ -6,7 +6,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
-import Login from './views/Login'
+import PublicHome from './views/PublicHome'
 import Kitchen from './views/Kitchen'
 import KitchenSectors from './views/KitchenSectors'
 import Display, { DISPLAY_ENABLED_KEY, DISPLAY_ENABLED_EVENT } from './views/Display'
@@ -63,6 +63,19 @@ const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
   'admin-dashboard': AdminDashboard,
   'media-slides': MediaSlides,
   admin: Admin,
+}
+
+// Sem tela de login: o cadeado da página pública entra direto, como uma única
+// equipe com acesso a tudo. A ordem importa — a primeira tela da lista é onde
+// se cai ao entrar e ao recarregar a página.
+const ACESSO_DIRETO: AppUser = {
+  id: 'acesso-direto',
+  name: 'Equipe',
+  role: 'equipe',
+  allowed_views: [
+    'internal-panel', 'kitchen', 'kitchen-sectors', 'display', 'dispatch',
+    'history', 'inventory', 'donations', 'admin-dashboard', 'media-slides', 'admin',
+  ],
 }
 
 // A Recepção da equipe é a tela 'internal-panel'; a antiga 'reception' foi
@@ -143,11 +156,10 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const handleLogin = (appUser: AppUser) => {
-    const normalized: AppUser = { ...appUser, allowed_views: normalizeViews(appUser.allowed_views) }
-    localStorage.setItem('arraia_user', JSON.stringify(normalized))
-    setUser(normalized)
-    setCurrentView((normalized.allowed_views[0] as ViewName) ?? 'internal-panel')
+  const handleEnter = () => {
+    localStorage.setItem('arraia_user', JSON.stringify(ACESSO_DIRETO))
+    setUser(ACESSO_DIRETO)
+    setCurrentView('internal-panel')
   }
 
   const handleLogout = () => {
@@ -206,7 +218,7 @@ export default function App() {
     return (
       <AppContext.Provider value={{ addToast }}>
         {themePicked
-          ? <Login onLogin={handleLogin} onBack={() => setThemePicked(false)} />
+          ? <PublicHome onEnter={handleEnter} onBack={() => setThemePicked(false)} />
           : <ThemeChooser onPick={handlePickTheme} />}
         <Toast toasts={toasts} onRemove={removeToast} />
       </AppContext.Provider>
