@@ -64,6 +64,14 @@ export interface StockEntry {
   inserted_at: Date
 }
 
+export interface Donation {
+  id: string
+  donor: string
+  amount: number
+  note: string
+  created_at: Date
+}
+
 export interface AppUser {
   id: string
   name: string
@@ -89,6 +97,7 @@ export type ViewName =
   | 'dispatch'
   | 'history'
   | 'inventory'
+  | 'donations'
   | 'admin-dashboard'
   | 'media-slides'
   | 'admin'

@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, useCallback } from 'rea
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChefHat, LayoutGrid, Tv2, Package, ShoppingBag,
-  Clock, Boxes, BarChart3, Film, Settings, LogOut, Menu, X,
+  Clock, Boxes, BarChart3, Film, Settings, LogOut, Menu, X, Heart,
   type LucideIcon,
 } from 'lucide-react'
 import { initAuth, seedInitialData, isFirebaseConfigured } from './services/firebaseService'
@@ -14,6 +14,7 @@ import InternalPanel from './views/InternalPanel'
 import DispatchStation from './views/DispatchStation'
 import History from './views/History'
 import Inventory from './views/Inventory'
+import Donations from './views/Donations'
 import AdminDashboard from './views/AdminDashboard'
 import MediaSlides from './views/MediaSlides'
 import Admin from './views/Admin'
@@ -44,6 +45,7 @@ const NAV_ITEMS: { view: ViewName; label: string; icon: LucideIcon }[] = [
   { view: 'dispatch', label: 'Entrega', icon: Package },
   { view: 'history', label: 'Histórico', icon: Clock },
   { view: 'inventory', label: 'Estoque', icon: Boxes },
+  { view: 'donations', label: 'Doações', icon: Heart },
   { view: 'admin-dashboard', label: 'Dashboard', icon: BarChart3 },
   { view: 'media-slides', label: 'Mídia', icon: Film },
   { view: 'admin', label: 'Config', icon: Settings },
@@ -57,6 +59,7 @@ const VIEW_COMPONENTS: Record<ViewName, React.ComponentType> = {
   dispatch: DispatchStation,
   history: History,
   inventory: Inventory,
+  donations: Donations,
   'admin-dashboard': AdminDashboard,
   'media-slides': MediaSlides,
   admin: Admin,

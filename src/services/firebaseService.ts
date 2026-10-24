@@ -22,7 +22,7 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
-import type { Order, OrderStatus, MenuItem, InventoryItem, User, StockEntry, MediaSlide } from '../types'
+import type { Order, OrderStatus, MenuItem, InventoryItem, User, StockEntry, MediaSlide, Donation } from '../types'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
@@ -363,6 +363,57 @@ export async function deleteInventoryItem(id: string): Promise<void> {
 
 
 
+
+// ── Doações ─────────────────────────────────────────────────────────────────
+// Lidas também pela página inicial (antes do login), que roda com o login
+// anônimo já estabelecido no início do app.
+
+function mapDonation(id: string, data: Record<string, unknown>): Donation {
+  return {
+    id,
+    donor: (data.donor as string) ?? '',
+    amount: Number(data.amount) || 0,
+    note: (data.note as string) ?? '',
+    created_at: toDate(data.created_at),
+  }
+}
+
+export function subscribeDonations(callback: (donations: Donation[]) => void) {
+  if (!_db) return () => {}
+  return onSnapshot(
+    collection(_db, 'donations'),
+    (snap) => {
+      const list = snap.docs
+        .map((d) => mapDonation(d.id, d.data() as Record<string, unknown>))
+        .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+      callback(list)
+    },
+    (err) => console.error('subscribeDonations error:', err)
+  )
+}
+
+export async function addDonation(donor: string, amount: number, note: string): Promise<void> {
+  if (!_db) return
+  await addDoc(collection(_db, 'donations'), {
+    donor,
+    amount,
+    note,
+    created_at: serverTimestamp(),
+  })
+}
+
+export async function updateDonation(
+  id: string,
+  fields: { donor: string; amount: number; note: string }
+): Promise<void> {
+  if (!_db) return
+  await updateDoc(doc(_db, 'donations', id), fields)
+}
+
+export async function deleteDonation(id: string): Promise<void> {
+  if (!_db) return
+  await deleteDoc(doc(_db, 'donations', id))
+}
 
 // ── Users ───────────────────────────────────────────────────────────────────
 
