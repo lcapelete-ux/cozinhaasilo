@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Trash2, Check, X, Edit2, Trophy, Target } from 'lucide-react'
+import { Heart, Trash2, Check, X, Edit2, Trophy, Target, FileDown } from 'lucide-react'
 import {
   subscribeDonations, addDonationsBatch, updateDonation, deleteDonation,
   subscribeDonationGoal, setDonationGoal, META_PADRAO,
@@ -8,6 +8,7 @@ import {
 } from '../services/firebaseService'
 import { formatBRL, parseAmount, rankDonors, totalDonated, donorKey } from '../utils/donations'
 import DonationEntryGrid, { type GridItem } from '../components/DonationEntryGrid'
+import DonationsPrintReport from '../components/DonationsPrintReport'
 import { useApp } from '../App'
 import type { Donation } from '../types'
 
@@ -129,15 +130,28 @@ export default function Donations() {
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
-          <Heart className="text-accent" size={26} />
-          Doações
-        </h1>
-        <p className="text-gray-400 text-xs mt-0.5">
-          O total e o ranking aparecem na página inicial do Oktoberfest, antes do login.
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif italic text-2xl md:text-3xl text-accent-dark flex items-center gap-2">
+            <Heart className="text-accent" size={26} />
+            Doações
+          </h1>
+          <p className="text-gray-400 text-xs mt-0.5">
+            O total e o ranking aparecem na página inicial do Oktoberfest, antes do login.
+          </p>
+        </div>
+        <button
+          onClick={() => window.print()}
+          disabled={donations.length === 0}
+          title="Abre a impressão do navegador — escolha “Salvar como PDF”"
+          className="flex items-center gap-2 bg-accent hover:bg-accent-dark disabled:opacity-40 text-white px-4 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
+        >
+          <FileDown size={16} />
+          Gerar PDF dos doadores
+        </button>
       </div>
+
+      <DonationsPrintReport ranking={ranking} donations={donations} total={total} meta={meta} />
 
       {/* Resumo */}
       <div className="grid grid-cols-3 gap-3 mb-6">

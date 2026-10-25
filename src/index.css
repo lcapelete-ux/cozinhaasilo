@@ -32,3 +32,64 @@ body {
 .pulse-ring {
   animation: pulse-ring 1.5s ease-out;
 }
+
+/* ── Folha de doadores para impressão / PDF ─────────────────────────────── */
+/* Na tela a folha não existe; ao imprimir, o resto da página é escondido e só
+   ela aparece, ocupando o papel inteiro. */
+#relatorio-doacoes { display: none; }
+
+@media print {
+  @page { margin: 14mm; }
+
+  /* A aplicação sai do papel por completo (display none, não visibility):
+     escondida por visibilidade ela continuaria ocupando altura e o PDF
+     terminaria com páginas em branco. A folha fica fora de #root.
+     A regra só vale onde a folha existe — ou seja, na tela de Doações — para
+     um Ctrl+P em outra tela não imprimir uma página vazia. */
+  body:has(#relatorio-doacoes) #root { display: none !important; }
+
+  #relatorio-doacoes {
+    display: block !important;
+    width: 100%;
+    color: #000;
+    background: #fff;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 10.5pt;
+  }
+
+  #relatorio-doacoes .rel-cabecalho { border-bottom: 2px solid #000; padding-bottom: 7px; margin-bottom: 11px; }
+  #relatorio-doacoes h1 { font-size: 17pt; margin: 0; }
+  #relatorio-doacoes .rel-sub { margin: 3px 0 0; font-size: 11pt; }
+  #relatorio-doacoes .rel-meta { margin: 2px 0 0; font-size: 9pt; color: #555; }
+
+  #relatorio-doacoes .rel-resumo { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 13px; }
+  #relatorio-doacoes .rel-resumo div { display: flex; flex-direction: column; }
+  #relatorio-doacoes .rel-resumo span { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: #555; }
+  #relatorio-doacoes .rel-resumo strong { font-size: 13pt; }
+
+  #relatorio-doacoes h2 { font-size: 12.5pt; margin: 13px 0 5px; border-bottom: 1px solid #999; padding-bottom: 3px; }
+
+  #relatorio-doacoes table { width: 100%; border-collapse: collapse; }
+  #relatorio-doacoes th { text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #000; padding: 4px 6px; }
+  #relatorio-doacoes td { padding: 3.5px 6px; border-bottom: 1px solid #ddd; }
+  #relatorio-doacoes tfoot td { border-top: 1.5px solid #000; border-bottom: none; font-weight: bold; }
+  #relatorio-doacoes .rel-dir { text-align: right; white-space: nowrap; }
+  #relatorio-doacoes .rel-num { text-align: center; white-space: nowrap; }
+  /* Cabeçalho repete a cada página e nenhuma linha é partida ao meio. */
+  #relatorio-doacoes thead { display: table-header-group; }
+  /* Sem isto o navegador repete o rodapé da tabela no fim de cada página, e o
+     "Total" aparecia logo após a primeira linha, como se fosse subtotal. */
+  #relatorio-doacoes tfoot { display: table-row-group; }
+  #relatorio-doacoes tr { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Rodapé fixo: repete no pé de cada página e nunca sobra sozinho numa
+     página nova. O padding embaixo da folha reserva o espaço dele. */
+  #relatorio-doacoes { padding-bottom: 8mm; }
+  #relatorio-doacoes .rel-rodape {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    margin: 0; padding-top: 6px;
+    border-top: 1px solid #999;
+    background: #fff;
+    font-size: 9pt; color: #555; text-align: center;
+  }
+}
